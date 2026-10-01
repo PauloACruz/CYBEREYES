@@ -43,6 +43,12 @@ public sealed class ConsoleHub(TerminalSessions terminals, WinCareDbContext db, 
         ? Groups.AddToGroupAsync(Context.ConnectionId, Tickets.TicketService.ConsoleGroup(ticketId))
         : throw new HubException("Sem permissao para ver chamados");
 
+    public Task JoinWinCareRun(string runId) => Context.User?.HasPermission(Permissions.AgentsView) == true
+        ? Groups.AddToGroupAsync(Context.ConnectionId, Maintenance.WinCareService.ConsoleGroup(runId))
+        : throw new HubException("Sem permissao para ver agentes");
+
+    public Task LeaveWinCareRun(string runId) => Groups.RemoveFromGroupAsync(Context.ConnectionId, Maintenance.WinCareService.ConsoleGroup(runId));
+
     public Task LeaveTicket(int ticketId) => Groups.RemoveFromGroupAsync(Context.ConnectionId, Tickets.TicketService.ConsoleGroup(ticketId));
 
     public override async Task OnDisconnectedAsync(Exception? exception)

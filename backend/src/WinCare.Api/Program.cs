@@ -79,6 +79,9 @@ builder.Services.AddScoped<WinCare.Api.Tickets.IncidentService>();
 builder.Services.Configure<WinCare.Api.Inventory.VaultSettings>(builder.Configuration.GetSection(WinCare.Api.Inventory.VaultSettings.Section));
 builder.Services.AddSingleton<WinCare.Api.Inventory.Vault>();
 builder.Services.AddHostedService<WinCare.Api.Inventory.AssetSyncService>();
+builder.Services.AddScoped<WinCare.Api.Rmm.Maintenance.WinCareService>();
+builder.Services.AddSingleton<WinCare.Api.Rmm.Maintenance.HealthScheduler>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<WinCare.Api.Rmm.Maintenance.HealthScheduler>());
 builder.Services.AddSingleton<WinCare.Api.Rmm.Monitoring.AgentTaskScheduler>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<WinCare.Api.Rmm.Monitoring.AgentTaskScheduler>());
 builder.Services.AddSingleton<WinCare.Api.Rmm.Monitoring.PatchScheduler>();
@@ -105,6 +108,7 @@ if (nats.Enabled)
     builder.Services.AddSingleton<IAgentRpc, AgentRpc>();
     builder.Services.AddSingleton<CheckinConsumer>();
     builder.Services.AddHostedService(sp => sp.GetRequiredService<CheckinConsumer>());
+    builder.Services.AddHostedService<WinCare.Api.Rmm.Maintenance.WinCareEventConsumer>();
 }
 else
 {
@@ -173,6 +177,7 @@ WinCare.Api.Tickets.TicketEndpoints.MapTicketEndpoints(app);
 WinCare.Api.Tickets.Tray.MapTrayEndpoints(app);
 WinCare.Api.Inventory.AssetEndpoints.MapAssetEndpoints(app);
 WinCare.Api.Inventory.DocsEndpoints.MapDocsEndpoints(app);
+WinCare.Api.Rmm.Maintenance.WinCareEndpoints.MapWinCareEndpoints(app);
 
 if (args.Contains("--migrate-only"))
 {

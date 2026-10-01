@@ -272,4 +272,6 @@ public sealed class CoreSettings
     public string IncidentPriority { get; set; } = "high";
     public int? IncidentQueueId { get; set; }
     public bool IncidentResolveWithAlert { get; set; } = true;
+    public bool SelfServiceEnabled { get; set; }
+    public List<string> SelfServiceTasks { get; set; } = [];
 }

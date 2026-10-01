@@ -57,6 +57,9 @@ public sealed class WinCareDbContext(DbContextOptions<WinCareDbContext> options)
     public DbSet<DocPage> DocPages => Set<DocPage>();
     public DbSet<DocAttachment> DocAttachments => Set<DocAttachment>();
     public DbSet<DocAttachmentData> DocAttachmentData => Set<DocAttachmentData>();
+    public DbSet<WinCareRun> WinCareRuns => Set<WinCareRun>();
+    public DbSet<WinCareRunEvent> WinCareRunEvents => Set<WinCareRunEvent>();
+    public DbSet<AgentHealth> AgentHealth => Set<AgentHealth>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -366,10 +369,12 @@ public sealed class WinCareDbContext(DbContextOptions<WinCareDbContext> options)
             e.Property(x => x.TimeZone).HasMaxLength(64);
             e.Property(x => x.IncidentSeverities).HasColumnType("text[]");
             e.Property(x => x.IncidentPriority).HasMaxLength(16);
+            e.Property(x => x.SelfServiceTasks).HasColumnType("text[]");
         });
 
         ConfigureTickets(builder);
         ConfigureInventory(builder);
+        ConfigureWinCare(builder);
 
         builder.Entity<Client>().HasOne<Policy>().WithMany().HasForeignKey(c => c.ServerPolicyId).OnDelete(DeleteBehavior.SetNull);
         builder.Entity<Client>().HasOne<Policy>().WithMany().HasForeignKey(c => c.WorkstationPolicyId).OnDelete(DeleteBehavior.SetNull);
@@ -604,6 +609,45 @@ public sealed class WinCareDbContext(DbContextOptions<WinCareDbContext> options)
             e.ToTable("doc_attachment_data");
             e.HasKey(x => x.AttachmentId);
             e.HasOne<DocAttachment>().WithOne().HasForeignKey<DocAttachmentData>(x => x.AttachmentId).OnDelete(DeleteBehavior.Cascade);
+        });
+    }
+
+    private static void ConfigureWinCare(ModelBuilder builder)
+    {
+        builder.Entity<WinCareRun>(e =>
+        {
+            e.ToTable("wincare_runs");
+            e.Property(x => x.RunId).HasMaxLength(40);
+            e.Property(x => x.Module).HasMaxLength(64);
+            e.Property(x => x.Tasks).HasColumnType("text[]");
+            e.Property(x => x.Params).HasColumnType("jsonb");
+            e.Property(x => x.Status).HasMaxLength(16);
+            e.Property(x => x.RequestedBy).HasMaxLength(256);
+            e.Property(x => x.Source).HasMaxLength(16);
+            e.Property(x => x.Error).HasMaxLength(2000);
+            e.HasIndex(x => x.RunId).IsUnique();
+            e.HasIndex(x => new { x.AgentId, x.StartedAt });
+            e.HasIndex(x => x.Status);
+            e.HasOne<Agent>().WithMany().HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<WinCareRunEvent>(e =>
+        {
+            e.ToTable("wincare_run_events");
+            e.Property(x => x.RunId).HasMaxLength(40);
+            e.Property(x => x.Type).HasMaxLength(16);
+            e.Property(x => x.Data).HasColumnType("jsonb");
+            e.HasIndex(x => new { x.RunId, x.Seq }).IsUnique();
+            e.HasOne<WinCareRun>().WithMany().HasForeignKey(x => x.RunId).HasPrincipalKey(x => x.RunId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<AgentHealth>(e =>
+        {
+            e.ToTable("agent_health");
+            e.HasKey(x => x.AgentId);
+            e.Property(x => x.Grade).HasMaxLength(16);
+            e.Property(x => x.Report).HasColumnType("jsonb");
+            e.HasOne<Agent>().WithOne().HasForeignKey<AgentHealth>(x => x.AgentId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

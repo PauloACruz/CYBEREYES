@@ -34,6 +34,7 @@ public static class Permissions
     public const string DocsManage = "docs.manage";
     public const string CredentialsReveal = "credentials.reveal";
     public const string CredentialsManage = "credentials.manage";
+    public const string WinCareRun = "wincare.run";
 
     public static IReadOnlyList<PermissionInfo> Catalog { get; } =
     [
@@ -67,6 +68,7 @@ public static class Permissions
         new(DocsManage, "Documentacao", "Editar redes, IPs, diagramas, paginas e anexos"),
         new(CredentialsReveal, "Documentacao", "Revelar senhas guardadas no cofre"),
         new(CredentialsManage, "Documentacao", "Cadastrar e alterar credenciais do cofre"),
+        new(WinCareRun, "Agentes", "Executar e cancelar modulos de manutencao WinCare"),
     ];
 
     private static readonly HashSet<string> Known = Catalog.Select(p => p.Key).ToHashSet(StringComparer.Ordinal);

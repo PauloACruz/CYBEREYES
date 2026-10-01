@@ -13,7 +13,7 @@ public sealed record HardwareInfo(
 /// </summary>
 public static class Hardware
 {
-    private static readonly string[] SerialPlaceholders = ["to be filled by o.e.m.", "default string", "system serial number", "0", "none", "n/a"];
+    private static readonly string[] SerialPlaceholders = ["to be filled by o.e.m.", "default string", "system serial number", "0", "none", "n/a", "unknown", "not specified"];
 
     public static HardwareInfo? Parse(string? wmiJson, string plat, int? ramGb, string? os, string? lastUser, double? bootSeconds)
     {
@@ -51,7 +51,7 @@ public static class Hardware
         var makeModel = string.Join(' ', (Str(root, "make_model") ?? string.Empty)
             .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Where(w => !w.Equals("unknown", StringComparison.OrdinalIgnoreCase)));
-        return new HardwareInfo("agent", null, null, makeModel.Length == 0 ? null : makeModel, CleanSerial(Str(root, "serial_number")),
+        return new HardwareInfo("agent", null, null, makeModel.Length == 0 ? null : makeModel, CleanSerial(Str(root, "serialnumber") ?? Str(root, "serial_number")),
             Strings(root, "cpus"), Strings(root, "gpus"), ramGb, Strings(root, "disks"), Strings(root, "local_ips"), os, lastUser, bootTime);
     }
 
