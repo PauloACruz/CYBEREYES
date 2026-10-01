@@ -16,6 +16,7 @@ export const PATHS = {
   alertTemplates: '/alertas/templates',
   policies: '/politicas',
   policyAssignments: '/politicas/atribuicoes',
+  tickets: '/chamados',
 } as const;
 
 export function agentPath(id: number): string {
@@ -24,4 +25,8 @@ export function agentPath(id: number): string {
 
 export function policyPath(id: number): string {
   return `${PATHS.policies}/${id}`;
+}
+
+export function ticketPath(id: number): string {
+  return `${PATHS.tickets}/${id}`;
 }

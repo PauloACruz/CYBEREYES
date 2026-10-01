@@ -3,6 +3,7 @@ import { PageHeader } from '../../components/PageHeader';
 import { KeystoreSection } from './KeystoreSection';
 import { MeshSection } from './MeshSection';
 import { NotificationsSection } from './NotificationsSection';
+import { TicketsSection } from './TicketsSection';
 import { UrlActionsSection } from './UrlActionsSection';
 
 export function SettingsPage() {
@@ -14,6 +15,7 @@ export function SettingsPage() {
         <KeystoreSection />
         <UrlActionsSection />
         <MeshSection />
+        <TicketsSection />
       </Stack>
     </>
   );

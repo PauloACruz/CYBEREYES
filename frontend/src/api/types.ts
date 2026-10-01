@@ -538,6 +538,8 @@ export const PERMISSIONS = {
   alertsManage: 'alerts.manage',
   patchesManage: 'patches.manage',
   softwareManage: 'software.manage',
+  ticketsView: 'tickets.view',
+  ticketsManage: 'tickets.manage',
 } as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -906,4 +908,185 @@ export interface MeshStatusDto extends MeshSyncResult {
   url: string | null;
   deviceGroup: string | null;
   groupId: string | null;
+}
+
+// Chamados e incidentes (docs/api/fase5-chamados.md)
+
+export type TicketType = 'request' | 'incident';
+export type TicketStatus = 'new' | 'in_progress' | 'waiting_user' | 'resolved' | 'closed';
+export type TicketPriority = 'low' | 'medium' | 'high' | 'critical';
+export type TicketSource = 'console' | 'tray' | 'alert';
+export type TicketAuthorType = 'technician' | 'requester' | 'system';
+
+export interface TicketListItem {
+  id: number;
+  type: TicketType;
+  title: string;
+  status: TicketStatus;
+  priority: TicketPriority;
+  queueId: number;
+  queueName: string;
+  agentId: number | null;
+  hostname: string | null;
+  clientName: string | null;
+  siteName: string | null;
+  requesterName: string;
+  /** Guid do usuario do console. */
+  assignedToId: string | null;
+  assignedToName: string | null;
+  source: TicketSource;
+  createdAt: string;
+  updatedAt: string;
+  firstResponseDueAt: string | null;
+  resolutionDueAt: string | null;
+  slaBreached: boolean;
+  unreadForTechnician: boolean;
+}
+
+export interface TicketAgentDto {
+  id: number;
+  hostname: string;
+  status: AgentStatus;
+  plat: string;
+  operatingSystem: string | null;
+  loggedInUsername: string | null;
+  publicIp: string | null;
+  meshNodeId: string | null;
+}
+
+export interface TicketDetail extends TicketListItem {
+  description: string;
+  requesterUsername: string | null;
+  requesterEmail: string | null;
+  alertId: number | null;
+  createdByName: string | null;
+  firstResponseAt: string | null;
+  resolvedAt: string | null;
+  closedAt: string | null;
+  totalMinutes: number;
+  agent: TicketAgentDto | null;
+}
+
+export interface ListTicketsParams {
+  page: number;
+  pageSize: number;
+  status?: TicketStatus;
+  priority?: TicketPriority;
+  type?: TicketType;
+  queueId?: number;
+  /** "me", "unassigned" ou o id de um usuario. */
+  assigned?: string;
+  agentId?: number;
+  search?: string;
+  /** Somente new, in_progress e waiting_user. */
+  open?: boolean;
+}
+
+export interface TicketSummary {
+  open: number;
+  unassigned: number;
+  mine: number;
+  breached: number;
+  byStatus: Record<TicketStatus, number>;
+}
+
+export interface CreateTicketRequest {
+  title: string;
+  description: string;
+  type: TicketType;
+  priority: TicketPriority;
+  queueId?: number;
+  agentId?: number;
+  requesterName?: string;
+  requesterEmail?: string;
+  assignedToId?: string;
+}
+
+export interface UpdateTicketRequest {
+  title?: string;
+  description?: string;
+  type?: TicketType;
+  priority?: TicketPriority;
+  queueId?: number;
+}
+
+export interface ChangeTicketStatusRequest {
+  status: TicketStatus;
+  message?: string;
+}
+
+export interface TicketAssignee {
+  id: string;
+  name: string;
+}
+
+export interface TicketAttachmentDto {
+  id: number;
+  fileName: string;
+  contentType: string;
+  size: number;
+}
+
+export interface TicketMessageDto {
+  id: number;
+  ticketId: number;
+  authorType: TicketAuthorType;
+  authorName: string;
+  body: string;
+  internal: boolean;
+  createdAt: string;
+  attachments: TicketAttachmentDto[];
+}
+
+export interface CreateTicketMessageRequest {
+  body: string;
+  internal: boolean;
+}
+
+export interface TimeEntryDto {
+  id: number;
+  userId: string;
+  userName: string;
+  minutes: number;
+  description: string | null;
+  /** Data (AAAA-MM-DD). */
+  workDate: string;
+  createdAt: string;
+}
+
+export interface CreateTimeEntryRequest {
+  minutes: number;
+  description?: string;
+  workDate?: string;
+}
+
+export interface TicketQueueDto {
+  id: number;
+  name: string;
+  description: string | null;
+  isDefault: boolean;
+  openCount: number;
+}
+
+export interface SaveTicketQueueRequest {
+  name: string;
+  description: string;
+}
+
+export interface SlaRuleDto {
+  priority: TicketPriority;
+  firstResponseMinutes: number;
+  resolutionMinutes: number;
+}
+
+export interface IncidentSettingsDto {
+  enabled: boolean;
+  severities: Severity[];
+  priority: TicketPriority;
+  queueId: number | null;
+  resolveWithAlert: boolean;
+}
+
+export interface TicketsChangedEvent {
+  ticketId: number;
 }

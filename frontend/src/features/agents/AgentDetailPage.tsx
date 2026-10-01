@@ -35,6 +35,7 @@ import {
   IconRefreshAlert,
   IconServer,
   IconTerminal2,
+  IconTicket,
   IconTrash,
   IconWorldDownload,
   type Icon,
@@ -71,6 +72,7 @@ import { EffectivePolicies } from './monitoring/EffectivePolicies';
 import { SoftwareTab } from './monitoring/SoftwareTab';
 import { TasksTab } from './monitoring/TasksTab';
 import { UpdatesTab } from './monitoring/UpdatesTab';
+import { AgentTicketsTab } from '../tickets/AgentTicketsTab';
 
 // Abas pesadas (xterm.js e navegador do registro) carregam sob demanda.
 const TerminalTab = lazy(() => import('./actions/TerminalTab').then((m) => ({ default: m.TerminalTab })));
@@ -119,6 +121,7 @@ function AgentDetailView({ agent }: { agent: AgentDetail }) {
   const canRemote = hasPermission(me, PERMISSIONS.agentsRemote);
   const canViewScripts = hasPermission(me, PERMISSIONS.scriptsView);
   const canViewAlerts = hasPermission(me, PERMISSIONS.alertsView);
+  const canViewTickets = hasPermission(me, PERMISSIONS.ticketsView);
   const windows = isWindows(agent.plat);
   const [deleteOpened, deleteModal] = useDisclosure(false);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -133,6 +136,7 @@ function AgentDetailView({ agent }: { agent: AgentDetail }) {
   if (windows) tabs.push({ value: 'atualizacoes', label: 'Atualizações', icon: IconWorldDownload, render: () => <UpdatesTab agent={agent} /> });
   tabs.push({ value: 'software', label: 'Software', icon: IconPackage, render: () => <SoftwareTab agent={agent} /> });
   if (canViewAlerts) tabs.push({ value: 'alertas', label: 'Alertas', icon: IconAlertTriangle, render: () => <AgentAlertsTab agent={agent} /> });
+  if (canViewTickets) tabs.push({ value: 'chamados', label: 'Chamados', icon: IconTicket, render: () => <AgentTicketsTab agent={agent} /> });
   if (canRun) tabs.push({ value: 'comando', label: 'Comando', icon: IconPrompt, render: () => <CommandTab agent={agent} /> });
   if (canRun && canViewScripts) tabs.push({ value: 'scripts', label: 'Scripts', icon: IconCode, render: () => <ScriptRunTab agent={agent} /> });
   if (canRun) {

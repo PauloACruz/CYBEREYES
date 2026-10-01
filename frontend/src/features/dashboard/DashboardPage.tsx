@@ -1,10 +1,11 @@
 import { Badge, Card, Group, SimpleGrid, Text, ThemeIcon, Title } from '@mantine/core';
-import { IconClipboardList, IconTicket, type Icon } from '@tabler/icons-react';
+import { IconClipboardList, type Icon } from '@tabler/icons-react';
 import { PERMISSIONS } from '../../api/types';
 import { hasPermission } from '../../auth/permissions';
 import { useMe } from '../../auth/useMe';
 import { AgentStats } from './AgentStats';
 import { AlertStats } from './AlertStats';
+import { TicketStats } from './TicketStats';
 
 interface ComingSoonCard {
   title: string;
@@ -13,7 +14,6 @@ interface ComingSoonCard {
 }
 
 const CARDS: readonly ComingSoonCard[] = [
-  { title: 'Chamados', description: 'Abertura, atribuição e acompanhamento de chamados e incidentes.', icon: IconTicket },
   { title: 'Inventário', description: 'Ativos, hardware, software e usuários responsáveis.', icon: IconClipboardList },
 ];
 
@@ -29,6 +29,7 @@ export function DashboardPage() {
       </Text>
       {hasPermission(me, PERMISSIONS.agentsView) && <AgentStats />}
       {hasPermission(me, PERMISSIONS.alertsView) && <AlertStats />}
+      {hasPermission(me, PERMISSIONS.ticketsView) && <TicketStats />}
       <Text fw={600} mb="sm">
         Próximas fases
       </Text>

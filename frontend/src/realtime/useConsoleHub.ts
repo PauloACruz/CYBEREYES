@@ -2,10 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { HttpTransportType, HubConnectionBuilder, LogLevel, type HubConnection } from '@microsoft/signalr';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../api/queryKeys';
-import type { AgentStatusChangedEvent, AlertsChangedEvent } from '../api/types';
+import type { AgentStatusChangedEvent, AlertsChangedEvent, TicketsChangedEvent } from '../api/types';
 import { useMe } from '../auth/useMe';
 import { applyAgentStatusChange, refreshAgentData } from './agentCache';
 import { handleAlertsChanged } from './alertCache';
+import { applyTicketsChanged } from './ticketCache';
 import type { ConsoleHubState } from './consoleHubContext';
 
 const HUB_URL = '/hubs/console';
@@ -39,11 +40,13 @@ export function useConsoleHub(): ConsoleHubState {
     conn.on('agentStatusChanged', (event: AgentStatusChangedEvent) => applyAgentStatusChange(queryClient, event));
     conn.on('agentsChanged', () => void refreshAgentData(queryClient));
     conn.on('alertsChanged', (event: AlertsChangedEvent) => handleAlertsChanged(queryClient, event));
+    conn.on('ticketsChanged', (event: TicketsChangedEvent) => applyTicketsChanged(queryClient, event));
     // Eventos perdidos durante a queda: recarregar o que esta em tela.
     conn.onreconnected(() => {
       setConnectedTo(conn);
       void refreshAgentData(queryClient);
       void queryClient.invalidateQueries({ queryKey: queryKeys.activeAlertCount });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.tickets });
     });
     conn.onreconnecting(() => setConnectedTo(null));
     conn.onclose(() => setConnectedTo(null));

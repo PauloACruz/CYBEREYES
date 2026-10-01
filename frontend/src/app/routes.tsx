@@ -65,6 +65,19 @@ export const routes: RouteObject[] = [
             ],
           },
           {
+            element: <RequirePermission permission={PERMISSIONS.ticketsView} />,
+            children: [
+              {
+                path: PATHS.tickets,
+                lazy: () => import('../features/tickets/TicketsPage').then((m) => ({ Component: m.TicketsPage })),
+              },
+              {
+                path: `${PATHS.tickets}/:id`,
+                lazy: () => import('../features/tickets/TicketDetailPage').then((m) => ({ Component: m.TicketDetailPage })),
+              },
+            ],
+          },
+          {
             element: <RequirePermission permission={PERMISSIONS.scriptsView} />,
             children: [
               {

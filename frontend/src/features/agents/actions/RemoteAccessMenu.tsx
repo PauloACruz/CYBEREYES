@@ -23,7 +23,7 @@ function remoteErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Não foi possível abrir o acesso remoto.';
 }
 
-export function RemoteAccessMenu({ agent }: { agent: AgentDetail }) {
+export function RemoteAccessMenu({ agent }: { agent: Pick<AgentDetail, 'id'> }) {
   const open = useMutation({
     mutationFn: async (view: RemoteView) => {
       // A janela e aberta no clique para nao ser barrada pelo bloqueador de pop-ups.

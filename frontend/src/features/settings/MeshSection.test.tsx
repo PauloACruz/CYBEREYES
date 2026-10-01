@@ -22,6 +22,10 @@ describe('seção de acesso remoto nas configurações', () => {
           users: 3,
         }),
       'POST /api/mesh/sync': sync,
+      'GET /api/ticket-queues': () => json([]),
+      'GET /api/tickets/sla': () => json([]),
+      'GET /api/tickets/incident-settings': () =>
+        json({ enabled: true, severities: ['error'], priority: 'high', queueId: null, resolveWithAlert: true }),
     });
     renderApp('/configuracoes');
 

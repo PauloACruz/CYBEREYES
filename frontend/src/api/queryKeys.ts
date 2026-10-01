@@ -1,4 +1,4 @@
-import type { AgentStatus, ListAgentsParams, ListAlertsParams, Severity } from './types';
+import type { AgentStatus, ListAgentsParams, ListAlertsParams, ListTicketsParams, Severity } from './types';
 
 export const queryKeys = {
   clients: ['clients'] as const,
@@ -43,4 +43,19 @@ export const queryKeys = {
   activeAlertCount: ['alert-active-count'] as const,
   alertTemplates: ['alert-templates'] as const,
   alertTemplateAssignments: ['alert-templates', 'assignments'] as const,
+  tickets: ['tickets'] as const,
+  ticketLists: ['tickets', 'list'] as const,
+  ticketList: (params: ListTicketsParams) => ['tickets', 'list', params] as const,
+  ticketSummary: ['tickets', 'summary'] as const,
+  agentTicketLists: ['tickets', 'agent'] as const,
+  agentTickets: (agentId: number) => ['tickets', 'agent', agentId] as const,
+  /** Prefixo do detalhe: inclui mensagens, anexos e apontamentos do chamado. */
+  ticketDetail: (id: number) => ['tickets', 'detail', id] as const,
+  ticketMessages: (id: number) => ['tickets', 'detail', id, 'messages'] as const,
+  ticketAttachments: (id: number) => ['tickets', 'detail', id, 'attachments'] as const,
+  ticketTime: (id: number) => ['tickets', 'detail', id, 'time'] as const,
+  ticketAssignees: ['ticket-assignees'] as const,
+  ticketQueues: ['ticket-queues'] as const,
+  ticketSla: ['ticket-sla'] as const,
+  ticketIncidentSettings: ['ticket-incident-settings'] as const,
 };

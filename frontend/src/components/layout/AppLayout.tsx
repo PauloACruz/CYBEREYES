@@ -36,6 +36,7 @@ import { ConsoleHubContext } from '../../realtime/consoleHubContext';
 import { useConsoleHub } from '../../realtime/useConsoleHub';
 import { ChangePasswordModal } from './ChangePasswordModal';
 import { NavAlertBadge } from './NavAlertBadge';
+import { NavTicketBadge } from './NavTicketBadge';
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -133,7 +134,7 @@ export function AppLayout() {
               to={item.to}
               label={item.label}
               leftSection={<item.icon size={18} stroke={1.6} />}
-              rightSection={item.alertCounter ? <NavAlertBadge /> : undefined}
+              rightSection={item.alertCounter ? <NavAlertBadge /> : item.ticketCounter ? <NavTicketBadge /> : undefined}
               active={isActive(pathname, item.to)}
               onClick={nav.close}
               style={{ borderRadius: 'var(--mantine-radius-md)' }}

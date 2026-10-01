@@ -61,7 +61,7 @@ export function configureApiClient(next: Partial<ApiClientHandlers>): void {
 export type QueryValue = string | number | boolean | null | undefined;
 
 export interface RequestOptions {
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
   query?: Record<string, QueryValue>;
   signal?: AbortSignal;
@@ -86,7 +86,9 @@ export function buildUrl(path: string, query?: Record<string, QueryValue>): stri
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = 'GET', body, query, signal, silent = false } = options;
   const headers: Record<string, string> = { Accept: 'application/json' };
-  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  // FormData (upload multipart): o navegador define o Content-Type com o boundary.
+  const isForm = body instanceof FormData;
+  if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json';
 
   let response: Response;
   try {
@@ -94,7 +96,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
       method,
       headers,
       credentials: 'same-origin',
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
       signal,
     });
   } catch (cause) {
@@ -173,6 +175,8 @@ export const api = {
     request<T>(path, { ...options, method: 'POST', body }),
   put: <T>(path: string, body: unknown, options?: Omit<RequestOptions, 'method' | 'body'>) =>
     request<T>(path, { ...options, method: 'PUT', body }),
+  patch: <T>(path: string, body: unknown, options?: Omit<RequestOptions, 'method' | 'body'>) =>
+    request<T>(path, { ...options, method: 'PATCH', body }),
   delete: <T = undefined>(path: string, options?: Omit<RequestOptions, 'method'>) =>
     request<T>(path, { ...options, method: 'DELETE' }),
 };

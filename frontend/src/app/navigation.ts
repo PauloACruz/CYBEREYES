@@ -10,6 +10,7 @@ import {
   IconShieldCheckered,
   IconSettings,
   IconShieldLock,
+  IconTicket,
   IconUsers,
   type Icon,
 } from '@tabler/icons-react';
@@ -25,12 +26,15 @@ export interface NavItem {
   permission?: string;
   /** Mostra o contador de alertas ativos ao lado do item. */
   alertCounter?: boolean;
+  /** Mostra o contador de chamados abertos sem técnico. */
+  ticketCounter?: boolean;
 }
 
 export const NAV_ITEMS: readonly NavItem[] = [
   { label: 'Painel', to: PATHS.dashboard, icon: IconHome },
   { label: 'Agentes', to: PATHS.agents, icon: IconDeviceDesktop, permission: PERMISSIONS.agentsView },
   { label: 'Alertas', to: PATHS.alerts, icon: IconAlertTriangle, permission: PERMISSIONS.alertsView, alertCounter: true },
+  { label: 'Chamados', to: PATHS.tickets, icon: IconTicket, permission: PERMISSIONS.ticketsView, ticketCounter: true },
   { label: 'Políticas', to: PATHS.policies, icon: IconShieldCheckered, permission: PERMISSIONS.agentsView },
   { label: 'Clientes', to: PATHS.clients, icon: IconBuilding, permission: PERMISSIONS.clientsView },
   { label: 'Scripts', to: PATHS.scripts, icon: IconCode, permission: PERMISSIONS.scriptsView },
