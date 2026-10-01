@@ -30,7 +30,7 @@ public static partial class DatabaseSeeder
         }
         if (!await roleManager.RoleExistsAsync(TechnicianRole))
         {
-            await roleManager.CreateAsync(new AppRole { Name = TechnicianRole, Permissions = [Permissions.UsersView, Permissions.ClientsView, Permissions.AgentsView, Permissions.AgentsInstall, Permissions.AgentsRun, Permissions.AgentsControl, Permissions.ScriptsView, Permissions.AlertsView, Permissions.AlertsManage, Permissions.AgentsRemote, Permissions.TicketsView, Permissions.TicketsManage, Permissions.InventoryView, Permissions.InventoryManage, Permissions.DocsView, Permissions.DocsManage, Permissions.CredentialsReveal, Permissions.WinCareRun] });
+            await roleManager.CreateAsync(new AppRole { Name = TechnicianRole, Permissions = [Permissions.UsersView, Permissions.ClientsView, Permissions.AgentsView, Permissions.AgentsInstall, Permissions.AgentsRun, Permissions.AgentsControl, Permissions.ScriptsView, Permissions.AlertsView, Permissions.AlertsManage, Permissions.AgentsRemote, Permissions.TicketsView, Permissions.TicketsManage, Permissions.InventoryView, Permissions.InventoryManage, Permissions.DocsView, Permissions.DocsManage, Permissions.CredentialsReveal, Permissions.WinCareRun, Permissions.LogsView, Permissions.SnmpView, Permissions.SnmpManage] });
         }
 
         if (!await db.TicketQueues.AnyAsync(cancellationToken))

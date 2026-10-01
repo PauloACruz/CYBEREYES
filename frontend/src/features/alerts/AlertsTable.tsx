@@ -1,13 +1,12 @@
-import { Anchor, Badge, Checkbox, Group, Table, Text, Tooltip } from '@mantine/core';
+import { Badge, Checkbox, Group, Table, Text, Tooltip } from '@mantine/core';
 import { IconBellOff, IconCircleCheck, IconFlame } from '@tabler/icons-react';
-import { Link } from 'react-router';
 import type { AlertDto } from '../../api/types';
-import { agentPath } from '../../app/paths';
 import { EmptyRow, LoadingRows } from '../../components/TableStates';
 import { formatDateTime } from '../../lib/format';
 import { RelativeTime } from '../agents/agentDisplay';
 import { SeverityBadge } from '../monitoring/MonitoringBadges';
 import { ALERT_TYPE_LABEL, isSnoozed } from './alertFormat';
+import { AlertTarget } from './AlertTarget';
 
 export function AlertStateBadge({ alert }: { alert: AlertDto }) {
   if (alert.resolved) {
@@ -87,7 +86,7 @@ export function AlertsTable({ alerts, loading, showAgent, emptyMessage, selectio
               </Table.Th>
             )}
             <Table.Th w={130}>Severidade</Table.Th>
-            {showAgent && <Table.Th w={220}>Agente</Table.Th>}
+            {showAgent && <Table.Th w={220}>Agente ou dispositivo</Table.Th>}
             <Table.Th>Mensagem</Table.Th>
             <Table.Th w={120}>Tipo</Table.Th>
             <Table.Th w={130}>Situação</Table.Th>
@@ -114,11 +113,9 @@ export function AlertsTable({ alerts, loading, showAgent, emptyMessage, selectio
               </Table.Td>
               {showAgent && (
                 <Table.Td>
-                  <Anchor component={Link} to={`${agentPath(alert.agentId)}?aba=alertas`} size="sm" fw={500}>
-                    {alert.hostname}
-                  </Anchor>
+                  <AlertTarget alert={alert} agentTab="alertas" />
                   <Text size="xs" c="dimmed">
-                    {alert.clientName} / {alert.siteName}
+                    {alert.siteName ? `${alert.clientName} / ${alert.siteName}` : alert.clientName}
                   </Text>
                 </Table.Td>
               )}

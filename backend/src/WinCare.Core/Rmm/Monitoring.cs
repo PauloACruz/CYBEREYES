@@ -169,13 +169,23 @@ public static class AlertTypes
     public const string Availability = "availability";
     public const string Check = "check";
     public const string Task = "task";
+    public const string Log = "log";
+    public const string SnmpDevice = "snmp_device";
+    public const string SnmpInterface = "snmp_interface";
+    public const string SnmpSensor = "snmp_sensor";
+    public const string SnmpTrap = "snmp_trap";
 }
 
 public sealed class Alert
 {
     public long Id { get; set; }
-    public int AgentId { get; set; }
+    public int? AgentId { get; set; }
     public Agent? Agent { get; set; }
+    public int? SnmpDeviceId { get; set; }
+    public SnmpDevice? SnmpDevice { get; set; }
+
+    /// <summary>Distingue alertas do mesmo tipo na mesma origem (regra de log, interface, sensor).</summary>
+    public string? SubjectKey { get; set; }
     public required string AlertType { get; set; }
     public int? CheckId { get; set; }
     public int? TaskId { get; set; }
@@ -274,4 +284,9 @@ public sealed class CoreSettings
     public bool IncidentResolveWithAlert { get; set; } = true;
     public bool SelfServiceEnabled { get; set; }
     public List<string> SelfServiceTasks { get; set; } = [];
+    public bool LogsEnabled { get; set; } = true;
+    public string LogMinLevel { get; set; } = LogLevels.Warning;
+    public List<string> LogWindowsLogs { get; set; } = ["System", "Application"];
+    public int LogMaxPerCycle { get; set; } = 500;
+    public int LogRetentionDays { get; set; } = 30;
 }

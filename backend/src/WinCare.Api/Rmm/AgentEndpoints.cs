@@ -19,7 +19,7 @@ public sealed record AgentDetail(int Id, string AgentId, string Hostname, int Cl
     string MonitoringType, string Plat, string? GoArch, string? OperatingSystem, string Status, DateTimeOffset? LastSeen, string Version,
     string? LoggedInUsername, string? LastLoggedInUser, string? PublicIp, bool NeedsReboot, string? Description, int? TotalRam,
     DateTimeOffset? BootTime, string? MeshNodeId, JsonElement? Disks, JsonElement? Services, JsonElement? Wmi, int CheckInterval,
-    int OfflineTime, int OverdueTime, DateTimeOffset CreatedAt);
+    int OfflineTime, int OverdueTime, DateTimeOffset CreatedAt, bool SnmpCollector);
 
 public static class AgentEndpoints
 {
@@ -79,7 +79,7 @@ public static class AgentEndpoints
             a.MonitoringType, a.Plat, a.GoArch, a.OperatingSystem, a.Status, a.LastSeen, a.Version, a.LoggedInUsername, a.LastLoggedInUser,
             a.PublicIp, a.NeedsReboot, a.Description, a.TotalRam,
             a.BootTime is { } boot ? DateTimeOffset.FromUnixTimeSeconds((long)boot) : null, a.MeshNodeId,
-            Json(a.Disks), Json(a.Services), Json(a.WmiDetail), a.CheckInterval, a.OfflineTime, a.OverdueTime, a.CreatedAt));
+            Json(a.Disks), Json(a.Services), Json(a.WmiDetail), a.CheckInterval, a.OfflineTime, a.OverdueTime, a.CreatedAt, a.SnmpCollector));
     }
 
     private static async Task<IResult> PingAsync(int id, WinCareDbContext db, IAgentRpc rpc, CancellationToken ct)

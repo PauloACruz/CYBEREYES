@@ -60,6 +60,12 @@ public sealed class WinCareDbContext(DbContextOptions<WinCareDbContext> options)
     public DbSet<WinCareRun> WinCareRuns => Set<WinCareRun>();
     public DbSet<WinCareRunEvent> WinCareRunEvents => Set<WinCareRunEvent>();
     public DbSet<AgentHealth> AgentHealth => Set<AgentHealth>();
+    public DbSet<SystemLog> SystemLogs => Set<SystemLog>();
+    public DbSet<LogAlertRule> LogAlertRules => Set<LogAlertRule>();
+    public DbSet<SnmpDevice> SnmpDevices => Set<SnmpDevice>();
+    public DbSet<SnmpInterface> SnmpInterfaces => Set<SnmpInterface>();
+    public DbSet<SnmpSensor> SnmpSensors => Set<SnmpSensor>();
+    public DbSet<SnmpSample> SnmpSamples => Set<SnmpSample>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -317,6 +323,9 @@ public sealed class WinCareDbContext(DbContextOptions<WinCareDbContext> options)
             e.HasIndex(x => new { x.Resolved, x.CreatedAt });
             e.HasIndex(x => new { x.AgentId, x.CheckId, x.TaskId, x.Resolved });
             e.HasOne(x => x.Agent).WithMany().HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(x => x.SubjectKey).HasMaxLength(64);
+            e.HasIndex(x => new { x.SnmpDeviceId, x.Resolved });
+            e.HasOne(x => x.SnmpDevice).WithMany().HasForeignKey(x => x.SnmpDeviceId).OnDelete(DeleteBehavior.Cascade);
         });
 
         builder.Entity<AlertTemplate>(e =>
@@ -375,6 +384,7 @@ public sealed class WinCareDbContext(DbContextOptions<WinCareDbContext> options)
         ConfigureTickets(builder);
         ConfigureInventory(builder);
         ConfigureWinCare(builder);
+        ConfigureLogsSnmp(builder);
 
         builder.Entity<Client>().HasOne<Policy>().WithMany().HasForeignKey(c => c.ServerPolicyId).OnDelete(DeleteBehavior.SetNull);
         builder.Entity<Client>().HasOne<Policy>().WithMany().HasForeignKey(c => c.WorkstationPolicyId).OnDelete(DeleteBehavior.SetNull);
@@ -648,6 +658,107 @@ public sealed class WinCareDbContext(DbContextOptions<WinCareDbContext> options)
             e.Property(x => x.Grade).HasMaxLength(16);
             e.Property(x => x.Report).HasColumnType("jsonb");
             e.HasOne<Agent>().WithOne().HasForeignKey<AgentHealth>(x => x.AgentId).OnDelete(DeleteBehavior.Cascade);
+        });
+    }
+
+    private static void ConfigureLogsSnmp(ModelBuilder builder)
+    {
+        builder.Entity<CoreSettings>(e =>
+        {
+            e.Property(x => x.LogMinLevel).HasMaxLength(16);
+            e.Property(x => x.LogWindowsLogs).HasColumnType("text[]");
+        });
+
+        // Particionada por mes: a migracao cria a tabela com SQL proprio (PARTITION BY RANGE).
+        builder.Entity<SystemLog>(e =>
+        {
+            e.ToTable("system_logs");
+            e.HasKey(x => new { x.Id, x.Time });
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Level).HasMaxLength(16);
+            e.Property(x => x.Source).HasMaxLength(200);
+            e.Property(x => x.Log).HasMaxLength(64);
+            e.Property(x => x.Message).HasMaxLength(8000);
+            e.Property(x => x.Host).HasMaxLength(255);
+            e.HasIndex(x => new { x.AgentId, x.Time });
+            e.HasIndex(x => new { x.SnmpDeviceId, x.Time });
+            e.HasIndex(x => new { x.ClientId, x.Time });
+            e.HasIndex(x => x.Time);
+            e.HasIndex(x => new { x.Level, x.Time });
+        });
+
+        builder.Entity<LogAlertRule>(e =>
+        {
+            e.ToTable("log_alert_rules");
+            e.Property(x => x.Name).HasMaxLength(200);
+            e.Property(x => x.MinLevel).HasMaxLength(16);
+            e.Property(x => x.SourceContains).HasMaxLength(200);
+            e.Property(x => x.MessageContains).HasMaxLength(500);
+            e.Property(x => x.Severity).HasMaxLength(16);
+            e.HasOne<Client>().WithMany().HasForeignKey(x => x.ClientId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<SnmpDevice>(e =>
+        {
+            e.ToTable("snmp_devices");
+            e.Property(x => x.Name).HasMaxLength(200);
+            e.Property(x => x.Host).HasMaxLength(255);
+            e.Property(x => x.Version).HasMaxLength(8);
+            e.Property(x => x.CommunityEncrypted).HasMaxLength(1000);
+            e.Property(x => x.V3Username).HasMaxLength(200);
+            e.Property(x => x.V3SecurityLevel).HasMaxLength(16);
+            e.Property(x => x.V3AuthProtocol).HasMaxLength(16);
+            e.Property(x => x.V3AuthPasswordEncrypted).HasMaxLength(1000);
+            e.Property(x => x.V3PrivProtocol).HasMaxLength(16);
+            e.Property(x => x.V3PrivPasswordEncrypted).HasMaxLength(1000);
+            e.Property(x => x.TrapSeverity).HasMaxLength(16);
+            e.Property(x => x.Status).HasMaxLength(16);
+            e.Property(x => x.LastError).HasMaxLength(1000);
+            e.Property(x => x.SysName).HasMaxLength(255);
+            e.Property(x => x.SysDescr).HasMaxLength(1000);
+            e.Property(x => x.SysObjectId).HasMaxLength(255);
+            e.Property(x => x.SysLocation).HasMaxLength(255);
+            e.Property(x => x.SysContact).HasMaxLength(255);
+            e.HasIndex(x => x.ClientId);
+            e.HasIndex(x => x.CollectorAgentId);
+            e.HasIndex(x => x.Host);
+            e.HasOne<Client>().WithMany().HasForeignKey(x => x.ClientId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<Site>().WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne<Agent>().WithMany().HasForeignKey(x => x.CollectorAgentId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne<Asset>().WithMany().HasForeignKey(x => x.AssetId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<SnmpInterface>(e =>
+        {
+            e.ToTable("snmp_interfaces");
+            e.HasKey(x => new { x.DeviceId, x.Index });
+            e.Property(x => x.Name).HasMaxLength(255);
+            e.Property(x => x.Descr).HasMaxLength(255);
+            e.Property(x => x.Alias).HasMaxLength(255);
+            e.Property(x => x.AdminStatus).HasMaxLength(16);
+            e.Property(x => x.OperStatus).HasMaxLength(16);
+            e.Property(x => x.LastIn).HasPrecision(20, 0);
+            e.Property(x => x.LastOut).HasPrecision(20, 0);
+            e.HasOne<SnmpDevice>().WithMany().HasForeignKey(x => x.DeviceId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<SnmpSensor>(e =>
+        {
+            e.ToTable("snmp_sensors");
+            e.Property(x => x.Name).HasMaxLength(200);
+            e.Property(x => x.Oid).HasMaxLength(255);
+            e.Property(x => x.Unit).HasMaxLength(32);
+            e.Property(x => x.LastText).HasMaxLength(500);
+            e.HasIndex(x => x.DeviceId);
+            e.HasOne<SnmpDevice>().WithMany().HasForeignKey(x => x.DeviceId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<SnmpSample>(e =>
+        {
+            e.ToTable("snmp_samples");
+            e.HasKey(x => new { x.DeviceId, x.Metric, x.Time });
+            e.Property(x => x.Metric).HasMaxLength(64);
+            e.HasIndex(x => x.Time);
         });
     }
 }

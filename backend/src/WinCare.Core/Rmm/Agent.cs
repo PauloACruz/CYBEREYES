@@ -66,6 +66,7 @@ public sealed class Agent
     public int? PolicyId { get; set; }
     public bool BlockPolicyInheritance { get; set; }
     public int? AlertTemplateId { get; set; }
+    public bool SnmpCollector { get; set; }
 }
 
 public sealed class AgentSoftware

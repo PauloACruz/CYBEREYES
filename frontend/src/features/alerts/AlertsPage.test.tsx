@@ -65,13 +65,25 @@ describe('página de Alertas', () => {
   });
 
   it('não mostra a seleção sem a permissão alerts.manage', async () => {
+    const snmpAlert = makeAlert({
+      id: 4,
+      agentId: null,
+      hostname: null,
+      siteName: null,
+      snmpDeviceId: 5,
+      deviceName: 'Switch recepção',
+      alertType: 'snmp_device',
+      message: 'Dispositivo fora do ar',
+    });
     mockFetch({
       'GET /api/auth/me': () => json(makeMe({ permissions: ['alerts.view'] })),
-      'GET /api/alerts': () => json({ items: alerts, total: alerts.length, page: 1, pageSize: 50 }),
+      'GET /api/alerts': () => json({ items: [...alerts, snmpAlert], total: alerts.length + 1, page: 1, pageSize: 50 }),
     });
     renderApp('/alertas');
 
     expect(await screen.findByText('Agente offline')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Switch recepção' })).toHaveAttribute('href', '/snmp/5');
+    expect(screen.getByText('Dispositivo SNMP')).toBeInTheDocument();
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
   });
 });

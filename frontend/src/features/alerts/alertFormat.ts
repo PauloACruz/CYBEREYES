@@ -4,6 +4,11 @@ export const ALERT_TYPE_LABEL: Record<AlertType, string> = {
   availability: 'Disponibilidade',
   check: 'Check',
   task: 'Tarefa',
+  log: 'Log',
+  snmp_device: 'Dispositivo SNMP',
+  snmp_interface: 'Interface SNMP',
+  snmp_sensor: 'Sensor SNMP',
+  snmp_trap: 'Trap SNMP',
 };
 
 export const STATUS_FILTER_OPTIONS: { value: AlertStatusFilter; label: string }[] = [

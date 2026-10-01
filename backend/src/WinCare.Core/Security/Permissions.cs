@@ -35,6 +35,9 @@ public static class Permissions
     public const string CredentialsReveal = "credentials.reveal";
     public const string CredentialsManage = "credentials.manage";
     public const string WinCareRun = "wincare.run";
+    public const string LogsView = "logs.view";
+    public const string SnmpView = "snmp.view";
+    public const string SnmpManage = "snmp.manage";
 
     public static IReadOnlyList<PermissionInfo> Catalog { get; } =
     [
@@ -69,6 +72,9 @@ public static class Permissions
         new(CredentialsReveal, "Documentacao", "Revelar senhas guardadas no cofre"),
         new(CredentialsManage, "Documentacao", "Cadastrar e alterar credenciais do cofre"),
         new(WinCareRun, "Agentes", "Executar e cancelar modulos de manutencao WinCare"),
+        new(LogsView, "Logs", "Ver logs de sistema das maquinas e traps SNMP"),
+        new(SnmpView, "SNMP", "Ver dispositivos SNMP, interfaces, sensores e graficos"),
+        new(SnmpManage, "SNMP", "Cadastrar dispositivos SNMP, sensores e coletores"),
     ];
 
     private static readonly HashSet<string> Known = Catalog.Select(p => p.Key).ToHashSet(StringComparer.Ordinal);

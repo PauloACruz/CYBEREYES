@@ -21,6 +21,8 @@ export const PATHS = {
   people: '/inventario/pessoas',
   docs: '/documentacao',
   newDocPage: '/documentacao/paginas/nova',
+  logs: '/logs',
+  snmp: '/snmp',
 } as const;
 
 export function agentPath(id: number): string {
@@ -58,4 +60,8 @@ export function docPagePath(id: number): string {
 /** Aba da tela de documentacao (?aba=). */
 export function docsTabPath(tab: 'redes' | 'diagramas' | 'credenciais' | 'paginas'): string {
   return tab === 'redes' ? PATHS.docs : `${PATHS.docs}?aba=${tab}`;
+}
+
+export function snmpDevicePath(id: number): string {
+  return `${PATHS.snmp}/${id}`;
 }

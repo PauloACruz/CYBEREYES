@@ -56,6 +56,7 @@ import { AssetStatusBadge, AssetTypeLabel, IpKindBadge } from './AssetBadges';
 import { ASSET_TYPE_INFO, makeModel } from './inventoryFormat';
 import { ResponsibleCard } from './ResponsibleCard';
 import { HealthCard } from '../wincare/HealthCard';
+import { AssetSnmpCard } from '../snmp/AssetSnmpCard';
 import { Field, Missing, SheetCard } from './sheetDisplay';
 import './print.css';
 
@@ -112,6 +113,7 @@ function AssetSheetView({ sheet }: { sheet: AssetSheet }) {
           <Stack>
             <ResponsibleCard sheet={sheet} canManage={canManage} />
             {sheet.agent && hasPermission(me, PERMISSIONS.agentsView) && <HealthCard agentId={sheet.agent.id} />}
+            {hasPermission(me, PERMISSIONS.snmpView) && <AssetSnmpCard assetId={sheet.asset.id} clientId={sheet.asset.clientId} />}
             <TicketsCard sheet={sheet} me={me} />
             <HistoryCard sheet={sheet} />
           </Stack>

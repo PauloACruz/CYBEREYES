@@ -23,7 +23,8 @@ public sealed partial class IncidentService(WinCareDbContext db, TicketService t
                 from t in db.Tickets
                 join a in db.Alerts on t.AlertId equals a.Id
                 where t.AgentId == alert.AgentId && t.Type == TicketType.Incident && TicketStatus.Open.Contains(t.Status) &&
-                      a.AlertType == alert.AlertType && a.CheckId == alert.CheckId && a.TaskId == alert.TaskId
+                      a.AlertType == alert.AlertType && a.CheckId == alert.CheckId && a.TaskId == alert.TaskId &&
+                      a.SnmpDeviceId == alert.SnmpDeviceId && a.SubjectKey == alert.SubjectKey
                 select t).FirstOrDefaultAsync(ct);
             if (reusable is not null)
             {
@@ -32,11 +33,20 @@ public sealed partial class IncidentService(WinCareDbContext db, TicketService t
                 return;
             }
 
-            var hostname = await db.Agents.AsNoTracking().Where(a => a.Id == alert.AgentId).Select(a => a.Hostname).FirstOrDefaultAsync(ct) ?? "?";
+            var device = alert.SnmpDeviceId is { } deviceId
+                ? await db.SnmpDevices.AsNoTracking().Where(d => d.Id == deviceId).Select(d => new { d.Name, d.ClientId, d.SiteId }).FirstOrDefaultAsync(ct)
+                : null;
+            var hostname = device?.Name ?? await db.Agents.AsNoTracking().Where(a => a.Id == alert.AgentId).Select(a => a.Hostname).FirstOrDefaultAsync(ct) ?? "?";
             var title = $"[{hostname}] {alert.Message}";
             var queueId = settings.IncidentQueueId is { } q && await db.TicketQueues.AnyAsync(x => x.Id == q, ct) ? q : (int?)null;
-            await tickets.CreateAsync(new NewTicket(title.Length > 200 ? title[..200] : title, alert.Message, TicketType.Incident,
+            var created = await tickets.CreateAsync(new NewTicket(title.Length > 200 ? title[..200] : title, alert.Message, TicketType.Incident,
                 settings.IncidentPriority, queueId, alert.AgentId, "Monitoramento", null, null, null, alert.Id, TicketSource.Alert, null), ct);
+            if (device is not null && alert.AgentId is null)
+            {
+                created.ClientId = device.ClientId;
+                created.SiteId = device.SiteId;
+                await db.SaveChangesAsync(ct);
+            }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

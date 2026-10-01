@@ -30,6 +30,7 @@ import {
   IconHistory,
   IconInfoCircle,
   IconListDetails,
+  IconLogs,
   IconPackage,
   IconPrompt,
   IconRefreshAlert,
@@ -76,6 +77,8 @@ import { UpdatesTab } from './monitoring/UpdatesTab';
 import { AgentTicketsTab } from '../tickets/AgentTicketsTab';
 import { AgentAssetButton } from '../inventory/AgentAssetButton';
 import { WinCareTab } from '../wincare/WinCareTab';
+import { LogsView } from '../logs/LogsView';
+import { SnmpCollectorCard } from '../snmp/SnmpCollectorCard';
 
 // Abas pesadas (xterm.js e navegador do registro) carregam sob demanda.
 const TerminalTab = lazy(() => import('./actions/TerminalTab').then((m) => ({ default: m.TerminalTab })));
@@ -140,6 +143,7 @@ function AgentDetailView({ agent }: { agent: AgentDetail }) {
   if (windows) tabs.push({ value: 'atualizacoes', label: 'Atualizações', icon: IconWorldDownload, render: () => <UpdatesTab agent={agent} /> });
   tabs.push({ value: 'software', label: 'Software', icon: IconPackage, render: () => <SoftwareTab agent={agent} /> });
   if (canViewAlerts) tabs.push({ value: 'alertas', label: 'Alertas', icon: IconAlertTriangle, render: () => <AgentAlertsTab agent={agent} /> });
+  if (hasPermission(me, PERMISSIONS.logsView)) tabs.push({ value: 'logs', label: 'Logs', icon: IconLogs, render: () => <LogsView agentId={agent.id} /> });
   if (canViewTickets) tabs.push({ value: 'chamados', label: 'Chamados', icon: IconTicket, render: () => <AgentTicketsTab agent={agent} /> });
   if (canRun) tabs.push({ value: 'comando', label: 'Comando', icon: IconPrompt, render: () => <CommandTab agent={agent} /> });
   if (canRun && canViewScripts) tabs.push({ value: 'scripts', label: 'Scripts', icon: IconCode, render: () => <ScriptRunTab agent={agent} /> });
@@ -302,6 +306,7 @@ function SummaryTab({ agent }: { agent: AgentDetail }) {
           </Field>
         </SimpleGrid>
       </Paper>
+      <SnmpCollectorCard agent={agent} />
       <EffectivePolicies agentId={agent.id} />
     </>
   );

@@ -935,6 +935,9 @@ namespace WinCare.Core.Persistence.Migrations
                     b.Property<int>("SiteId")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("SnmpCollector")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(16)
@@ -1073,7 +1076,7 @@ namespace WinCare.Core.Persistence.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
-                    b.Property<int>("AgentId")
+                    b.Property<int?>("AgentId")
                         .HasColumnType("integer");
 
                     b.Property<string>("AlertType")
@@ -1106,8 +1109,15 @@ namespace WinCare.Core.Persistence.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
 
+                    b.Property<int?>("SnmpDeviceId")
+                        .HasColumnType("integer");
+
                     b.Property<DateTimeOffset?>("SnoozedUntil")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SubjectKey")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
                     b.Property<int?>("TaskId")
                         .HasColumnType("integer");
@@ -1118,6 +1128,8 @@ namespace WinCare.Core.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("Resolved", "CreatedAt");
+
+                    b.HasIndex("SnmpDeviceId", "Resolved");
 
                     b.HasIndex("AgentId", "CheckId", "TaskId", "Resolved");
 
@@ -1580,6 +1592,24 @@ namespace WinCare.Core.Persistence.Migrations
                     b.Property<bool>("IncidentsEnabled")
                         .HasColumnType("boolean");
 
+                    b.Property<int>("LogMaxPerCycle")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("LogMinLevel")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<int>("LogRetentionDays")
+                        .HasColumnType("integer");
+
+                    b.PrimitiveCollection<List<string>>("LogWindowsLogs")
+                        .IsRequired()
+                        .HasColumnType("text[]");
+
+                    b.Property<bool>("LogsEnabled")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("SelfServiceEnabled")
                         .HasColumnType("boolean");
 
@@ -1724,6 +1754,59 @@ namespace WinCare.Core.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("installer_tokens", (string)null);
+                });
+
+            modelBuilder.Entity("WinCare.Core.Rmm.LogAlertRule", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("ClientId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("MessageContains")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("MinLevel")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Severity")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("SourceContains")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("Threshold")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("WindowMinutes")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClientId");
+
+                    b.ToTable("log_alert_rules", (string)null);
                 });
 
             modelBuilder.Entity("WinCare.Core.Rmm.PatchPolicy", b =>
@@ -1996,6 +2079,360 @@ namespace WinCare.Core.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("sites", (string)null);
+                });
+
+            modelBuilder.Entity("WinCare.Core.Rmm.SnmpDevice", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("AssetId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ClientId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("CollectorAgentId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("CommunityEncrypted")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("FailCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Host")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<int>("Interval")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTimeOffset?>("LastPolledAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<bool>("PollInterfaces")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Port")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Retries")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("SiteId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("SysContact")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("SysDescr")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("SysLocation")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("SysName")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("SysObjectId")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<int>("Timeout")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TrapSeverity")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<long?>("UptimeSeconds")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("V3AuthPasswordEncrypted")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("V3AuthProtocol")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("V3PrivPasswordEncrypted")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("V3PrivProtocol")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("V3SecurityLevel")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("V3Username")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Version")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssetId");
+
+                    b.HasIndex("ClientId");
+
+                    b.HasIndex("CollectorAgentId");
+
+                    b.HasIndex("Host");
+
+                    b.HasIndex("SiteId");
+
+                    b.ToTable("snmp_devices", (string)null);
+                });
+
+            modelBuilder.Entity("WinCare.Core.Rmm.SnmpInterface", b =>
+                {
+                    b.Property<int>("DeviceId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Index")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("AdminStatus")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("Alias")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("Descr")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<double?>("InBps")
+                        .HasColumnType("double precision");
+
+                    b.Property<long>("InErrors")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset?>("LastAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal?>("LastIn")
+                        .HasPrecision(20)
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<decimal?>("LastOut")
+                        .HasPrecision(20)
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<bool>("Monitored")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("OperStatus")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<double?>("OutBps")
+                        .HasColumnType("double precision");
+
+                    b.Property<long>("OutErrors")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("SpeedBps")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.HasKey("DeviceId", "Index");
+
+                    b.ToTable("snmp_interfaces", (string)null);
+                });
+
+            modelBuilder.Entity("WinCare.Core.Rmm.SnmpSample", b =>
+                {
+                    b.Property<int>("DeviceId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Metric")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset>("Time")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<double>("Value")
+                        .HasColumnType("double precision");
+
+                    b.HasKey("DeviceId", "Metric", "Time");
+
+                    b.HasIndex("Time");
+
+                    b.ToTable("snmp_samples", (string)null);
+                });
+
+            modelBuilder.Entity("WinCare.Core.Rmm.SnmpSensor", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<double?>("CritAbove")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("CritBelow")
+                        .HasColumnType("double precision");
+
+                    b.Property<int>("DeviceId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("LastAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LastText")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<double?>("LastValue")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Oid")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("Unit")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<double?>("WarnAbove")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("WarnBelow")
+                        .HasColumnType("double precision");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DeviceId");
+
+                    b.ToTable("snmp_sensors", (string)null);
+                });
+
+            modelBuilder.Entity("WinCare.Core.Rmm.SystemLog", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTimeOffset>("Time")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("AgentId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ClientId")
+                        .HasColumnType("integer");
+
+                    b.Property<long?>("EventId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Host")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("Level")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("Log")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(8000)
+                        .HasColumnType("character varying(8000)");
+
+                    b.Property<DateTimeOffset>("ReceivedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("SnmpDeviceId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("Id", "Time");
+
+                    b.HasIndex("Time");
+
+                    b.HasIndex("AgentId", "Time");
+
+                    b.HasIndex("ClientId", "Time");
+
+                    b.HasIndex("Level", "Time");
+
+                    b.HasIndex("SnmpDeviceId", "Time");
+
+                    b.ToTable("system_logs", (string)null);
                 });
 
             modelBuilder.Entity("WinCare.Core.Rmm.TaskDispatch", b =>
@@ -2901,10 +3338,16 @@ namespace WinCare.Core.Persistence.Migrations
                     b.HasOne("WinCare.Core.Rmm.Agent", "Agent")
                         .WithMany()
                         .HasForeignKey("AgentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("WinCare.Core.Rmm.SnmpDevice", "SnmpDevice")
+                        .WithMany()
+                        .HasForeignKey("SnmpDeviceId")
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.Navigation("Agent");
+
+                    b.Navigation("SnmpDevice");
                 });
 
             modelBuilder.Entity("WinCare.Core.Rmm.AutomatedTask", b =>
@@ -2995,6 +3438,14 @@ namespace WinCare.Core.Persistence.Migrations
                     b.Navigation("Site");
                 });
 
+            modelBuilder.Entity("WinCare.Core.Rmm.LogAlertRule", b =>
+                {
+                    b.HasOne("WinCare.Core.Rmm.Client", null)
+                        .WithMany()
+                        .HasForeignKey("ClientId")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
             modelBuilder.Entity("WinCare.Core.Rmm.PatchPolicy", b =>
                 {
                     b.HasOne("WinCare.Core.Rmm.Agent", null)
@@ -3041,6 +3492,48 @@ namespace WinCare.Core.Persistence.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Client");
+                });
+
+            modelBuilder.Entity("WinCare.Core.Rmm.SnmpDevice", b =>
+                {
+                    b.HasOne("WinCare.Core.Inventory.Asset", null)
+                        .WithMany()
+                        .HasForeignKey("AssetId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("WinCare.Core.Rmm.Client", null)
+                        .WithMany()
+                        .HasForeignKey("ClientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("WinCare.Core.Rmm.Agent", null)
+                        .WithMany()
+                        .HasForeignKey("CollectorAgentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("WinCare.Core.Rmm.Site", null)
+                        .WithMany()
+                        .HasForeignKey("SiteId")
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("WinCare.Core.Rmm.SnmpInterface", b =>
+                {
+                    b.HasOne("WinCare.Core.Rmm.SnmpDevice", null)
+                        .WithMany()
+                        .HasForeignKey("DeviceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("WinCare.Core.Rmm.SnmpSensor", b =>
+                {
+                    b.HasOne("WinCare.Core.Rmm.SnmpDevice", null)
+                        .WithMany()
+                        .HasForeignKey("DeviceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("WinCare.Core.Rmm.TaskResult", b =>

@@ -269,6 +269,8 @@ export interface AgentDetail extends AgentListItem {
   offlineTime: number;
   overdueTime: number;
   createdAt: string;
+  /** Fase 8: agente marcado como coletor SNMP (quando o backend informar). */
+  snmpCollector?: boolean;
 }
 
 export interface ListAgentsParams {
@@ -549,6 +551,9 @@ export const PERMISSIONS = {
   credentialsReveal: 'credentials.reveal',
   credentialsManage: 'credentials.manage',
   wincareRun: 'wincare.run',
+  logsView: 'logs.view',
+  snmpView: 'snmp.view',
+  snmpManage: 'snmp.manage',
 } as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -763,15 +768,19 @@ export interface EffectivePolicyDto {
   source: PolicySource;
 }
 
-export type AlertType = 'availability' | 'check' | 'task';
+export type AlertType = 'availability' | 'check' | 'task' | 'log' | 'snmp_device' | 'snmp_interface' | 'snmp_sensor' | 'snmp_trap';
 export type AlertStatusFilter = 'active' | 'resolved' | 'all';
 
 export interface AlertDto {
   id: number;
-  agentId: number;
-  hostname: string;
+  /** Nulo nos alertas de SNMP (associados a um dispositivo, nao a um agente). */
+  agentId: number | null;
+  hostname: string | null;
+  /** Fase 8: presentes nos alertas de dispositivos SNMP. */
+  snmpDeviceId?: number | null;
+  deviceName?: string | null;
   clientName: string;
-  siteName: string;
+  siteName: string | null;
   alertType: AlertType;
   checkId: number | null;
   taskId: number | null;
@@ -1621,3 +1630,257 @@ export interface SelfServiceSettings {
   /** Formato "modulo.tarefa". */
   tasks: string[];
 }
+
+// Logs de sistema (docs/api/fase8-logs-snmp.md, secao 2)
+
+export type LogLevel = 'critical' | 'error' | 'warning' | 'info';
+/** Nivel minimo coletado pelo agente (sem "critical"). */
+export type LogCollectLevel = Exclude<LogLevel, 'critical'>;
+
+export interface LogEntryDto {
+  id: number;
+  time: string;
+  receivedAt: string;
+  agentId: number | null;
+  hostname: string | null;
+  deviceId: number | null;
+  deviceName: string | null;
+  clientName: string | null;
+  level: LogLevel;
+  source: string;
+  log: string;
+  eventId: number | null;
+  message: string;
+}
+
+export interface LogPage {
+  items: LogEntryDto[];
+  /** Cursor da proxima pagina (mais antiga); nulo quando acabou. */
+  nextBefore: string | null;
+}
+
+export interface ListLogsParams {
+  agentId?: number;
+  clientId?: number;
+  deviceId?: number;
+  level?: LogLevel;
+  source?: string;
+  search?: string;
+  from?: string;
+  to?: string;
+  before?: string;
+  limit?: number;
+}
+
+export interface LogSummaryParams {
+  agentId?: number;
+  clientId?: number;
+  from?: string;
+  to?: string;
+}
+
+export type LogLevelCounts = Record<LogLevel, number>;
+
+export interface LogHourBucket extends LogLevelCounts {
+  hour: string;
+}
+
+export interface LogSummaryDto {
+  byLevel: LogLevelCounts;
+  bySource: { source: string; count: number }[];
+  perHour: LogHourBucket[];
+}
+
+export interface LogSettingsDto {
+  enabled: boolean;
+  minLevel: LogCollectLevel;
+  windowsLogs: string[];
+  maxPerCycle: number;
+  retentionDays: number;
+}
+
+export interface LogAlertRuleDto {
+  id: number;
+  name: string;
+  clientId: number | null;
+  minLevel: LogLevel;
+  sourceContains: string | null;
+  messageContains: string | null;
+  threshold: number;
+  windowMinutes: number;
+  severity: Severity;
+  enabled: boolean;
+}
+
+export type SaveLogAlertRuleRequest = Omit<LogAlertRuleDto, 'id'>;
+
+// SNMP (docs/api/fase8-logs-snmp.md, secao 3)
+
+export type SnmpStatus = 'up' | 'down' | 'unknown';
+export type SnmpVersion = 'v2c' | 'v3';
+export type SnmpSecurityLevel = 'noAuthNoPriv' | 'authNoPriv' | 'authPriv';
+export type SnmpAuthProtocol = 'SHA' | 'SHA256' | 'SHA512' | 'MD5';
+export type SnmpPrivProtocol = 'AES' | 'AES256' | 'DES';
+export type SnmpTrapSeverity = 'none' | Severity;
+
+/** Parametros v3 sem senhas (somente leitura, quando o backend informar). */
+export interface SnmpV3Info {
+  username: string | null;
+  securityLevel: SnmpSecurityLevel;
+  authProtocol: SnmpAuthProtocol | null;
+  privProtocol: SnmpPrivProtocol | null;
+}
+
+export interface SnmpDeviceDto {
+  id: number;
+  clientId: number;
+  clientName: string;
+  siteId: number | null;
+  collectorAgentId: number;
+  collectorHostname: string | null;
+  assetId: number | null;
+  name: string;
+  host: string;
+  port: number;
+  version: SnmpVersion;
+  /** Segundos. */
+  interval: number;
+  enabled: boolean;
+  trapSeverity: SnmpTrapSeverity;
+  status: SnmpStatus;
+  lastPolledAt: string | null;
+  lastError: string | null;
+  sysName: string | null;
+  sysDescr: string | null;
+  sysLocation: string | null;
+  sysContact: string | null;
+  uptimeSeconds: number | null;
+  hasCredentials: boolean;
+  interfaceCount: number;
+  interfacesDown: number;
+  // Fora do SnmpDeviceDto do contrato; usados na edicao quando o backend enviar.
+  timeout?: number;
+  retries?: number;
+  pollInterfaces?: boolean;
+  v3?: SnmpV3Info | null;
+}
+
+export interface SnmpInterfaceDto {
+  index: number;
+  name: string | null;
+  descr: string | null;
+  alias: string | null;
+  type: number | string | null;
+  speedBps: number | null;
+  adminStatus: string | null;
+  operStatus: string | null;
+  inBps: number | null;
+  outBps: number | null;
+  inErrors: number | null;
+  outErrors: number | null;
+  lastAt: string | null;
+  monitored: boolean;
+}
+
+export interface SnmpSensorDto {
+  id: number;
+  deviceId?: number;
+  name: string;
+  oid: string;
+  unit: string | null;
+  warnAbove: number | null;
+  critAbove: number | null;
+  warnBelow: number | null;
+  critBelow: number | null;
+  lastValue: number | null;
+  lastText: string | null;
+  lastAt: string | null;
+}
+
+export interface SnmpDeviceDetail extends SnmpDeviceDto {
+  interfaces: SnmpInterfaceDto[];
+  sensors: SnmpSensorDto[];
+}
+
+export interface ListSnmpDevicesParams {
+  clientId?: number;
+  status?: SnmpStatus;
+}
+
+export interface SaveSnmpV3 {
+  username?: string;
+  securityLevel: SnmpSecurityLevel;
+  authProtocol?: SnmpAuthProtocol;
+  authPassword?: string;
+  privProtocol?: SnmpPrivProtocol;
+  privPassword?: string;
+}
+
+/** Credenciais so na escrita; ausentes no PUT mantem as atuais. */
+export interface SaveSnmpDeviceRequest {
+  clientId: number;
+  siteId: number | null;
+  collectorAgentId: number;
+  assetId: number | null;
+  name: string;
+  host: string;
+  port: number;
+  version: SnmpVersion;
+  community?: string;
+  v3?: SaveSnmpV3;
+  interval: number;
+  timeout: number;
+  retries: number;
+  pollInterfaces: boolean;
+  enabled: boolean;
+  trapSeverity: SnmpTrapSeverity;
+}
+
+export interface SnmpSystemInfo {
+  descr?: string | null;
+  objectId?: string | null;
+  uptimeTicks?: number | null;
+  contact?: string | null;
+  name?: string | null;
+  location?: string | null;
+}
+
+export interface SnmpTestResult {
+  reachable: boolean;
+  error: string | null;
+  rttMs: number | null;
+  system: SnmpSystemInfo | null;
+}
+
+export interface SaveSnmpSensorRequest {
+  name: string;
+  oid: string;
+  unit: string | null;
+  warnAbove: number | null;
+  critAbove: number | null;
+  warnBelow: number | null;
+  critBelow: number | null;
+}
+
+export interface SnmpMetricPoint {
+  time: string;
+  value: number;
+}
+
+export interface SnmpMetricDto {
+  metric: string;
+  points: SnmpMetricPoint[];
+}
+
+export interface SnmpCollectorDto {
+  agentId: number;
+  hostname: string;
+  clientId: number;
+  siteId: number;
+  status: AgentStatus;
+  version: string;
+  deviceCount: number;
+}
+
+/** Evento snmpDeviceChanged do hub do console. */
+export type SnmpDeviceChangedEvent = SnmpDeviceDto;

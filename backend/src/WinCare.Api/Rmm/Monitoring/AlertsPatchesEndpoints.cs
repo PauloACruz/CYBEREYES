@@ -193,7 +193,7 @@ public static class AlertsPatchesEndpoints
         }
         if (clientId is { } c)
         {
-            query = query.Where(a => a.Agent!.Site!.ClientId == c);
+            query = query.Where(a => a.Agent!.Site!.ClientId == c || a.SnmpDevice!.ClientId == c);
         }
         if (agentId is { } ag)
         {
@@ -203,7 +203,10 @@ public static class AlertsPatchesEndpoints
         var items = await query.OrderByDescending(a => a.CreatedAt).Skip((p - 1) * size).Take(size)
             .Select(a => new
             {
-                a.Id, a.AgentId, a.Agent!.Hostname, ClientName = a.Agent.Site!.Client!.Name, SiteName = a.Agent.Site.Name, a.AlertType, a.CheckId, a.TaskId,
+                a.Id, a.AgentId, a.Agent!.Hostname, a.SnmpDeviceId, DeviceName = a.SnmpDevice!.Name,
+                ClientName = a.AgentId != null ? a.Agent.Site!.Client!.Name : db.Clients.Where(x => x.Id == a.SnmpDevice!.ClientId).Select(x => x.Name).FirstOrDefault(),
+                SiteName = a.AgentId != null ? a.Agent.Site!.Name : db.Sites.Where(x => x.Id == a.SnmpDevice!.SiteId).Select(x => x.Name).FirstOrDefault(),
+                a.AlertType, a.CheckId, a.TaskId,
                 a.Severity, a.Message, a.CreatedAt, a.Resolved, a.ResolvedAt, a.SnoozedUntil, a.EmailSent, a.WebhookSent,
             }).ToListAsync(ct);
         return TypedResults.Ok(new { items, total, page = p, pageSize = size });

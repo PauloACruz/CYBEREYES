@@ -5,7 +5,8 @@ import { Link } from 'react-router';
 import { alertsApi } from '../../api/alerts';
 import { queryKeys } from '../../api/queryKeys';
 import type { Severity } from '../../api/types';
-import { agentPath, PATHS } from '../../app/paths';
+import { PATHS } from '../../app/paths';
+import { AlertTarget } from '../alerts/AlertTarget';
 import { SEVERITIES, SEVERITY_INFO } from '../monitoring/monitoringFormat';
 
 const CHECK_SAMPLE = 200;
@@ -78,9 +79,7 @@ function FailingChecksCard() {
           return (
             <Group key={a.id} gap="xs" wrap="nowrap">
               <info.icon size={16} color={`var(--mantine-color-${info.color}-6)`} aria-label={info.label} role="img" style={{ flexShrink: 0 }} />
-              <Anchor component={Link} to={`${agentPath(a.agentId)}?aba=checks`} size="sm" fw={500} style={{ flexShrink: 0 }}>
-                {a.hostname}
-              </Anchor>
+              <AlertTarget alert={a} agentTab="checks" />
               <Text size="sm" c="dimmed" truncate>
                 {a.message}
               </Text>

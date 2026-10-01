@@ -78,6 +78,28 @@ export const routes: RouteObject[] = [
             ],
           },
           {
+            element: <RequirePermission permission={PERMISSIONS.logsView} />,
+            children: [
+              {
+                path: PATHS.logs,
+                lazy: () => import('../features/logs/LogsPage').then((m) => ({ Component: m.LogsPage })),
+              },
+            ],
+          },
+          {
+            element: <RequirePermission permission={PERMISSIONS.snmpView} />,
+            children: [
+              {
+                path: PATHS.snmp,
+                lazy: () => import('../features/snmp/SnmpDevicesPage').then((m) => ({ Component: m.SnmpDevicesPage })),
+              },
+              {
+                path: `${PATHS.snmp}/:id`,
+                lazy: () => import('../features/snmp/SnmpDeviceDetailPage').then((m) => ({ Component: m.SnmpDeviceDetailPage })),
+              },
+            ],
+          },
+          {
             element: <RequirePermission permission={PERMISSIONS.inventoryView} />,
             children: [
               {

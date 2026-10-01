@@ -87,6 +87,11 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<WinCare.Api.Rmm.Mo
 builder.Services.AddSingleton<WinCare.Api.Rmm.Monitoring.PatchScheduler>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<WinCare.Api.Rmm.Monitoring.PatchScheduler>());
 builder.Services.AddHostedService<WinCare.Api.Rmm.Monitoring.MaintenanceService>();
+builder.Services.AddScoped<WinCare.Api.Snmp.SnmpService>();
+builder.Services.AddSingleton<WinCare.Api.Logs.LogPartitionService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<WinCare.Api.Logs.LogPartitionService>());
+builder.Services.AddSingleton<WinCare.Api.Logs.LogAlertEvaluator>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<WinCare.Api.Logs.LogAlertEvaluator>());
 builder.Services.AddSingleton(sp => new WinCare.Api.Rmm.Actions.TerminalSessions(
     sp.GetService<NATS.Client.Core.INatsConnection>(), sp.GetRequiredService<IAgentRpc>(),
     sp.GetRequiredService<Microsoft.AspNetCore.SignalR.IHubContext<ConsoleHub>>(),
@@ -178,6 +183,8 @@ WinCare.Api.Tickets.Tray.MapTrayEndpoints(app);
 WinCare.Api.Inventory.AssetEndpoints.MapAssetEndpoints(app);
 WinCare.Api.Inventory.DocsEndpoints.MapDocsEndpoints(app);
 WinCare.Api.Rmm.Maintenance.WinCareEndpoints.MapWinCareEndpoints(app);
+WinCare.Api.Logs.LogEndpoints.MapLogEndpoints(app);
+WinCare.Api.Snmp.SnmpEndpoints.MapSnmpEndpoints(app);
 
 if (args.Contains("--migrate-only"))
 {

@@ -213,6 +213,8 @@ public static class AssetEndpoints
                 .Select(t => new { t.Id, t.Title, t.Status, t.CreatedAt }).ToListAsync(ct)
             : [];
         var openTickets = a.AgentId is { } aid2 ? await db.Tickets.CountAsync(t => t.AgentId == aid2 && TicketStatus.Open.Contains(t.Status), ct) : 0;
+        var snmp = await db.SnmpDevices.AsNoTracking().Where(d => d.AssetId == id).OrderBy(d => d.Name)
+            .Select(d => new { d.Id, d.Name, d.Host, d.Status, d.LastPolledAt, d.LastError, d.SysName, d.UptimeSeconds }).ToListAsync(ct);
 
         return new
         {
@@ -232,6 +234,7 @@ public static class AssetEndpoints
             credentials,
             attachments,
             tickets = new { open = openTickets, recent = tickets },
+            snmp,
         };
     }
 
