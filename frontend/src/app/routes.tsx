@@ -35,6 +35,24 @@ export const routes: RouteObject[] = [
             ],
           },
           {
+            element: <RequirePermission permission={PERMISSIONS.scriptsView} />,
+            children: [
+              {
+                path: PATHS.scripts,
+                lazy: () => import('../features/scripts/ScriptsPage').then((m) => ({ Component: m.ScriptsPage })),
+              },
+            ],
+          },
+          {
+            element: <RequirePermission permission={PERMISSIONS.settingsManage} />,
+            children: [
+              {
+                path: PATHS.settings,
+                lazy: () => import('../features/settings/SettingsPage').then((m) => ({ Component: m.SettingsPage })),
+              },
+            ],
+          },
+          {
             element: <RequirePermission permission={PERMISSIONS.clientsView} />,
             children: [
               {

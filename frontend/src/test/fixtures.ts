@@ -1,4 +1,4 @@
-import type { AgentListItem, ClientDto } from '../api/types';
+import type { AgentDetail, AgentListItem, ClientDto } from '../api/types';
 
 export function makeAgent(overrides: Partial<AgentListItem> = {}): AgentListItem {
   return {
@@ -27,3 +27,21 @@ export function makeAgent(overrides: Partial<AgentListItem> = {}): AgentListItem
 export const CLIENTS: ClientDto[] = [
   { id: 1, name: 'Clínica Central', agentCount: 2, sites: [{ id: 10, clientId: 1, name: 'Matriz', agentCount: 2 }] },
 ];
+
+export function makeAgentDetail(overrides: Partial<AgentDetail> = {}): AgentDetail {
+  return {
+    ...makeAgent(),
+    goArch: 'amd64',
+    totalRam: 16,
+    bootTime: null,
+    meshNodeId: null,
+    disks: [],
+    services: [],
+    wmi: null,
+    checkInterval: 60,
+    offlineTime: 4,
+    overdueTime: 30,
+    createdAt: '2026-09-01T12:00:00Z',
+    ...overrides,
+  };
+}

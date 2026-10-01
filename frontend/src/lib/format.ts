@@ -42,3 +42,22 @@ export function formatRelative(value: string | null | undefined, now: number = D
   }
   return relativeFormat.format(Math.round(amount), 'year');
 }
+
+const BYTE_UNITS = ['B', 'KB', 'MB', 'GB', 'TB'] as const;
+const numberFormat = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 });
+
+/** 1536 -> "1,5 KB" (base 1024). */
+export function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1024 && unit < BYTE_UNITS.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return `${numberFormat.format(value)} ${BYTE_UNITS[unit] ?? 'B'}`;
+}
+
+export function formatSeconds(seconds: number): string {
+  return `${numberFormat.format(seconds)} s`;
+}

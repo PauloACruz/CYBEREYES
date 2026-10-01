@@ -7,7 +7,11 @@ vi.mock('@microsoft/signalr', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@microsoft/signalr')>();
   const connection = {
     on: vi.fn(),
+    off: vi.fn(),
+    invoke: vi.fn(() => Promise.resolve()),
     onreconnected: vi.fn(),
+    onreconnecting: vi.fn(),
+    onclose: vi.fn(),
     start: vi.fn(() => Promise.resolve()),
     stop: vi.fn(() => Promise.resolve()),
   };
@@ -54,3 +58,11 @@ class ResizeObserverStub {
 window.ResizeObserver = ResizeObserverStub;
 
 window.HTMLElement.prototype.scrollIntoView = function scrollIntoView() {};
+
+// jsdom nao implementa document.fonts (usado pelo Textarea com autosize do Mantine).
+if (!('fonts' in document)) {
+  Object.defineProperty(document, 'fonts', {
+    configurable: true,
+    value: { addEventListener: vi.fn(), removeEventListener: vi.fn(), ready: Promise.resolve() },
+  });
+}

@@ -20,7 +20,8 @@ export type ErrorCode =
   | 'LOCKED_OUT'
   | 'NOT_FOUND'
   | 'CONFLICT'
-  | 'RATE_LIMITED';
+  | 'RATE_LIMITED'
+  | 'AGENT_TIMEOUT';
 
 export interface Paged<T> {
   items: T[];
@@ -329,6 +330,188 @@ export interface AgentStatusChangedEvent {
   lastSeen: string | null;
 }
 
+// Acoes sobre o agente (docs/api/fase2-acoes.md)
+
+export type CommandShell = 'cmd' | 'powershell' | '/bin/bash' | '/bin/sh' | '/bin/zsh';
+
+export interface CommandRequest {
+  shell: CommandShell;
+  command: string;
+  /** 10 a 3600 segundos. */
+  timeout: number;
+  runAsUser: boolean;
+}
+
+export interface CommandResponse {
+  historyId: number;
+  output: string;
+}
+
+export interface ScriptResults {
+  stdout: string;
+  stderr: string;
+  retcode: number;
+  executionTime: number;
+}
+
+export type AgentHistoryType = 'cmd_run' | 'script_run';
+
+export interface AgentHistoryDto {
+  id: number;
+  time: string;
+  type: AgentHistoryType;
+  command: string | null;
+  username: string | null;
+  scriptId: number | null;
+  scriptName: string | null;
+  results: string | null;
+  scriptResults: ScriptResults | null;
+}
+
+export interface RunScriptRequest {
+  scriptId: number;
+  args?: string[];
+  envVars?: string[];
+  timeout?: number;
+  runAsUser?: boolean;
+}
+
+export type RunScriptResponse = ScriptResults & { historyId: number };
+
+export interface ProcessDto {
+  pid: number;
+  name: string;
+  username: string;
+  memBytes: number;
+  cpuPercent: number;
+}
+
+export interface WindowsServiceDto {
+  name: string;
+  displayName: string;
+  status: string;
+  startType: string;
+  autodelay: boolean;
+  pid: number;
+  binpath: string;
+  username: string;
+  description: string;
+}
+
+export type ServiceAction = 'start' | 'stop' | 'restart';
+export type ServiceStartType = 'auto' | 'autodelay' | 'manual' | 'disabled';
+
+export interface SuccessMessage {
+  success: boolean;
+  message: string;
+}
+
+export type EventLogName = 'Application' | 'System' | 'Security';
+
+export interface EventLogEntry {
+  source: string;
+  eventType: string;
+  eventId: number;
+  message: string;
+  time: string;
+}
+
+export type RegistryValueType = 'REG_SZ' | 'REG_EXPAND_SZ' | 'REG_MULTI_SZ' | 'REG_DWORD' | 'REG_QWORD' | 'REG_BINARY';
+
+export interface RegistrySubkey {
+  name: string;
+  hasSubkeys: boolean;
+}
+
+export interface RegistryValue {
+  name: string;
+  /** Normalmente um RegistryValueType; o agente pode enviar outros (REG_NONE...). */
+  type: string;
+  data: string;
+}
+
+export interface RegistryListing {
+  path: string;
+  subkeys: RegistrySubkey[];
+  values: RegistryValue[];
+  hasMore: boolean;
+}
+
+export interface RegistryValueRequest {
+  path: string;
+  name: string;
+  type: RegistryValueType;
+  data: string;
+}
+
+export interface UrlResponse {
+  url: string;
+}
+
+// Scripts e snippets
+
+export type ScriptShell = 'powershell' | 'cmd' | 'python' | 'shell' | 'nushell' | 'deno';
+export type ScriptPlatform = AgentPlat;
+
+export interface ScriptDto {
+  id: number;
+  name: string;
+  description: string;
+  category: string;
+  shell: ScriptShell;
+  body?: string;
+  defaultArgs: string[];
+  envVars: string[];
+  defaultTimeout: number;
+  runAsUser: boolean;
+  platforms: ScriptPlatform[];
+  createdBy: string;
+  updatedAt: string;
+}
+
+export interface SaveScriptRequest {
+  name: string;
+  description: string;
+  category: string;
+  shell: ScriptShell;
+  body: string;
+  defaultArgs: string[];
+  envVars: string[];
+  /** 5 a 86400 segundos. */
+  defaultTimeout: number;
+  runAsUser: boolean;
+  platforms: ScriptPlatform[];
+}
+
+export interface SnippetDto {
+  id: number;
+  name: string;
+  description: string;
+  shell: ScriptShell;
+  code: string;
+}
+
+export type SaveSnippetRequest = Omit<SnippetDto, 'id'>;
+
+// Configuracoes
+
+export interface KeyDto {
+  id: number;
+  name: string;
+  value: string;
+}
+
+export type SaveKeyRequest = Omit<KeyDto, 'id'>;
+
+export interface UrlActionDto {
+  id: number;
+  name: string;
+  description: string;
+  pattern: string;
+}
+
+export type SaveUrlActionRequest = Omit<UrlActionDto, 'id'>;
+
 // Catalogo de permissoes
 
 export const PERMISSIONS = {
@@ -343,6 +526,10 @@ export const PERMISSIONS = {
   agentsView: 'agents.view',
   agentsManage: 'agents.manage',
   agentsInstall: 'agents.install',
+  agentsRun: 'agents.run',
+  agentsControl: 'agents.control',
+  scriptsView: 'scripts.view',
+  scriptsManage: 'scripts.manage',
 } as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

@@ -1,10 +1,12 @@
 import {
   IconBuilding,
+  IconCode,
   IconDeviceDesktop,
   IconHome,
   IconKey,
   IconListDetails,
   IconRocket,
+  IconSettings,
   IconShieldLock,
   IconUsers,
   type Icon,
@@ -25,11 +27,13 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { label: 'Painel', to: PATHS.dashboard, icon: IconHome },
   { label: 'Agentes', to: PATHS.agents, icon: IconDeviceDesktop, permission: PERMISSIONS.agentsView },
   { label: 'Clientes', to: PATHS.clients, icon: IconBuilding, permission: PERMISSIONS.clientsView },
+  { label: 'Scripts', to: PATHS.scripts, icon: IconCode, permission: PERMISSIONS.scriptsView },
   { label: 'Implantações', to: PATHS.deployments, icon: IconRocket, permission: PERMISSIONS.agentsInstall },
   { label: 'Usuários', to: PATHS.users, icon: IconUsers, permission: PERMISSIONS.usersView },
   { label: 'Papéis', to: PATHS.roles, icon: IconShieldLock, permission: PERMISSIONS.rolesManage },
   { label: 'Chaves de API', to: PATHS.apiKeys, icon: IconKey, permission: PERMISSIONS.apiKeysManage },
   { label: 'Auditoria', to: PATHS.audit, icon: IconListDetails, permission: PERMISSIONS.auditView },
+  { label: 'Configurações', to: PATHS.settings, icon: IconSettings, permission: PERMISSIONS.settingsManage },
 ];
 
 export function visibleNavItems(me: MeDto | undefined): NavItem[] {

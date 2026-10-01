@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import {
   Anchor,
   Badge,
@@ -14,15 +14,29 @@ import {
   Table,
   Tabs,
   Text,
-  TextInput,
   Title,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
-import { IconActivity, IconDatabase, IconInfoCircle, IconListDetails, IconRefreshAlert, IconSearch, IconTrash } from '@tabler/icons-react';
+import {
+  IconActivity,
+  IconBinaryTree,
+  IconCode,
+  IconDatabase,
+  IconFileText,
+  IconHistory,
+  IconInfoCircle,
+  IconListDetails,
+  IconPrompt,
+  IconRefreshAlert,
+  IconServer,
+  IconTerminal2,
+  IconTrash,
+  type Icon,
+} from '@tabler/icons-react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useParams, useSearchParams } from 'react-router';
 import { agentsApi } from '../../api/agents';
 import { ApiError } from '../../api/client';
 import { queryKeys } from '../../api/queryKeys';
@@ -34,9 +48,38 @@ import { NotFound } from '../../components/NotFound';
 import { EmptyRow, LoadError } from '../../components/TableStates';
 import { formatDateTime } from '../../lib/format';
 import { AgentStatusBadge, OperatingSystem, RelativeTime } from './agentDisplay';
-import { parseDisks, parseServices, type DiskInfo, type ServiceInfo } from './agentData';
+import { parseDisks, type DiskInfo } from './agentData';
 import { loggedUser, MONITORING_TYPE_LABEL } from './agentFormat';
 import { DeleteAgentModal } from './DeleteAgentModal';
+import { AgentActionsMenu } from './actions/AgentActionsMenu';
+import { CommandTab } from './actions/CommandTab';
+import { EventLogTab } from './actions/EventLogTab';
+import { HistoryTab } from './actions/HistoryTab';
+import { LiveServicesTab } from './actions/LiveServicesTab';
+import { ProcessesTab } from './actions/ProcessesTab';
+import { ScriptRunTab } from './actions/ScriptRunTab';
+import { isWindows } from './actions/shells';
+
+// Abas pesadas (xterm.js e navegador do registro) carregam sob demanda.
+const TerminalTab = lazy(() => import('./actions/TerminalTab').then((m) => ({ default: m.TerminalTab })));
+const RegistryTab = lazy(() => import('./actions/RegistryTab').then((m) => ({ default: m.RegistryTab })));
+
+interface TabDef {
+  value: string;
+  label: string;
+  icon: Icon;
+  render: () => ReactNode;
+  /** Mantem o conteudo montado depois da primeira visita (sessao do terminal). */
+  keepMounted?: boolean;
+}
+
+function TabFallback() {
+  return (
+    <Center py="xl">
+      <Loader aria-label="Carregando aba" />
+    </Center>
+  );
+}
 
 export function AgentDetailPage() {
   const { id: rawId } = useParams();
@@ -59,7 +102,67 @@ export function AgentDetailPage() {
 function AgentDetailView({ agent }: { agent: AgentDetail }) {
   const { data: me } = useMe();
   const canManage = hasPermission(me, PERMISSIONS.agentsManage);
+  const canRun = hasPermission(me, PERMISSIONS.agentsRun);
+  const canControl = hasPermission(me, PERMISSIONS.agentsControl);
+  const canViewScripts = hasPermission(me, PERMISSIONS.scriptsView);
+  const windows = isWindows(agent.plat);
   const [deleteOpened, deleteModal] = useDisclosure(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [terminalVisited, setTerminalVisited] = useState(() => searchParams.get('aba') === 'terminal');
+
+  const tabs: TabDef[] = [
+    { value: 'resumo', label: 'Resumo', icon: IconInfoCircle, render: () => <SummaryTab agent={agent} /> },
+    { value: 'discos', label: 'Discos', icon: IconDatabase, render: () => <DisksTab disks={parseDisks(agent.disks)} /> },
+  ];
+  if (canRun) tabs.push({ value: 'comando', label: 'Comando', icon: IconPrompt, render: () => <CommandTab agent={agent} /> });
+  if (canRun && canViewScripts) tabs.push({ value: 'scripts', label: 'Scripts', icon: IconCode, render: () => <ScriptRunTab agent={agent} /> });
+  if (canRun) {
+    tabs.push({
+      value: 'terminal',
+      label: 'Terminal',
+      icon: IconTerminal2,
+      keepMounted: terminalVisited,
+      render: () => (
+        <Suspense fallback={<TabFallback />}>
+          <TerminalTab agent={agent} />
+        </Suspense>
+      ),
+    });
+  }
+  tabs.push({ value: 'processos', label: 'Processos', icon: IconListDetails, render: () => <ProcessesTab agent={agent} canControl={canControl} /> });
+  if (windows) {
+    tabs.push(
+      { value: 'servicos', label: 'Serviços', icon: IconServer, render: () => <LiveServicesTab agent={agent} canControl={canControl} /> },
+      { value: 'eventlog', label: 'Event Log', icon: IconFileText, render: () => <EventLogTab agent={agent} /> },
+      {
+        value: 'registro',
+        label: 'Registro',
+        icon: IconBinaryTree,
+        render: () => (
+          <Suspense fallback={<TabFallback />}>
+            <RegistryTab agent={agent} canControl={canControl} />
+          </Suspense>
+        ),
+      },
+    );
+  }
+  tabs.push({ value: 'historico', label: 'Histórico', icon: IconHistory, render: () => <HistoryTab agent={agent} /> });
+
+  const requested = searchParams.get('aba');
+  const activeTab = tabs.some((t) => t.value === requested) ? (requested ?? 'resumo') : 'resumo';
+  const selectTab = (value: string | null) => {
+    if (!value) return;
+    if (value === 'terminal') setTerminalVisited(true);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (value === 'resumo') next.delete('aba');
+        else next.set('aba', value);
+        return next;
+      },
+      { replace: true },
+    );
+  };
 
   const ping = useMutation({
     mutationFn: () => agentsApi.ping(agent.id),
@@ -100,6 +203,7 @@ function AgentDetailView({ agent }: { agent: AgentDetail }) {
           <Button variant="light" leftSection={<IconActivity size={16} />} loading={ping.isPending} onClick={() => ping.mutate()}>
             Ping
           </Button>
+          <AgentActionsMenu agent={agent} canControl={canControl} />
           {canManage && (
             <Button color="red" variant="light" leftSection={<IconTrash size={16} />} onClick={deleteModal.open}>
               Excluir
@@ -108,27 +212,19 @@ function AgentDetailView({ agent }: { agent: AgentDetail }) {
         </Group>
       </Group>
 
-      <Tabs defaultValue="resumo" keepMounted={false}>
+      <Tabs value={activeTab} onChange={selectTab} keepMounted={false} keepMountedMode="display-none">
         <Tabs.List mb="md">
-          <Tabs.Tab value="resumo" leftSection={<IconInfoCircle size={16} />}>
-            Resumo
-          </Tabs.Tab>
-          <Tabs.Tab value="discos" leftSection={<IconDatabase size={16} />}>
-            Discos
-          </Tabs.Tab>
-          <Tabs.Tab value="servicos" leftSection={<IconListDetails size={16} />}>
-            Serviços
-          </Tabs.Tab>
+          {tabs.map((tab) => (
+            <Tabs.Tab key={tab.value} value={tab.value} leftSection={<tab.icon size={16} />}>
+              {tab.label}
+            </Tabs.Tab>
+          ))}
         </Tabs.List>
-        <Tabs.Panel value="resumo">
-          <SummaryTab agent={agent} />
-        </Tabs.Panel>
-        <Tabs.Panel value="discos">
-          <DisksTab disks={parseDisks(agent.disks)} />
-        </Tabs.Panel>
-        <Tabs.Panel value="servicos">
-          <ServicesTab services={parseServices(agent.services)} />
-        </Tabs.Panel>
+        {tabs.map((tab) => (
+          <Tabs.Panel key={tab.value} value={tab.value} keepMounted={tab.keepMounted}>
+            {tab.render()}
+          </Tabs.Panel>
+        ))}
       </Tabs>
 
       {canManage && <DeleteAgentModal agent={agent} opened={deleteOpened} onClose={deleteModal.close} />}
@@ -226,94 +322,5 @@ function DisksTab({ disks }: { disks: DiskInfo[] | null }) {
         </Table>
       </Table.ScrollContainer>
     </Paper>
-  );
-}
-
-const SERVICE_STATUS: Record<string, { label: string; color: string }> = {
-  running: { label: 'Em execução', color: 'teal' },
-  stopped: { label: 'Parado', color: 'gray' },
-  start_pending: { label: 'Iniciando', color: 'blue' },
-  stop_pending: { label: 'Parando', color: 'orange' },
-  paused: { label: 'Pausado', color: 'yellow' },
-};
-
-const START_TYPE: Record<string, string> = {
-  automatic: 'Automático',
-  auto: 'Automático',
-  manual: 'Manual',
-  disabled: 'Desativado',
-};
-
-function ServicesTab({ services }: { services: ServiceInfo[] | null }) {
-  const [search, setSearch] = useState('');
-  if (!services) {
-    return (
-      <Paper withBorder p="xl">
-        <Text c="dimmed" ta="center">
-          O agente não enviou a lista de serviços. Ela é coletada em máquinas Windows.
-        </Text>
-      </Paper>
-    );
-  }
-  const term = search.trim().toLowerCase();
-  const filtered = term
-    ? services.filter((s) => s.name.toLowerCase().includes(term) || s.displayName.toLowerCase().includes(term))
-    : services;
-  const columns = 4;
-  return (
-    <>
-      <TextInput
-        placeholder="Buscar serviço por nome"
-        aria-label="Buscar serviços"
-        leftSection={<IconSearch size={16} />}
-        value={search}
-        onChange={(e) => setSearch(e.currentTarget.value)}
-        mb="md"
-        maw={360}
-      />
-      <Paper withBorder>
-        <Table.ScrollContainer minWidth={700}>
-          <Table striped verticalSpacing="xs">
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>Nome</Table.Th>
-                <Table.Th>Estado</Table.Th>
-                <Table.Th>Inicialização</Table.Th>
-                <Table.Th>Conta</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {filtered.length === 0 && (
-                <EmptyRow columns={columns} message={term ? 'Nenhum serviço encontrado para a busca.' : 'Nenhum serviço informado.'} />
-              )}
-              {filtered.map((svc) => {
-                const status = SERVICE_STATUS[svc.status.toLowerCase()];
-                return (
-                  <Table.Tr key={svc.name}>
-                    <Table.Td>
-                      <Text size="sm" fw={500}>
-                        {svc.displayName || svc.name}
-                      </Text>
-                      {svc.displayName && svc.displayName !== svc.name && (
-                        <Text size="xs" c="dimmed">
-                          {svc.name}
-                        </Text>
-                      )}
-                    </Table.Td>
-                    <Table.Td>
-                      <Badge variant="light" size="sm" color={status?.color ?? 'gray'}>
-                        {status?.label ?? (svc.status || 'Desconhecido')}
-                      </Badge>
-                    </Table.Td>
-                    <Table.Td>{START_TYPE[svc.startType.toLowerCase()] ?? svc.startType}</Table.Td>
-                    <Table.Td>{svc.username}</Table.Td>
-                  </Table.Tr>
-                );
-              })}
-            </Table.Tbody>
-          </Table>
-        </Table.ScrollContainer>
-      </Paper>
-    </>
   );
 }

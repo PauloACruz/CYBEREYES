@@ -32,6 +32,7 @@ import { authApi } from '../../api/auth';
 import { visibleNavItems } from '../../app/navigation';
 import { PATHS } from '../../app/paths';
 import { useMe } from '../../auth/useMe';
+import { ConsoleHubContext } from '../../realtime/consoleHubContext';
 import { useConsoleHub } from '../../realtime/useConsoleHub';
 import { ChangePasswordModal } from './ChangePasswordModal';
 
@@ -48,7 +49,7 @@ function isActive(pathname: string, to: string): boolean {
 
 export function AppLayout() {
   const { data: me } = useMe();
-  useConsoleHub();
+  const hub = useConsoleHub();
   const [navOpened, nav] = useDisclosure(false);
   const [passwordOpened, passwordModal] = useDisclosure(false);
   const { pathname } = useLocation();
@@ -147,7 +148,9 @@ export function AppLayout() {
             </Center>
           }
         >
-          <Outlet />
+          <ConsoleHubContext.Provider value={hub}>
+            <Outlet />
+          </ConsoleHubContext.Provider>
         </Suspense>
       </AppShell.Main>
 

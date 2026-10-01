@@ -1,6 +1,9 @@
 import { notifications } from '@mantine/notifications';
 import type { ErrorCode, ProblemDetails } from './types';
 
+export const AGENT_TIMEOUT_TITLE = 'O agente não respondeu a tempo';
+const AGENT_TIMEOUT_DETAIL = 'Verifique se ele está online e tente novamente.';
+
 export class ApiError extends Error {
   readonly status: number;
   readonly code: ErrorCode | undefined;
@@ -8,7 +11,7 @@ export class ApiError extends Error {
   readonly problem: ProblemDetails;
 
   constructor(status: number, problem: ProblemDetails) {
-    const title = problem.title ?? defaultTitle(status);
+    const title = problem.code === 'AGENT_TIMEOUT' ? AGENT_TIMEOUT_TITLE : (problem.title ?? defaultTitle(status));
     super(title);
     this.name = 'ApiError';
     this.status = status;
@@ -22,6 +25,13 @@ export class ApiError extends Error {
   }
 }
 
+
+/** Texto amigavel para exibir junto ao titulo do erro. */
+export function errorDetail(error: ApiError): string {
+  if (error.code === 'AGENT_TIMEOUT') return AGENT_TIMEOUT_DETAIL;
+  return error.problem.detail ?? describeStatus(error.status);
+}
+
 export interface ApiClientHandlers {
   onUnauthorized: () => void;
   onMfaRequired: () => void;
@@ -32,7 +42,7 @@ function showErrorNotification(error: ApiError): void {
   notifications.show({
     color: 'red',
     title: error.title,
-    message: error.problem.detail ?? describeStatus(error.status),
+    message: errorDetail(error),
   });
 }
 

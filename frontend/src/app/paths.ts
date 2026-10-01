@@ -10,6 +10,8 @@ export const PATHS = {
   roles: '/papeis',
   apiKeys: '/chaves-api',
   audit: '/auditoria',
+  scripts: '/scripts',
+  settings: '/configuracoes',
 } as const;
 
 export function agentPath(id: number): string {
