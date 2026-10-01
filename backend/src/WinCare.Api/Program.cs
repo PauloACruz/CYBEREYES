@@ -65,6 +65,14 @@ if (builder.Configuration.GetConnectionString("Redis") is { Length: > 0 } redis)
 }
 builder.Services.AddSingleton<IAgentNotifier, AgentNotifier>();
 builder.Services.AddScoped<WinCare.Api.Rmm.Actions.SystemEndpoints.Deps>();
+builder.Services.AddHttpClient("webhooks");
+builder.Services.AddSingleton<WinCare.Api.Rmm.Monitoring.INotificationSender, WinCare.Api.Rmm.Monitoring.NotificationSender>();
+builder.Services.AddScoped<WinCare.Api.Rmm.Monitoring.AlertService>();
+builder.Services.AddSingleton<WinCare.Api.Rmm.Monitoring.AgentTaskScheduler>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<WinCare.Api.Rmm.Monitoring.AgentTaskScheduler>());
+builder.Services.AddSingleton<WinCare.Api.Rmm.Monitoring.PatchScheduler>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<WinCare.Api.Rmm.Monitoring.PatchScheduler>());
+builder.Services.AddHostedService<WinCare.Api.Rmm.Monitoring.MaintenanceService>();
 builder.Services.AddSingleton(sp => new WinCare.Api.Rmm.Actions.TerminalSessions(
     sp.GetService<NATS.Client.Core.INatsConnection>(), sp.GetRequiredService<IAgentRpc>(),
     sp.GetRequiredService<Microsoft.AspNetCore.SignalR.IHubContext<ConsoleHub>>(),
@@ -72,7 +80,8 @@ builder.Services.AddSingleton(sp => new WinCare.Api.Rmm.Actions.TerminalSessions
 builder.Services.AddSingleton<NatsAuthWriter>();
 builder.Services.AddSingleton<NatsAuthSync>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<NatsAuthSync>());
-builder.Services.AddHostedService<AgentStatusMonitor>();
+builder.Services.AddSingleton<AgentStatusMonitor>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<AgentStatusMonitor>());
 var nats = builder.Configuration.GetSection(NatsSettings.Section).Get<NatsSettings>() ?? new NatsSettings();
 if (nats.Enabled)
 {
@@ -146,6 +155,8 @@ app.MapAgentProtocolEndpoints();
 WinCare.Api.Rmm.Actions.CommandEndpoints.MapCommandEndpoints(app);
 WinCare.Api.Rmm.Actions.SystemEndpoints.MapSystemEndpoints(app);
 WinCare.Api.Rmm.Actions.LibraryEndpoints.MapLibraryEndpoints(app);
+WinCare.Api.Rmm.Monitoring.ChecksTasksEndpoints.MapChecksTasksEndpoints(app);
+WinCare.Api.Rmm.Monitoring.AlertsPatchesEndpoints.MapAlertsPatchesEndpoints(app);
 
 if (args.Contains("--migrate-only"))
 {

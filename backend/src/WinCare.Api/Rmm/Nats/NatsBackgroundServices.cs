@@ -108,6 +108,8 @@ public sealed partial class CheckinConsumer(
                 if (changed > 0)
                 {
                     await notifier.StatusChangedAsync(agentId, AgentStatus.Online, now, ct);
+                    var pk = await db.Agents.Where(a => a.AgentId == agentId).Select(a => a.Id).FirstAsync(ct);
+                    await AgentStatusMonitor.AvailabilityAlertAsync(scope.ServiceProvider, pk, AgentStatus.Online, ct);
                 }
                 break;
 
@@ -206,7 +208,26 @@ public sealed partial class AgentStatusMonitor(IServiceScopeFactory scopes, IAge
             if (updated > 0)
             {
                 await notifier.StatusChangedAsync(agent.AgentId, status, agent.LastSeen, ct);
+                await AvailabilityAlertAsync(scope.ServiceProvider, agent.Id, status, ct);
             }
+        }
+    }
+
+    public static async Task AvailabilityAlertAsync(IServiceProvider services, int agentId, string status, CancellationToken ct)
+    {
+        var alerts = services.GetRequiredService<Monitoring.AlertService>();
+        if (status == AgentStatus.Overdue)
+        {
+            var template = await alerts.TemplateForAsync(agentId, ct);
+            var db = services.GetRequiredService<WinCareDbContext>();
+            var hostname = await db.Agents.Where(a => a.Id == agentId).Select(a => a.Hostname).FirstOrDefaultAsync(ct);
+            await alerts.RaiseAsync(new Monitoring.AlertRequest(agentId, Core.Rmm.AlertTypes.Availability, null, null, Core.Rmm.Severity.Error,
+                $"{hostname}: agente sem comunicacao (em atraso)", template?.AgentOverdueEmail == true, template?.AgentOverdueWebhook == true,
+                template?.AgentOverdueDashboard ?? true), ct);
+        }
+        else if (status == AgentStatus.Online)
+        {
+            await alerts.ResolveAsync(agentId, Core.Rmm.AlertTypes.Availability, null, null, ct);
         }
     }
 

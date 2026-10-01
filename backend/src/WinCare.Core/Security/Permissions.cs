@@ -19,6 +19,12 @@ public static class Permissions
     public const string AgentsControl = "agents.control";
     public const string ScriptsView = "scripts.view";
     public const string ScriptsManage = "scripts.manage";
+    public const string ChecksManage = "checks.manage";
+    public const string PoliciesManage = "policies.manage";
+    public const string AlertsView = "alerts.view";
+    public const string AlertsManage = "alerts.manage";
+    public const string PatchesManage = "patches.manage";
+    public const string SoftwareManage = "software.manage";
 
     public static IReadOnlyList<PermissionInfo> Catalog { get; } =
     [
@@ -37,6 +43,12 @@ public static class Permissions
         new(AgentsControl, "Agentes", "Encerrar processos, controlar servicos, editar registro, reiniciar e desligar"),
         new(ScriptsView, "Scripts", "Ver a biblioteca de scripts"),
         new(ScriptsManage, "Scripts", "Criar, editar e excluir scripts e snippets"),
+        new(ChecksManage, "Monitoramento", "Criar, editar e excluir checks e tarefas"),
+        new(PoliciesManage, "Monitoramento", "Gerenciar e atribuir politicas"),
+        new(AlertsView, "Alertas", "Ver alertas"),
+        new(AlertsManage, "Alertas", "Resolver e silenciar alertas, editar templates"),
+        new(PatchesManage, "Atualizacoes", "Aprovar e instalar atualizacoes do Windows"),
+        new(SoftwareManage, "Software", "Instalar software nos agentes"),
     ];
 
     private static readonly HashSet<string> Known = Catalog.Select(p => p.Key).ToHashSet(StringComparer.Ordinal);

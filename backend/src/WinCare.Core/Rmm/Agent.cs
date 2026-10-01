@@ -63,6 +63,9 @@ public sealed class Agent
     public required string TokenHash { get; set; }
     public required string NatsPasswordHash { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public int? PolicyId { get; set; }
+    public bool BlockPolicyInheritance { get; set; }
+    public int? AlertTemplateId { get; set; }
 }
 
 public sealed class AgentSoftware

@@ -24,6 +24,19 @@ public sealed class WinCareDbContext(DbContextOptions<WinCareDbContext> options)
     public DbSet<GlobalKey> GlobalKeys => Set<GlobalKey>();
     public DbSet<UrlAction> UrlActions => Set<UrlAction>();
     public DbSet<AgentHistory> AgentHistory => Set<AgentHistory>();
+    public DbSet<Policy> Policies => Set<Policy>();
+    public DbSet<Check> Checks => Set<Check>();
+    public DbSet<CheckResult> CheckResults => Set<CheckResult>();
+    public DbSet<CheckHistory> CheckHistory => Set<CheckHistory>();
+    public DbSet<AutomatedTask> Tasks => Set<AutomatedTask>();
+    public DbSet<TaskResult> TaskResults => Set<TaskResult>();
+    public DbSet<TaskDispatch> TaskDispatches => Set<TaskDispatch>();
+    public DbSet<Alert> Alerts => Set<Alert>();
+    public DbSet<AlertTemplate> AlertTemplates => Set<AlertTemplate>();
+    public DbSet<WinUpdate> WinUpdates => Set<WinUpdate>();
+    public DbSet<PatchPolicy> PatchPolicies => Set<PatchPolicy>();
+    public DbSet<PendingAction> PendingActions => Set<PendingAction>();
+    public DbSet<CoreSettings> CoreSettings => Set<CoreSettings>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -178,6 +191,8 @@ public sealed class WinCareDbContext(DbContextOptions<WinCareDbContext> options)
             e.HasOne(x => x.Agent).WithMany().HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.Cascade);
         });
 
+        ConfigureMonitoring(builder);
+
         builder.Entity<Deployment>(e =>
         {
             e.ToTable("deployments");
@@ -188,5 +203,156 @@ public sealed class WinCareDbContext(DbContextOptions<WinCareDbContext> options)
             e.HasOne(d => d.Site).WithMany().HasForeignKey(d => d.SiteId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(d => d.InstallerToken).WithMany().HasForeignKey(d => d.InstallerTokenId).OnDelete(DeleteBehavior.Cascade);
         });
+    }
+
+    private static void ConfigureMonitoring(ModelBuilder builder)
+    {
+        builder.Entity<Policy>(e =>
+        {
+            e.ToTable("policies");
+            e.Property(x => x.Name).HasMaxLength(255);
+            e.HasIndex(x => x.Name).IsUnique();
+            e.Property(x => x.Description).HasMaxLength(1000);
+        });
+
+        builder.Entity<Check>(e =>
+        {
+            e.ToTable("checks");
+            e.Property(x => x.CheckType).HasMaxLength(32);
+            e.Property(x => x.Name).HasMaxLength(255);
+            e.Property(x => x.AlertSeverity).HasMaxLength(16);
+            e.Property(x => x.Disk).HasMaxLength(64);
+            e.Property(x => x.Ip).HasMaxLength(255);
+            e.Property(x => x.SvcName).HasMaxLength(255);
+            e.Property(x => x.LogName).HasMaxLength(32);
+            e.Property(x => x.EventType).HasMaxLength(32);
+            e.Property(x => x.EventSource).HasMaxLength(255);
+            e.Property(x => x.FailWhen).HasMaxLength(16);
+            e.HasIndex(x => x.AgentId);
+            e.HasIndex(x => x.PolicyId);
+            e.HasOne<Agent>().WithMany().HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<Policy>().WithMany().HasForeignKey(x => x.PolicyId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<Script>().WithMany().HasForeignKey(x => x.ScriptId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<CheckResult>(e =>
+        {
+            e.ToTable("check_results");
+            e.HasIndex(x => new { x.AgentId, x.CheckId }).IsUnique();
+            e.Property(x => x.Status).HasMaxLength(16);
+            e.Property(x => x.AlertSeverity).HasMaxLength(16);
+            e.Property(x => x.ExtraDetails).HasColumnType("jsonb");
+            e.HasOne<Agent>().WithMany().HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<Check>().WithMany().HasForeignKey(x => x.CheckId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<CheckHistory>(e =>
+        {
+            e.ToTable("check_history");
+            e.Property(x => x.Status).HasMaxLength(16);
+            e.HasIndex(x => new { x.CheckId, x.AgentId, x.Time });
+            e.HasIndex(x => x.Time);
+        });
+
+        builder.Entity<AutomatedTask>(e =>
+        {
+            e.ToTable("tasks");
+            e.Property(x => x.Name).HasMaxLength(255);
+            e.Property(x => x.AlertSeverity).HasMaxLength(16);
+            e.Property(x => x.Actions).HasColumnType("jsonb");
+            e.Property(x => x.ScheduleType).HasMaxLength(32);
+            e.Property(x => x.Time).HasMaxLength(5);
+            e.HasIndex(x => x.AgentId);
+            e.HasIndex(x => x.PolicyId);
+            e.HasOne<Agent>().WithMany().HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<Policy>().WithMany().HasForeignKey(x => x.PolicyId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<Check>().WithMany().HasForeignKey(x => x.AssignedCheckId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<TaskResult>(e =>
+        {
+            e.ToTable("task_results");
+            e.HasIndex(x => new { x.AgentId, x.TaskId }).IsUnique();
+            e.Property(x => x.Status).HasMaxLength(16);
+            e.HasOne<Agent>().WithMany().HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<AutomatedTask>().WithMany().HasForeignKey(x => x.TaskId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<TaskDispatch>(e =>
+        {
+            e.ToTable("task_dispatches");
+            e.HasIndex(x => new { x.TaskId, x.AgentId, x.Slot }).IsUnique();
+            e.HasIndex(x => x.Slot);
+        });
+
+        builder.Entity<Alert>(e =>
+        {
+            e.ToTable("alerts");
+            e.Property(x => x.AlertType).HasMaxLength(16);
+            e.Property(x => x.Severity).HasMaxLength(16);
+            e.Property(x => x.Message).HasMaxLength(2000);
+            e.HasIndex(x => new { x.Resolved, x.CreatedAt });
+            e.HasIndex(x => new { x.AgentId, x.CheckId, x.TaskId, x.Resolved });
+            e.HasOne(x => x.Agent).WithMany().HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<AlertTemplate>(e =>
+        {
+            e.ToTable("alert_templates");
+            e.Property(x => x.Name).HasMaxLength(255);
+            e.HasIndex(x => x.Name).IsUnique();
+            e.Property(x => x.EmailRecipients).HasColumnType("text[]");
+            e.Property(x => x.EmailSeverities).HasColumnType("text[]");
+            e.Property(x => x.WebhookSeverities).HasColumnType("text[]");
+            e.Property(x => x.DashboardSeverities).HasColumnType("text[]");
+            e.Property(x => x.WebhookUrl).HasMaxLength(2000);
+        });
+
+        builder.Entity<WinUpdate>(e =>
+        {
+            e.ToTable("win_updates");
+            e.Property(x => x.UpdateGuid).HasMaxLength(64);
+            e.Property(x => x.Kb).HasMaxLength(32);
+            e.Property(x => x.Severity).HasMaxLength(32);
+            e.Property(x => x.Action).HasMaxLength(16);
+            e.Property(x => x.Result).HasMaxLength(16);
+            e.HasIndex(x => new { x.AgentId, x.UpdateGuid }).IsUnique();
+            e.HasOne<Agent>().WithMany().HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<PatchPolicy>(e =>
+        {
+            e.ToTable("patch_policies");
+            e.HasIndex(x => x.PolicyId).IsUnique();
+            e.HasIndex(x => x.AgentId).IsUnique();
+            e.HasOne<Agent>().WithMany().HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<Policy>().WithMany().HasForeignKey(x => x.PolicyId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<PendingAction>(e =>
+        {
+            e.ToTable("pending_actions");
+            e.Property(x => x.Type).HasMaxLength(32);
+            e.Property(x => x.Status).HasMaxLength(16);
+            e.Property(x => x.Details).HasColumnType("jsonb");
+            e.HasIndex(x => new { x.AgentId, x.Status });
+            e.HasOne<Agent>().WithMany().HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<CoreSettings>(e =>
+        {
+            e.ToTable("core_settings");
+            e.Property(x => x.Id).ValueGeneratedNever();
+            e.Property(x => x.TimeZone).HasMaxLength(64);
+        });
+
+        builder.Entity<Client>().HasOne<Policy>().WithMany().HasForeignKey(c => c.ServerPolicyId).OnDelete(DeleteBehavior.SetNull);
+        builder.Entity<Client>().HasOne<Policy>().WithMany().HasForeignKey(c => c.WorkstationPolicyId).OnDelete(DeleteBehavior.SetNull);
+        builder.Entity<Client>().HasOne<AlertTemplate>().WithMany().HasForeignKey(c => c.AlertTemplateId).OnDelete(DeleteBehavior.SetNull);
+        builder.Entity<Site>().HasOne<Policy>().WithMany().HasForeignKey(c => c.ServerPolicyId).OnDelete(DeleteBehavior.SetNull);
+        builder.Entity<Site>().HasOne<Policy>().WithMany().HasForeignKey(c => c.WorkstationPolicyId).OnDelete(DeleteBehavior.SetNull);
+        builder.Entity<Site>().HasOne<AlertTemplate>().WithMany().HasForeignKey(c => c.AlertTemplateId).OnDelete(DeleteBehavior.SetNull);
+        builder.Entity<Agent>().HasOne<Policy>().WithMany().HasForeignKey(a => a.PolicyId).OnDelete(DeleteBehavior.SetNull);
+        builder.Entity<Agent>().HasOne<AlertTemplate>().WithMany().HasForeignKey(a => a.AlertTemplateId).OnDelete(DeleteBehavior.SetNull);
     }
 }

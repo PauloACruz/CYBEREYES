@@ -53,6 +53,7 @@ public static class AgentHistoryType
 {
     public const string CommandRun = "cmd_run";
     public const string ScriptRun = "script_run";
+    public const string TaskRun = "task_run";
 }
 
 public sealed class AgentHistory

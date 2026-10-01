@@ -30,23 +30,23 @@ public static class AgentProtocolEndpoints
 
         var agent = app.MapGroup("/api/v3").RequireAuthorization(Policies.Agent).ExcludeFromDescription();
         agent.MapGet("/{agentId}/config/", Config);
-        agent.MapGet("/{agentId}/checkinterval/", CheckIntervalAsync);
-        agent.MapGet("/{agentId}/checkrunner/", ChecksAsync);
-        agent.MapGet("/{agentId}/runchecks/", ChecksAsync);
-        agent.MapPatch("/checkrunner/", () => Ok);
-        agent.MapPost("/checkin/", () => Ok);
+        agent.MapGet("/{agentId}/checkinterval/", Monitoring.MonitoringProtocol.CheckIntervalAsync);
+        agent.MapGet("/{agentId}/checkrunner/", (ClaimsPrincipal p, WinCareDbContext db, TimeProvider t, CancellationToken ct) => Monitoring.MonitoringProtocol.ChecksAsync(false, p, db, t, ct));
+        agent.MapGet("/{agentId}/runchecks/", (ClaimsPrincipal p, WinCareDbContext db, TimeProvider t, CancellationToken ct) => Monitoring.MonitoringProtocol.ChecksAsync(true, p, db, t, ct));
+        agent.MapPatch("/checkrunner/", Monitoring.MonitoringProtocol.CheckResultAsync);
+        agent.MapPost("/checkin/", Monitoring.MonitoringProtocol.CheckinAsync);
         agent.MapPost("/syncmesh/", SyncMeshAsync);
         agent.MapPost("/choco/", ChocoAsync);
         agent.MapPost("/software/", SoftwareAsync);
-        agent.MapPut("/winupdates/", () => Ok);
-        agent.MapPatch("/winupdates/", () => Ok);
-        agent.MapPost("/winupdates/", () => Ok);
-        agent.MapPost("/superseded/", () => Ok);
-        agent.MapGet("/{pk:int}/{agentId}/taskrunner/", () => Results.Json(new { detail = "Not found." }, statusCode: StatusCodes.Status404NotFound));
-        agent.MapPatch("/{pk:int}/{agentId}/taskrunner/", () => Ok);
+        agent.MapPut("/winupdates/", Monitoring.MonitoringProtocol.WinUpdatesPutAsync);
+        agent.MapPatch("/winupdates/", Monitoring.MonitoringProtocol.WinUpdatesPatchAsync);
+        agent.MapPost("/winupdates/", Monitoring.MonitoringProtocol.WinUpdatesPostAsync);
+        agent.MapPost("/superseded/", Monitoring.MonitoringProtocol.SupersededAsync);
+        agent.MapGet("/{pk:int}/{agentId}/taskrunner/", Monitoring.MonitoringProtocol.TaskGetAsync);
+        agent.MapPatch("/{pk:int}/{agentId}/taskrunner/", Monitoring.MonitoringProtocol.TaskResultAsync);
         agent.MapPatch("/{pk:int}/{agentId}/histresult/", HistoryResultAsync);
         agent.MapGet("/{agentId}/meshreinstall/", () => Error("MeshCentral ainda nao configurado"));
-        app.MapPatch("/api/v4/{agentId}/{pk:int}/chocoresult/", () => Ok).RequireAuthorization(Policies.Agent).ExcludeFromDescription();
+        app.MapPatch("/api/v4/{agentId}/{pk:long}/chocoresult/", Monitoring.MonitoringProtocol.ChocoResultAsync).RequireAuthorization(Policies.Agent).ExcludeFromDescription();
     }
 
     private static IResult Error(string message) => Results.Json(message, statusCode: StatusCodes.Status400BadRequest);
@@ -145,22 +145,6 @@ public static class AgentProtocolEndpoints
         });
     }
 
-    private static async Task<IResult> CheckIntervalAsync(ClaimsPrincipal principal, WinCareDbContext db, CancellationToken ct)
-    {
-        var agent = await CurrentAsync(principal, db, ct);
-        return agent is null
-            ? Results.NotFound()
-            : Results.Json(new { agent = agent.Id, check_interval = agent.CheckInterval + Random.Shared.Next(1, 61) });
-    }
-
-    private static async Task<IResult> ChecksAsync(ClaimsPrincipal principal, WinCareDbContext db, CancellationToken ct)
-    {
-        var agent = await CurrentAsync(principal, db, ct);
-        return agent is null
-            ? Results.NotFound()
-            : Results.Json(new { agent = agent.Id, check_interval = agent.CheckInterval + Random.Shared.Next(1, 61), checks = Array.Empty<object>() });
-    }
-
     private static async Task<IResult> SyncMeshAsync(JsonElement body, ClaimsPrincipal principal, WinCareDbContext db, CancellationToken ct)
     {
         var nodeId = Truncate(Text(body, "nodeid"), 255);
@@ -227,12 +211,6 @@ public static class AgentProtocolEndpoints
 
     private static int AgentPk(ClaimsPrincipal principal) =>
         int.Parse(principal.FindFirstValue(WinCareClaims.AgentPk)!, CultureInfo.InvariantCulture);
-
-    private static Task<Agent?> CurrentAsync(ClaimsPrincipal principal, WinCareDbContext db, CancellationToken ct)
-    {
-        var pk = AgentPk(principal);
-        return db.Agents.AsNoTracking().FirstOrDefaultAsync(a => a.Id == pk, ct);
-    }
 
     private static string? Text(JsonElement body, string name) =>
         body.ValueKind == JsonValueKind.Object && body.TryGetProperty(name, out var value)

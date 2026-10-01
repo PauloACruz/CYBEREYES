@@ -1,6 +1,11 @@
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using WinCare.Api.Rmm.Monitoring;
+using WinCare.Core.Rmm;
 using OtpNet;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
@@ -12,6 +17,8 @@ public sealed class ApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
 {
     public const string AdminUsername = "admin";
     public const string AdminPassword = "senha-admin-de-teste";
+
+    public RecordingSender Notifications { get; } = new();
 
     public const string NatsApiUser = "wincare-api";
     public const string NatsApiPassword = "senha-nats-teste";
@@ -74,6 +81,11 @@ public sealed class ApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseSetting("Nats:Password", NatsApiPassword);
         builder.UseSetting("Nats:AuthFile", Path.Combine(NatsAuthDir, "users.conf"));
         builder.UseSetting("App:PublicUrl", "https://rmm.exemplo.com");
+        builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<INotificationSender>();
+            services.AddSingleton<INotificationSender>(Notifications);
+        });
     }
 
     public HttpClient NewClient() => CreateClient(new WebApplicationFactoryClientOptions
@@ -141,4 +153,28 @@ public sealed class ApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
 public sealed class ApiCollection : ICollectionFixture<ApiFixture>
 {
     public const string Name = "api";
+}
+
+public sealed class RecordingSender : INotificationSender
+{
+    public List<(string Url, string Payload)> Webhooks { get; } = [];
+    public List<(IReadOnlyList<string> To, string Subject)> Emails { get; } = [];
+
+    public Task SendEmailAsync(CoreSettings settings, IReadOnlyList<string> recipients, string subject, string body, CancellationToken ct)
+    {
+        lock (Emails)
+        {
+            Emails.Add((recipients, subject));
+        }
+        return Task.CompletedTask;
+    }
+
+    public Task SendWebhookAsync(string url, object payload, CancellationToken ct)
+    {
+        lock (Webhooks)
+        {
+            Webhooks.Add((url, System.Text.Json.JsonSerializer.Serialize(payload)));
+        }
+        return Task.CompletedTask;
+    }
 }
