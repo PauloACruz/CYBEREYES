@@ -8,6 +8,8 @@ import type {
   TicketDetail,
   TicketListItem,
   TicketMessageDto,
+  WinCareCatalog,
+  WinCareRunDto,
 } from '../api/types';
 
 export function makeAgent(overrides: Partial<AgentListItem> = {}): AgentListItem {
@@ -196,6 +198,67 @@ export function makePerson(overrides: Partial<PersonListItem> = {}): PersonListI
     username: 'maria',
     active: true,
     assetCount: 0,
+    ...overrides,
+  };
+}
+
+export function makeWinCareCatalog(): WinCareCatalog {
+  return {
+    version: '2.12.0',
+    modules: [
+      {
+        key: 'maintenance',
+        label: 'Manutenção',
+        description: 'Limpeza e reparos do sistema.',
+        platforms: ['windows'],
+        tasks: [
+          {
+            key: 'temp',
+            label: 'Limpar arquivos temporários',
+            group: 'Limpeza',
+            description: 'Remove arquivos temporários do sistema e dos usuários.',
+            default: true,
+            platforms: ['windows'],
+            selfService: true,
+            reboot: false,
+            dangerous: false,
+            params: [],
+          },
+          {
+            key: 'dism',
+            label: 'Reparar imagem (DISM)',
+            group: 'Reparo',
+            description: 'Executa DISM /RestoreHealth.',
+            default: false,
+            platforms: ['windows'],
+            selfService: false,
+            reboot: true,
+            dangerous: true,
+            params: [{ name: 'source', label: 'Origem da imagem', type: 'string', required: true }],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+export function makeWinCareRun(overrides: Partial<WinCareRunDto> = {}): WinCareRunDto {
+  return {
+    id: 1,
+    runId: 'wc-0123456789abcdef0123456789abcdef',
+    agentId: 1,
+    hostname: 'PC-RECEPCAO',
+    module: 'maintenance',
+    tasks: ['temp', 'dism'],
+    params: {},
+    status: 'running',
+    progress: 0,
+    startedAt: '2026-10-01T10:00:00Z',
+    finishedAt: null,
+    requestedBy: 'tecnico',
+    source: 'console',
+    rebootRequired: false,
+    taskStatus: {},
     ...overrides,
   };
 }

@@ -3,6 +3,7 @@ import { PageHeader } from '../../components/PageHeader';
 import { KeystoreSection } from './KeystoreSection';
 import { MeshSection } from './MeshSection';
 import { NotificationsSection } from './NotificationsSection';
+import { SelfServiceSection } from './SelfServiceSection';
 import { TicketsSection } from './TicketsSection';
 import { UrlActionsSection } from './UrlActionsSection';
 
@@ -16,6 +17,7 @@ export function SettingsPage() {
         <UrlActionsSection />
         <MeshSection />
         <TicketsSection />
+        <SelfServiceSection />
       </Stack>
     </>
   );

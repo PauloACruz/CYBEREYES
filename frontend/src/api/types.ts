@@ -22,6 +22,7 @@ export type ErrorCode =
   | 'CONFLICT'
   | 'RATE_LIMITED'
   | 'AGENT_TIMEOUT'
+  | 'AGENT_BUSY'
   | 'MESH_DISABLED'
   | 'VAULT_DISABLED';
 
@@ -547,6 +548,7 @@ export const PERMISSIONS = {
   docsManage: 'docs.manage',
   credentialsReveal: 'credentials.reveal',
   credentialsManage: 'credentials.manage',
+  wincareRun: 'wincare.run',
 } as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -1482,4 +1484,140 @@ export interface SaveDocPageRequest {
   siteId?: number;
   title: string;
   body: string;
+}
+
+// WinCare no agente, Health Check e autoatendimento (docs/api/fase7-agente.md)
+
+export type WinCareParamType = 'string' | 'bool' | 'number' | 'select';
+export type WinCareParamValue = string | number | boolean;
+
+export interface WinCareParam {
+  name: string;
+  label: string;
+  type: WinCareParamType;
+  options?: string[];
+  default?: WinCareParamValue;
+  required: boolean;
+}
+
+export interface WinCareTask {
+  key: string;
+  label: string;
+  group: string;
+  description: string;
+  default: boolean;
+  platforms: AgentPlat[];
+  selfService: boolean;
+  reboot: boolean;
+  dangerous: boolean;
+  params: WinCareParam[];
+}
+
+export interface WinCareModule {
+  key: string;
+  label: string;
+  description: string;
+  platforms: AgentPlat[];
+  tasks: WinCareTask[];
+}
+
+export interface WinCareCatalog {
+  version: string;
+  modules: WinCareModule[];
+}
+
+export type WinCareRunStatus = 'running' | 'ok' | 'warning' | 'error' | 'cancelled' | 'timeout';
+export type WinCareTaskStatus = 'running' | 'ok' | 'warning' | 'error' | 'skipped';
+export type WinCareLogLevel = 'INFO' | 'WARN' | 'ERROR' | 'SUCCESS';
+
+interface WinCareEventBase {
+  seq: number;
+  time: string;
+}
+
+export interface WinCareLogEvent extends WinCareEventBase {
+  type: 'log';
+  level: WinCareLogLevel;
+  message: string;
+}
+
+export interface WinCareProgressEvent extends WinCareEventBase {
+  type: 'progress';
+  value: number;
+  message?: string;
+}
+
+export interface WinCareTaskEvent extends WinCareEventBase {
+  type: 'task';
+  key: string;
+  status: WinCareTaskStatus;
+  message?: string;
+}
+
+export interface WinCareResultEvent extends WinCareEventBase {
+  type: 'result';
+  data: unknown;
+}
+
+export interface WinCareDoneEvent extends WinCareEventBase {
+  type: 'done';
+  status: Exclude<WinCareRunStatus, 'running'>;
+  durationMs: number;
+  rebootRequired: boolean;
+}
+
+export type WinCareEvent = WinCareLogEvent | WinCareProgressEvent | WinCareTaskEvent | WinCareResultEvent | WinCareDoneEvent;
+
+export interface WinCareRunDto {
+  id: number;
+  runId: string;
+  agentId: number;
+  hostname: string;
+  module: string;
+  tasks: string[];
+  params: Record<string, WinCareParamValue>;
+  status: WinCareRunStatus;
+  progress: number;
+  startedAt: string;
+  finishedAt: string | null;
+  requestedBy: string;
+  source: 'console' | 'tray';
+  rebootRequired: boolean;
+  taskStatus: Record<string, WinCareTaskStatus>;
+  /** Presente somente em GET /api/wincare/runs/{runId}, ordenados por seq. */
+  events?: WinCareEvent[];
+}
+
+export interface StartWinCareRunRequest {
+  module: string;
+  tasks: string[];
+  params?: Record<string, WinCareParamValue>;
+}
+
+export type HealthGrade = 'otimo' | 'bom' | 'atencao' | 'critico';
+export type HealthItemStatus = 'ok' | 'warning' | 'critical' | 'unknown';
+
+export interface HealthItem {
+  key: string;
+  label: string;
+  category: string;
+  status: HealthItemStatus;
+  value: string;
+  detail: string;
+  weight: number;
+  points: number;
+}
+
+export interface HealthReport {
+  score: number;
+  grade: HealthGrade;
+  collectedAt: string;
+  platform: string;
+  items: HealthItem[];
+}
+
+export interface SelfServiceSettings {
+  enabled: boolean;
+  /** Formato "modulo.tarefa". */
+  tasks: string[];
 }

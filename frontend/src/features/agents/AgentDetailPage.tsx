@@ -36,6 +36,7 @@ import {
   IconServer,
   IconTerminal2,
   IconTicket,
+  IconTool,
   IconTrash,
   IconWorldDownload,
   type Icon,
@@ -74,6 +75,7 @@ import { TasksTab } from './monitoring/TasksTab';
 import { UpdatesTab } from './monitoring/UpdatesTab';
 import { AgentTicketsTab } from '../tickets/AgentTicketsTab';
 import { AgentAssetButton } from '../inventory/AgentAssetButton';
+import { WinCareTab } from '../wincare/WinCareTab';
 
 // Abas pesadas (xterm.js e navegador do registro) carregam sob demanda.
 const TerminalTab = lazy(() => import('./actions/TerminalTab').then((m) => ({ default: m.TerminalTab })));
@@ -171,6 +173,7 @@ function AgentDetailView({ agent }: { agent: AgentDetail }) {
       },
     );
   }
+  if (hasPermission(me, PERMISSIONS.agentsView)) tabs.push({ value: 'wincare', label: 'WinCare', icon: IconTool, render: () => <WinCareTab agent={agent} /> });
   tabs.push({ value: 'historico', label: 'Histórico', icon: IconHistory, render: () => <HistoryTab agent={agent} /> });
 
   const requested = searchParams.get('aba');

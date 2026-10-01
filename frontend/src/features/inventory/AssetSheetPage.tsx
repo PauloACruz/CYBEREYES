@@ -55,6 +55,7 @@ import { AssetFormModal } from './AssetFormModal';
 import { AssetStatusBadge, AssetTypeLabel, IpKindBadge } from './AssetBadges';
 import { ASSET_TYPE_INFO, makeModel } from './inventoryFormat';
 import { ResponsibleCard } from './ResponsibleCard';
+import { HealthCard } from '../wincare/HealthCard';
 import { Field, Missing, SheetCard } from './sheetDisplay';
 import './print.css';
 
@@ -110,6 +111,7 @@ function AssetSheetView({ sheet }: { sheet: AssetSheet }) {
         <Grid.Col span={{ base: 12, lg: 4 }}>
           <Stack>
             <ResponsibleCard sheet={sheet} canManage={canManage} />
+            {sheet.agent && hasPermission(me, PERMISSIONS.agentsView) && <HealthCard agentId={sheet.agent.id} />}
             <TicketsCard sheet={sheet} me={me} />
             <HistoryCard sheet={sheet} />
           </Stack>

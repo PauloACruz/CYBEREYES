@@ -88,4 +88,11 @@ export const queryKeys = {
   docPages: ['doc-pages'] as const,
   docPageList: (clientId: number | undefined, search: string) => ['doc-pages', 'list', clientId ?? null, search] as const,
   docPage: (id: number) => ['doc-pages', 'detail', id] as const,
+  // WinCare: fora de ['agents'] para nao pedir o catalogo ao agente a cada agentsChanged.
+  wincareCatalog: (agentId: number) => ['agent-live', agentId, 'wincare-catalog'] as const,
+  wincareRunLists: ['wincare', 'runs'] as const,
+  wincareRuns: (agentId: number, page: number) => ['wincare', 'runs', agentId, page] as const,
+  wincareRun: (runId: string) => ['wincare', 'run', runId] as const,
+  agentHealth: (agentId: number) => ['agent-health', agentId] as const,
+  wincareSelfService: ['wincare-self-service'] as const,
 };
