@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using WinCare.Core.Audit;
 using WinCare.Core.Identity;
+using WinCare.Core.Inventory;
 using WinCare.Core.Rmm;
 using WinCare.Core.Tickets;
 
@@ -46,6 +47,16 @@ public sealed class WinCareDbContext(DbContextOptions<WinCareDbContext> options)
     public DbSet<TimeEntry> TimeEntries => Set<TimeEntry>();
     public DbSet<SlaRule> SlaRules => Set<SlaRule>();
     public DbSet<TrayToken> TrayTokens => Set<TrayToken>();
+    public DbSet<Asset> Assets => Set<Asset>();
+    public DbSet<Person> People => Set<Person>();
+    public DbSet<AssetAssignment> AssetAssignments => Set<AssetAssignment>();
+    public DbSet<Network> Networks => Set<Network>();
+    public DbSet<IpRecord> IpRecords => Set<IpRecord>();
+    public DbSet<Diagram> Diagrams => Set<Diagram>();
+    public DbSet<Credential> Credentials => Set<Credential>();
+    public DbSet<DocPage> DocPages => Set<DocPage>();
+    public DbSet<DocAttachment> DocAttachments => Set<DocAttachment>();
+    public DbSet<DocAttachmentData> DocAttachmentData => Set<DocAttachmentData>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -358,6 +369,7 @@ public sealed class WinCareDbContext(DbContextOptions<WinCareDbContext> options)
         });
 
         ConfigureTickets(builder);
+        ConfigureInventory(builder);
 
         builder.Entity<Client>().HasOne<Policy>().WithMany().HasForeignKey(c => c.ServerPolicyId).OnDelete(DeleteBehavior.SetNull);
         builder.Entity<Client>().HasOne<Policy>().WithMany().HasForeignKey(c => c.WorkstationPolicyId).OnDelete(DeleteBehavior.SetNull);
@@ -459,6 +471,139 @@ public sealed class WinCareDbContext(DbContextOptions<WinCareDbContext> options)
             e.HasIndex(x => x.TokenHash).IsUnique();
             e.HasIndex(x => x.ExpiresAt);
             e.HasOne<Agent>().WithMany().HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.Cascade);
+        });
+    }
+
+    private static void ConfigureInventory(ModelBuilder builder)
+    {
+        builder.Entity<Asset>(e =>
+        {
+            e.ToTable("assets");
+            e.Property(x => x.Type).HasMaxLength(32);
+            e.Property(x => x.Name).HasMaxLength(200);
+            e.Property(x => x.Manufacturer).HasMaxLength(200);
+            e.Property(x => x.Model).HasMaxLength(200);
+            e.Property(x => x.SerialNumber).HasMaxLength(200);
+            e.Property(x => x.AssetTag).HasMaxLength(100);
+            e.Property(x => x.Status).HasMaxLength(16);
+            e.Property(x => x.Location).HasMaxLength(200);
+            e.Property(x => x.IpAddress).HasMaxLength(64);
+            e.Property(x => x.MacAddress).HasMaxLength(32);
+            e.Property(x => x.Notes).HasMaxLength(5000);
+            e.HasIndex(x => x.AgentId).IsUnique();
+            e.HasIndex(x => new { x.ClientId, x.Type });
+            e.HasIndex(x => x.AssetTag);
+            e.HasOne<Client>().WithMany().HasForeignKey(x => x.ClientId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<Site>().WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne<Agent>().WithMany().HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<Person>(e =>
+        {
+            e.ToTable("people");
+            e.Property(x => x.Name).HasMaxLength(200);
+            e.Property(x => x.Email).HasMaxLength(256);
+            e.Property(x => x.Phone).HasMaxLength(64);
+            e.Property(x => x.Department).HasMaxLength(200);
+            e.Property(x => x.JobTitle).HasMaxLength(200);
+            e.Property(x => x.Username).HasMaxLength(256);
+            e.HasIndex(x => new { x.ClientId, x.Username });
+            e.HasOne<Client>().WithMany().HasForeignKey(x => x.ClientId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<AssetAssignment>(e =>
+        {
+            e.ToTable("asset_assignments");
+            e.Property(x => x.AssignedBy).HasMaxLength(200);
+            e.Property(x => x.Notes).HasMaxLength(1000);
+            e.HasIndex(x => new { x.AssetId, x.AssignedAt });
+            e.HasIndex(x => x.AssetId).IsUnique().HasFilter("\"UnassignedAt\" IS NULL").HasDatabaseName("IX_asset_assignments_open");
+            e.HasIndex(x => x.PersonId);
+            e.HasOne<Asset>().WithMany().HasForeignKey(x => x.AssetId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<Person>().WithMany().HasForeignKey(x => x.PersonId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<Network>(e =>
+        {
+            e.ToTable("networks");
+            e.Property(x => x.Name).HasMaxLength(200);
+            e.Property(x => x.Cidr).HasMaxLength(64);
+            e.Property(x => x.VlanName).HasMaxLength(100);
+            e.Property(x => x.Gateway).HasMaxLength(64);
+            e.Property(x => x.DnsServers).HasMaxLength(500);
+            e.Property(x => x.DhcpRange).HasMaxLength(200);
+            e.Property(x => x.Description).HasMaxLength(5000);
+            e.HasIndex(x => x.ClientId);
+            e.HasOne<Client>().WithMany().HasForeignKey(x => x.ClientId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<Site>().WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<IpRecord>(e =>
+        {
+            e.ToTable("ip_records");
+            e.Property(x => x.Address).HasMaxLength(64);
+            e.Property(x => x.Hostname).HasMaxLength(200);
+            e.Property(x => x.MacAddress).HasMaxLength(32);
+            e.Property(x => x.Kind).HasMaxLength(16);
+            e.Property(x => x.Description).HasMaxLength(1000);
+            e.HasIndex(x => new { x.NetworkId, x.Address }).IsUnique();
+            e.HasIndex(x => x.AssetId);
+            e.HasOne<Network>().WithMany().HasForeignKey(x => x.NetworkId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<Asset>().WithMany().HasForeignKey(x => x.AssetId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<Diagram>(e =>
+        {
+            e.ToTable("diagrams");
+            e.Property(x => x.Name).HasMaxLength(200);
+            e.Property(x => x.Data).HasColumnType("jsonb");
+            e.Property(x => x.UpdatedBy).HasMaxLength(200);
+            e.HasIndex(x => x.ClientId);
+            e.HasOne<Client>().WithMany().HasForeignKey(x => x.ClientId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<Site>().WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<Credential>(e =>
+        {
+            e.ToTable("credentials");
+            e.Property(x => x.Name).HasMaxLength(200);
+            e.Property(x => x.Username).HasMaxLength(256);
+            e.Property(x => x.Url).HasMaxLength(2000);
+            e.Property(x => x.Notes).HasMaxLength(5000);
+            e.Property(x => x.UpdatedBy).HasMaxLength(200);
+            e.HasIndex(x => x.ClientId);
+            e.HasIndex(x => x.AssetId);
+            e.HasOne<Client>().WithMany().HasForeignKey(x => x.ClientId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<Site>().WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne<Asset>().WithMany().HasForeignKey(x => x.AssetId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<DocPage>(e =>
+        {
+            e.ToTable("doc_pages");
+            e.Property(x => x.Title).HasMaxLength(200);
+            e.Property(x => x.Body).HasMaxLength(200000);
+            e.Property(x => x.UpdatedBy).HasMaxLength(200);
+            e.HasIndex(x => x.ClientId);
+            e.HasOne<Client>().WithMany().HasForeignKey(x => x.ClientId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<Site>().WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<DocAttachment>(e =>
+        {
+            e.ToTable("doc_attachments");
+            e.Property(x => x.OwnerType).HasMaxLength(16);
+            e.Property(x => x.FileName).HasMaxLength(255);
+            e.Property(x => x.ContentType).HasMaxLength(128);
+            e.Property(x => x.UploadedBy).HasMaxLength(200);
+            e.HasIndex(x => new { x.OwnerType, x.OwnerId });
+        });
+
+        builder.Entity<DocAttachmentData>(e =>
+        {
+            e.ToTable("doc_attachment_data");
+            e.HasKey(x => x.AttachmentId);
+            e.HasOne<DocAttachment>().WithOne().HasForeignKey<DocAttachmentData>(x => x.AttachmentId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

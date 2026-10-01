@@ -83,6 +83,7 @@ services:
       Mesh__Username: ${MESH_USER:-wincare}
       Mesh__TokenKeyFile: /mesh/mesh_token
       Mesh__DeviceGroup: ${MESH_DEVICE_GROUP:-WinCare}
+      Vault__Key: ${VAULT_KEY:-}
     volumes:
       - nats_auth:/etc/nats/auth
       - ./agents:/agents:ro

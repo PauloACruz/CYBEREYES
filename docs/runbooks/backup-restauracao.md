@@ -9,6 +9,7 @@ Meta (ver `.team-context.md`): RPO < 24 h, RTO < 2 h.
 | Dados do MeshCentral | volume `mesh_data` (configuracao, banco interno, certificados do agente Mesh) |
 | Arquivos do MeshCentral | volume `mesh_files` |
 | Configuracao | `infra/docker/.env` (guardar em cofre de senhas, nunca no Git) |
+| Chave do cofre | `VAULT_KEY` do `.env`. Fica fora do banco de proposito: o backup do PostgreSQL sozinho nao revela as senhas da documentacao, mas sem a chave elas nao podem ser recuperadas. Guarde-a em local separado do backup do banco |
 
 O volume `mesh_shared` (chave de token lida pela API) nao precisa de backup: o MeshCentral regrava o arquivo a partir do seu banco interno (`mesh_data`) na partida.
 

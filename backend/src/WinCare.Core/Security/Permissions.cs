@@ -28,6 +28,12 @@ public static class Permissions
     public const string AgentsRemote = "agents.remote";
     public const string TicketsView = "tickets.view";
     public const string TicketsManage = "tickets.manage";
+    public const string InventoryView = "inventory.view";
+    public const string InventoryManage = "inventory.manage";
+    public const string DocsView = "docs.view";
+    public const string DocsManage = "docs.manage";
+    public const string CredentialsReveal = "credentials.reveal";
+    public const string CredentialsManage = "credentials.manage";
 
     public static IReadOnlyList<PermissionInfo> Catalog { get; } =
     [
@@ -55,6 +61,12 @@ public static class Permissions
         new(AgentsRemote, "Agentes", "Acesso remoto pelo MeshCentral (tela, terminal e arquivos)"),
         new(TicketsView, "Chamados", "Ver chamados, conversas, anexos e apontamentos"),
         new(TicketsManage, "Chamados", "Criar, atribuir, responder e apontar horas em chamados"),
+        new(InventoryView, "Inventario", "Ver ativos, pessoas e fichas das maquinas"),
+        new(InventoryManage, "Inventario", "Cadastrar ativos e pessoas e atribuir responsaveis"),
+        new(DocsView, "Documentacao", "Ver redes, IPs, diagramas, paginas e lista de credenciais"),
+        new(DocsManage, "Documentacao", "Editar redes, IPs, diagramas, paginas e anexos"),
+        new(CredentialsReveal, "Documentacao", "Revelar senhas guardadas no cofre"),
+        new(CredentialsManage, "Documentacao", "Cadastrar e alterar credenciais do cofre"),
     ];
 
     private static readonly HashSet<string> Known = Catalog.Select(p => p.Key).ToHashSet(StringComparer.Ordinal);

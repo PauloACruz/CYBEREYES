@@ -57,6 +57,8 @@ public sealed class ApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
         }
         return dir?.FullName ?? throw new InvalidOperationException("Raiz do repositorio nao encontrada");
     }
+    public static readonly string VaultKey = Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
+
     private readonly Dictionary<string, string> totpKeys = new(StringComparer.Ordinal);
     private readonly SemaphoreSlim totpLock = new(1, 1);
 
@@ -81,6 +83,7 @@ public sealed class ApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseSetting("Nats:Password", NatsApiPassword);
         builder.UseSetting("Nats:AuthFile", Path.Combine(NatsAuthDir, "users.conf"));
         builder.UseSetting("App:PublicUrl", "https://rmm.exemplo.com");
+        builder.UseSetting("Vault:Key", VaultKey);
         builder.ConfigureTestServices(services =>
         {
             services.RemoveAll<INotificationSender>();
