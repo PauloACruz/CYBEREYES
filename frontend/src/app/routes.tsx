@@ -22,6 +22,37 @@ export const routes: RouteObject[] = [
         children: [
           { index: true, element: <DashboardPage /> },
           {
+            element: <RequirePermission permission={PERMISSIONS.agentsView} />,
+            children: [
+              {
+                path: PATHS.agents,
+                lazy: () => import('../features/agents/AgentsPage').then((m) => ({ Component: m.AgentsPage })),
+              },
+              {
+                path: `${PATHS.agents}/:id`,
+                lazy: () => import('../features/agents/AgentDetailPage').then((m) => ({ Component: m.AgentDetailPage })),
+              },
+            ],
+          },
+          {
+            element: <RequirePermission permission={PERMISSIONS.clientsView} />,
+            children: [
+              {
+                path: PATHS.clients,
+                lazy: () => import('../features/clients/ClientsPage').then((m) => ({ Component: m.ClientsPage })),
+              },
+            ],
+          },
+          {
+            element: <RequirePermission permission={PERMISSIONS.agentsInstall} />,
+            children: [
+              {
+                path: PATHS.deployments,
+                lazy: () => import('../features/deployments/DeploymentsPage').then((m) => ({ Component: m.DeploymentsPage })),
+              },
+            ],
+          },
+          {
             element: <RequirePermission permission={PERMISSIONS.usersView} />,
             children: [
               {

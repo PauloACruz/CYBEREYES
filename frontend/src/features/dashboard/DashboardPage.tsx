@@ -1,6 +1,9 @@
 import { Badge, Card, Group, SimpleGrid, Text, ThemeIcon, Title } from '@mantine/core';
-import { IconClipboardList, IconDeviceDesktop, IconTicket, type Icon } from '@tabler/icons-react';
+import { IconClipboardList, IconTicket, type Icon } from '@tabler/icons-react';
+import { PERMISSIONS } from '../../api/types';
+import { hasPermission } from '../../auth/permissions';
 import { useMe } from '../../auth/useMe';
+import { AgentStats } from './AgentStats';
 
 interface ComingSoonCard {
   title: string;
@@ -9,7 +12,6 @@ interface ComingSoonCard {
 }
 
 const CARDS: readonly ComingSoonCard[] = [
-  { title: 'Agentes', description: 'Monitoramento e gestão remota das estações.', icon: IconDeviceDesktop },
   { title: 'Chamados', description: 'Abertura, atribuição e acompanhamento de chamados e incidentes.', icon: IconTicket },
   { title: 'Inventário', description: 'Ativos, hardware, software e usuários responsáveis.', icon: IconClipboardList },
 ];
@@ -22,7 +24,11 @@ export function DashboardPage() {
     <>
       <Title order={2}>Olá, {firstName}!</Title>
       <Text c="dimmed" mt={4} mb="xl">
-        Bem-vindo ao WinCare. Os módulos abaixo chegam nas próximas fases.
+        Bem-vindo ao WinCare.
+      </Text>
+      {hasPermission(me, PERMISSIONS.agentsView) && <AgentStats />}
+      <Text fw={600} mb="sm">
+        Próximas fases
       </Text>
       <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
         {CARDS.map((card) => (

@@ -3,8 +3,15 @@ export const PATHS = {
   loginTwoFactor: '/login/2fa',
   twoFactorSetup: '/2fa/setup',
   dashboard: '/',
+  agents: '/agentes',
+  clients: '/clientes',
+  deployments: '/implantacoes',
   users: '/usuarios',
   roles: '/papeis',
   apiKeys: '/chaves-api',
   audit: '/auditoria',
 } as const;
+
+export function agentPath(id: number): string {
+  return `${PATHS.agents}/${id}`;
+}

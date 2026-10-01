@@ -109,7 +109,7 @@ Mesmo padrao da fase 0 (cookie, 2FA, ProblemDetails com `code`).
 | DELETE | `/api/agents/{id}` | 204 (`agents.manage`) |
 
 `AgentListItem`: `{ id, agentId, hostname, clientId, clientName, siteId, siteName, monitoringType, plat, operatingSystem, status, lastSeen, version, loggedInUsername, lastLoggedInUser, publicIp, needsReboot, description }`.
-`AgentDetail`: campos acima mais `goarch, totalRam (GB), bootTime, meshNodeId, disks (array JSON), services (array JSON), wmi (JSON), checkInterval, offlineTime, overdueTime, createdAt`.
+`AgentDetail`: campos acima mais `goArch, totalRam (GB), bootTime, meshNodeId, disks (array JSON), services (array JSON), wmi (JSON), checkInterval, offlineTime, overdueTime, createdAt`.
 `status`: `online`, `offline` ou `overdue`. `monitoringType`: `server` ou `workstation`.
 
 ### Instalacao (`agents.install`)
@@ -120,7 +120,7 @@ Mesmo padrao da fase 0 (cookie, 2FA, ProblemDetails com `code`).
 | POST | `/api/deployments` | `{ siteId, agentType, goarch?, expiresAt }` | 201 `DeploymentDto` |
 | DELETE | `/api/deployments/{id}` | | 204 |
 
-`DeploymentDto`: `{ id, uid, clientId, clientName, siteId, siteName, agentType, goarch, expiresAt, createdAt, createdBy, commands: { linux, darwin, windows } }`.
+`DeploymentDto`: `{ id, uid, clientId, clientName, siteId, siteName, agentType, goArch, expiresAt, createdAt, createdBy, commands: { linux, darwin, windows } }`.
 Em Linux, `agentType: "auto"` faz o script detectar o ambiente grafico (estacao) ou somente terminal (servidor).
 
 ### Tempo real (SignalR)

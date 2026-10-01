@@ -195,7 +195,141 @@ export interface ListAuditParams {
   to?: string;
 }
 
-// Catalogo de permissoes da fase 0
+// Clientes e sites (docs/api/fase1-agente.md, secao 7)
+
+export interface SiteDto {
+  id: number;
+  clientId: number;
+  name: string;
+  agentCount: number;
+}
+
+export interface ClientDto {
+  id: number;
+  name: string;
+  agentCount: number;
+  sites: SiteDto[];
+}
+
+export interface CreateClientRequest {
+  name: string;
+  siteName: string;
+}
+
+export interface NameRequest {
+  name: string;
+}
+
+// Agentes
+
+export type AgentStatus = 'online' | 'offline' | 'overdue';
+export type MonitoringType = 'server' | 'workstation';
+export type AgentPlat = 'windows' | 'linux' | 'darwin';
+export type InstallerAgentType = 'auto' | MonitoringType;
+export type GoArch = 'amd64' | '386' | 'arm64' | 'arm';
+
+export interface AgentListItem {
+  id: number;
+  agentId: string;
+  hostname: string;
+  clientId: number;
+  clientName: string;
+  siteId: number;
+  siteName: string;
+  monitoringType: MonitoringType;
+  plat: string;
+  operatingSystem: string | null;
+  status: AgentStatus;
+  lastSeen: string | null;
+  version: string;
+  loggedInUsername: string | null;
+  lastLoggedInUser: string | null;
+  publicIp: string | null;
+  needsReboot: boolean;
+  description: string | null;
+}
+
+export interface AgentDetail extends AgentListItem {
+  // O contrato escreve "goarch"; o backend serializa "goArch". Aceitar os dois.
+  goArch?: string | null;
+  goarch?: string | null;
+  /** Em GB. */
+  totalRam: number | null;
+  bootTime: string | null;
+  meshNodeId: string | null;
+  /** JSON enviado pelo agente; validar antes de usar. */
+  disks: unknown;
+  services: unknown;
+  wmi: unknown;
+  checkInterval: number;
+  offlineTime: number;
+  overdueTime: number;
+  createdAt: string;
+}
+
+export interface ListAgentsParams {
+  page: number;
+  pageSize: number;
+  clientId?: number;
+  siteId?: number;
+  status?: AgentStatus;
+  search?: string;
+}
+
+export interface PingResponse {
+  status: 'online' | 'offline';
+}
+
+// Instalacao e implantacoes
+
+export interface InstallerRequest {
+  siteId: number;
+  agentType: InstallerAgentType;
+  plat: AgentPlat;
+  goarch?: GoArch;
+  expiresHours: number;
+}
+
+export interface InstallerResponse {
+  command: string;
+  expiresAt: string;
+  plat: AgentPlat;
+}
+
+export interface DeploymentDto {
+  id: number;
+  uid: string;
+  clientId: number;
+  clientName: string;
+  siteId: number;
+  siteName: string;
+  agentType: InstallerAgentType;
+  // O contrato escreve "goarch"; o backend serializa "goArch". Aceitar os dois.
+  goArch?: string;
+  goarch?: string;
+  expiresAt: string;
+  createdAt: string;
+  createdBy: string;
+  commands: Partial<Record<AgentPlat, string>>;
+}
+
+export interface CreateDeploymentRequest {
+  siteId: number;
+  agentType: InstallerAgentType;
+  goarch?: GoArch;
+  expiresAt: string;
+}
+
+// Tempo real (hub /hubs/console)
+
+export interface AgentStatusChangedEvent {
+  /** Identificador do agente (campo agentId), nao o id numerico. */
+  agentId: string;
+  status: AgentStatus;
+  lastSeen: string | null;
+}
+
+// Catalogo de permissoes
 
 export const PERMISSIONS = {
   usersView: 'users.view',
@@ -204,6 +338,11 @@ export const PERMISSIONS = {
   apiKeysManage: 'apikeys.manage',
   auditView: 'audit.view',
   settingsManage: 'settings.manage',
+  clientsView: 'clients.view',
+  clientsManage: 'clients.manage',
+  agentsView: 'agents.view',
+  agentsManage: 'agents.manage',
+  agentsInstall: 'agents.install',
 } as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

@@ -10,6 +10,7 @@ export default defineConfig({
     proxy: {
       '/api': { target: apiTarget, changeOrigin: false },
       '/health': { target: apiTarget, changeOrigin: false },
+      '/hubs': { target: apiTarget, changeOrigin: false, ws: true },
     },
   },
   build: {

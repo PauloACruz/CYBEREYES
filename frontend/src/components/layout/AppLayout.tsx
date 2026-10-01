@@ -32,6 +32,7 @@ import { authApi } from '../../api/auth';
 import { visibleNavItems } from '../../app/navigation';
 import { PATHS } from '../../app/paths';
 import { useMe } from '../../auth/useMe';
+import { useConsoleHub } from '../../realtime/useConsoleHub';
 import { ChangePasswordModal } from './ChangePasswordModal';
 
 function initials(name: string): string {
@@ -47,6 +48,7 @@ function isActive(pathname: string, to: string): boolean {
 
 export function AppLayout() {
   const { data: me } = useMe();
+  useConsoleHub();
   const [navOpened, nav] = useDisclosure(false);
   const [passwordOpened, passwordModal] = useDisclosure(false);
   const { pathname } = useLocation();
