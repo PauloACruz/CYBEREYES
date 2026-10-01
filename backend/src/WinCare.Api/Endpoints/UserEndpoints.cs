@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using WinCare.Api.Infrastructure;
+using WinCare.Api.Rmm.Mesh;
 using WinCare.Core.Audit;
 using WinCare.Core.Identity;
 using WinCare.Core.Persistence;
@@ -19,11 +20,11 @@ public static class UserEndpoints
 
         group.MapGet("/", ListAsync).RequireAuthorization(view);
         group.MapGet("/{id:guid}", GetAsync).RequireAuthorization(view);
-        group.MapPost("/", CreateAsync).RequireAuthorization(manage);
-        group.MapPut("/{id:guid}", UpdateAsync).RequireAuthorization(manage);
+        group.MapPost("/", CreateAsync).RequireAuthorization(manage).RequestsMeshSync();
+        group.MapPut("/{id:guid}", UpdateAsync).RequireAuthorization(manage).RequestsMeshSync();
         group.MapPost("/{id:guid}/reset-password", ResetPasswordAsync).RequireAuthorization(manage);
         group.MapPost("/{id:guid}/reset-2fa", ResetTwoFactorAsync).RequireAuthorization(manage);
-        group.MapDelete("/{id:guid}", DeleteAsync).RequireAuthorization(manage);
+        group.MapDelete("/{id:guid}", DeleteAsync).RequireAuthorization(manage).RequestsMeshSync();
     }
 
     private static async Task<IResult> ListAsync(WinCareDbContext db, int? page, int? pageSize, string? search, CancellationToken ct)

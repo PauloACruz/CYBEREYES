@@ -3,7 +3,7 @@ using System.Text;
 
 namespace WinCare.Api.Rmm;
 
-public sealed record InstallParameters(string ApiUrl, int ClientId, int SiteId, string Token, string AgentType);
+public sealed record InstallParameters(string ApiUrl, int ClientId, int SiteId, string Token, string AgentType, bool Mesh = false);
 
 /// <summary>Scripts de instalacao do agente para Linux, macOS e Windows.</summary>
 public static class InstallScripts
@@ -14,13 +14,17 @@ public static class InstallScripts
     /// Script Linux generico (sem segredos). Parametros por linha de comando. Com --agent-type auto (padrao),
     /// cadastra como estacao (workstation) quando ha ambiente grafico e como servidor quando so ha terminal.
     /// </summary>
-    public static string Linux(string apiUrl, InstallParameters? embedded = null)
+    public static string Linux(string apiUrl, InstallParameters? embedded = null, string? meshBaseUrl = null, string? meshGroupId = null)
     {
         var defaults = embedded is null
             ? "CLIENT_ID=\"\"\nSITE_ID=\"\"\nTOKEN=\"\"\nAGENT_TYPE=\"auto\""
             : string.Create(CultureInfo.InvariantCulture,
                 $"CLIENT_ID=\"{embedded.ClientId}\"\nSITE_ID=\"{embedded.SiteId}\"\nTOKEN=\"{embedded.Token}\"\nAGENT_TYPE=\"{embedded.AgentType}\"");
+        var mesh = meshBaseUrl is null || meshGroupId is null
+            ? "MESH_URL=\"\""
+            : $"MESH_URL='{meshBaseUrl}/meshagents?id={meshGroupId}&installflags=2&meshinstall='";
         return LinuxTemplate.Replace("__API_URL__", apiUrl, StringComparison.Ordinal)
+            .Replace("__MESH__", mesh, StringComparison.Ordinal)
             .Replace("__DEFAULTS__", defaults, StringComparison.Ordinal)
             .ReplaceLineEndings("\n");
     }
@@ -38,7 +42,7 @@ public static class InstallScripts
     }
 
     public static string MacCommand(InstallParameters p, string goarch) => string.Create(CultureInfo.InvariantCulture,
-        $"curl -fsSL -o /tmp/wincare-agent '{p.ApiUrl}/api/agent/download/darwin/{goarch}' && chmod +x /tmp/wincare-agent && sudo /tmp/wincare-agent -m install -api {p.ApiUrl} -client-id {p.ClientId} -site-id {p.SiteId} -agent-type {Concrete(p.AgentType)} -auth {p.Token} -nomesh");
+        $"curl -fsSL -o /tmp/wincare-agent '{p.ApiUrl}/api/agent/download/darwin/{goarch}' && chmod +x /tmp/wincare-agent && sudo /tmp/wincare-agent -m install -api {p.ApiUrl} -client-id {p.ClientId} -site-id {p.SiteId} -agent-type {Concrete(p.AgentType)} -auth {p.Token}{(p.Mesh ? string.Empty : " -nomesh")}");
 
     public static string Windows(InstallParameters p, string goarch) => string.Create(CultureInfo.InvariantCulture, $$"""
         $ErrorActionPreference = 'Stop'
@@ -46,7 +50,7 @@ public static class InstallScripts
         Invoke-WebRequest -UseBasicParsing -Uri '{{p.ApiUrl}}/api/agent/download/windows/{{goarch}}' -OutFile $setup
         Start-Process -FilePath $setup -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES' -Wait
         Start-Sleep -Seconds 5
-        & (Join-Path $env:ProgramFiles 'TacticalAgent\tacticalrmm.exe') -m install --api {{p.ApiUrl}} --client-id {{p.ClientId}} --site-id {{p.SiteId}} --agent-type {{Concrete(p.AgentType)}} --auth {{p.Token}} -nomesh
+        & (Join-Path $env:ProgramFiles 'TacticalAgent\tacticalrmm.exe') -m install --api {{p.ApiUrl}} --client-id {{p.ClientId}} --site-id {{p.SiteId}} --agent-type {{Concrete(p.AgentType)}} --auth {{p.Token}}{{(p.Mesh ? string.Empty : " -nomesh")}}
         Remove-Item $setup -Force
         """).ReplaceLineEndings("\r\n");
 
@@ -60,7 +64,9 @@ public static class InstallScripts
 
         API_URL="__API_URL__"
         __DEFAULTS__
+        __MESH__
         INSECURE=0
+        NOMESH=0
 
         AGENT_DIR="/opt/tacticalagent"
         AGENT_BIN="${AGENT_DIR}/tacticalagent"
@@ -77,6 +83,7 @@ public static class InstallScripts
                 --auth) TOKEN="$2"; shift 2 ;;
                 --agent-type) AGENT_TYPE="$2"; shift 2 ;;
                 --insecure) INSECURE=1; shift ;;
+                --nomesh) NOMESH=1; shift ;;
                 *) fail "parametro desconhecido: $1" ;;
             esac
         done
@@ -119,6 +126,22 @@ public static class InstallScripts
 
         if systemctl list-unit-files "${SERVICE_NAME}" >/dev/null 2>&1; then
             systemctl stop "${SERVICE_NAME}" >/dev/null 2>&1 || true
+        fi
+
+        if [ -n "$MESH_URL" ] && [ "$NOMESH" -eq 0 ]; then
+            case "$ARCH" in
+                amd64) MESH_IDENT=6 ;;
+                386) MESH_IDENT=5 ;;
+                arm64) MESH_IDENT=26 ;;
+                arm) MESH_IDENT=25 ;;
+            esac
+            echo "Instalando o MeshAgent (acesso remoto)..."
+            MESH_TMP="$(mktemp -d)"
+            curl ${CURL_OPTS} -o "${MESH_TMP}/meshagent" "${MESH_URL}${MESH_IDENT}" || fail "falha no download do MeshAgent"
+            chmod +x "${MESH_TMP}/meshagent"
+            mkdir -p /opt/tacticalmesh
+            env XAUTHORITY=foo DISPLAY=bar "${MESH_TMP}/meshagent" -install --installPath=/opt/tacticalmesh || fail "falha ao instalar o MeshAgent"
+            rm -rf "${MESH_TMP}"
         fi
 
         mkdir -p "${AGENT_DIR}/bin"

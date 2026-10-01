@@ -29,7 +29,7 @@ public static partial class DatabaseSeeder
         }
         if (!await roleManager.RoleExistsAsync(TechnicianRole))
         {
-            await roleManager.CreateAsync(new AppRole { Name = TechnicianRole, Permissions = [Permissions.UsersView, Permissions.ClientsView, Permissions.AgentsView, Permissions.AgentsInstall, Permissions.AgentsRun, Permissions.AgentsControl, Permissions.ScriptsView, Permissions.AlertsView, Permissions.AlertsManage] });
+            await roleManager.CreateAsync(new AppRole { Name = TechnicianRole, Permissions = [Permissions.UsersView, Permissions.ClientsView, Permissions.AgentsView, Permissions.AgentsInstall, Permissions.AgentsRun, Permissions.AgentsControl, Permissions.ScriptsView, Permissions.AlertsView, Permissions.AlertsManage, Permissions.AgentsRemote] });
         }
 
         if (await db.Users.AnyAsync(cancellationToken))

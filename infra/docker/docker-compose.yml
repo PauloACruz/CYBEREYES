@@ -78,9 +78,15 @@ services:
       Nats__Password: ${NATS_API_PASSWORD}
       Nats__AuthFile: /etc/nats/auth/users.conf
       Agent__BinariesPath: /agents
+      Mesh__Url: https://${MESH_HOST}
+      Mesh__InternalUrl: http://meshcentral:4443
+      Mesh__Username: ${MESH_USER:-wincare}
+      Mesh__TokenKeyFile: /mesh/mesh_token
+      Mesh__DeviceGroup: ${MESH_DEVICE_GROUP:-WinCare}
     volumes:
       - nats_auth:/etc/nats/auth
       - ./agents:/agents:ro
+      - mesh_shared:/mesh:ro
     depends_on:
       nats:
         condition: service_started
@@ -148,9 +154,12 @@ services:
     environment:
       MESH_HOST: ${MESH_HOST}
       PROXY_IP: 172.30.0.10
+      MESH_USER: ${MESH_USER:-wincare}
+      MESH_EMAIL: ${ADMIN_EMAIL}
     volumes:
       - mesh_data:/opt/meshcentral/meshcentral-data
       - mesh_files:/opt/meshcentral/meshcentral-files
+      - mesh_shared:/opt/meshcentral/shared
     networks: [edge]
 
 networks:
@@ -169,3 +178,4 @@ volumes:
   redis_data:
   mesh_data:
   mesh_files:
+  mesh_shared:

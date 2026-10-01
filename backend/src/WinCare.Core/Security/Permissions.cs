@@ -25,6 +25,7 @@ public static class Permissions
     public const string AlertsManage = "alerts.manage";
     public const string PatchesManage = "patches.manage";
     public const string SoftwareManage = "software.manage";
+    public const string AgentsRemote = "agents.remote";
 
     public static IReadOnlyList<PermissionInfo> Catalog { get; } =
     [
@@ -49,6 +50,7 @@ public static class Permissions
         new(AlertsManage, "Alertas", "Resolver e silenciar alertas, editar templates"),
         new(PatchesManage, "Atualizacoes", "Aprovar e instalar atualizacoes do Windows"),
         new(SoftwareManage, "Software", "Instalar software nos agentes"),
+        new(AgentsRemote, "Agentes", "Acesso remoto pelo MeshCentral (tela, terminal e arquivos)"),
     ];
 
     private static readonly HashSet<string> Known = Catalog.Select(p => p.Key).ToHashSet(StringComparer.Ordinal);

@@ -66,6 +66,12 @@ if (builder.Configuration.GetConnectionString("Redis") is { Length: > 0 } redis)
 builder.Services.AddSingleton<IAgentNotifier, AgentNotifier>();
 builder.Services.AddScoped<WinCare.Api.Rmm.Actions.SystemEndpoints.Deps>();
 builder.Services.AddHttpClient("webhooks");
+builder.Services.AddHttpClient("mesh", c => c.Timeout = TimeSpan.FromMinutes(5));
+builder.Services.Configure<WinCare.Api.Rmm.Mesh.MeshSettings>(builder.Configuration.GetSection(WinCare.Api.Rmm.Mesh.MeshSettings.Section));
+builder.Services.AddSingleton<WinCare.Api.Rmm.Mesh.MeshClient>();
+builder.Services.AddSingleton<WinCare.Api.Rmm.Mesh.MeshState>();
+builder.Services.AddSingleton<WinCare.Api.Rmm.Mesh.MeshSync>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<WinCare.Api.Rmm.Mesh.MeshSync>());
 builder.Services.AddSingleton<WinCare.Api.Rmm.Monitoring.INotificationSender, WinCare.Api.Rmm.Monitoring.NotificationSender>();
 builder.Services.AddScoped<WinCare.Api.Rmm.Monitoring.AlertService>();
 builder.Services.AddSingleton<WinCare.Api.Rmm.Monitoring.AgentTaskScheduler>();
@@ -157,6 +163,7 @@ WinCare.Api.Rmm.Actions.SystemEndpoints.MapSystemEndpoints(app);
 WinCare.Api.Rmm.Actions.LibraryEndpoints.MapLibraryEndpoints(app);
 WinCare.Api.Rmm.Monitoring.ChecksTasksEndpoints.MapChecksTasksEndpoints(app);
 WinCare.Api.Rmm.Monitoring.AlertsPatchesEndpoints.MapAlertsPatchesEndpoints(app);
+WinCare.Api.Rmm.Mesh.MeshEndpoints.MapMeshEndpoints(app);
 
 if (args.Contains("--migrate-only"))
 {

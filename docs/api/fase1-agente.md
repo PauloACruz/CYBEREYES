@@ -37,7 +37,7 @@ Respostas de sucesso sao a string JSON `"ok"` (com aspas), como no Django. Erros
 | `PUT/PATCH/POST /api/v3/winupdates/`, `POST /api/v3/superseded/` | agente | `"ok"` sem efeito (fase 3) |
 | `GET/PATCH /api/v3/{pk}/{id}/taskrunner/` | agente | 404 / `"ok"` (fase 3) |
 | `PATCH /api/v3/{pk}/{id}/histresult/` | agente | `"ok"` (fase 2) |
-| `POST /api/v3/meshexe/`, `GET /api/v3/{id}/meshreinstall/` | instalacao / agente | 400 (fase 4, MeshCentral) |
+| `POST /api/v3/meshexe/`, `GET /api/v3/{id}/meshreinstall/` | instalacao / agente | binario do MeshAgent (fase 4, ver `fase4-mesh.md`) |
 | `PATCH /api/v4/{id}/{pk}/chocoresult/` | agente | `"ok"` (fase 3) |
 
 `config` devolve, sorteando a cada chamada: `checkin_hello` 30 a 60, `checkin_agentinfo` 200 a 400, `checkin_winsvc` 2400 a 3000, `checkin_pubip` 300 a 500, `checkin_disks` 1000 a 2000, `checkin_sw` 2800 a 3500, `checkin_wmi` 3000 a 4000, `checkin_syncmesh` 800 a 1200, `limit_data` false, `install_nushell` false, `install_deno` false e os demais textos vazios.
@@ -82,7 +82,7 @@ O console gera o comando de instalacao por site, tipo (servidor ou estacao), sis
 O endereco de download do agente vem da configuracao `Agent:DownloadBaseUrl` (releases do `rmmagentwincare`). Implantacoes (links publicos com validade) geram o mesmo comando para Linux, macOS e Windows.
 
 ## 6. Limites conhecidos da fase 1
-- Sem MeshCentral no registro: agentes Windows e macOS sao instalados com `-nomesh` ate a fase 4.
+- Sem MeshCentral no registro: agentes Windows e macOS eram instalados com `-nomesh` ate a fase 4 (resolvido na fase 4).
 - Checks, tarefas, Windows Update e historico de scripts respondem `"ok"` sem efeito ate as fases 2 e 3.
 
 ## 7. API do console (fase 1)

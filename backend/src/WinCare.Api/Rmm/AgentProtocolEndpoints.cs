@@ -26,7 +26,8 @@ public static class AgentProtocolEndpoints
         installer.MapGet("/installer/", () => Ok);
         installer.MapPost("/installer/", CheckInstallerVersion);
         installer.MapPost("/newagent/", NewAgentAsync);
-        installer.MapPost("/meshexe/", () => Error("Arch not supported"));
+        installer.MapPost("/meshexe/", (JsonElement body, Mesh.MeshClient mesh, Mesh.MeshState state, IHttpClientFactory http, CancellationToken ct) =>
+            Mesh.MeshEndpoints.DownloadAsync(mesh, state, http, Text(body, "plat") ?? string.Empty, Text(body, "goarch") ?? string.Empty, ct));
 
         var agent = app.MapGroup("/api/v3").RequireAuthorization(Policies.Agent).ExcludeFromDescription();
         agent.MapGet("/{agentId}/config/", Config);
@@ -45,7 +46,12 @@ public static class AgentProtocolEndpoints
         agent.MapGet("/{pk:int}/{agentId}/taskrunner/", Monitoring.MonitoringProtocol.TaskGetAsync);
         agent.MapPatch("/{pk:int}/{agentId}/taskrunner/", Monitoring.MonitoringProtocol.TaskResultAsync);
         agent.MapPatch("/{pk:int}/{agentId}/histresult/", HistoryResultAsync);
-        agent.MapGet("/{agentId}/meshreinstall/", () => Error("MeshCentral ainda nao configurado"));
+        agent.MapGet("/{agentId}/meshreinstall/", async (ClaimsPrincipal p, WinCareDbContext db, Mesh.MeshClient mesh, Mesh.MeshState state, IHttpClientFactory http, CancellationToken ct) =>
+        {
+            var pk = AgentPk(p);
+            var arch = await db.Agents.Where(a => a.Id == pk).Select(a => a.GoArch).FirstOrDefaultAsync(ct);
+            return await Mesh.MeshEndpoints.DownloadAsync(mesh, state, http, "windows", arch == "amd64" ? "amd64" : "386", ct);
+        });
         app.MapPatch("/api/v4/{agentId}/{pk:long}/chocoresult/", Monitoring.MonitoringProtocol.ChocoResultAsync).RequireAuthorization(Policies.Agent).ExcludeFromDescription();
     }
 

@@ -10,6 +10,8 @@ Meta (ver `.team-context.md`): RPO < 24 h, RTO < 2 h.
 | Arquivos do MeshCentral | volume `mesh_files` |
 | Configuracao | `infra/docker/.env` (guardar em cofre de senhas, nunca no Git) |
 
+O volume `mesh_shared` (chave de token lida pela API) nao precisa de backup: o MeshCentral regrava o arquivo a partir do seu banco interno (`mesh_data`) na partida.
+
 ## Backup diario
 ```bash
 cd infra/docker

@@ -46,3 +46,5 @@ cd frontend && npm run lint && npm run typecheck && npm test
 4. `docker compose up -d`
 
 O Nginx distribui as requisicoes entre as instancias da API (`API_REPLICAS`, padrao 2). O Certbot emite e renova os certificados Let's Encrypt automaticamente (perfil `letsencrypt`); para usar certificado proprio, coloque `fullchain.pem` e `privkey.pem` em `infra/docker/certs/<host>/`. Backup e restauracao: [`docs/runbooks/backup-restauracao.md`](docs/runbooks/backup-restauracao.md).
+
+O MeshCentral cria sozinho, na primeira partida, o administrador interno e a chave de token usada pela API; os tecnicos com a permissao `agents.remote` ganham um usuario proprio no MeshCentral e abrem o acesso remoto direto pelo console, sem segundo login. Detalhes: [`docs/api/fase4-mesh.md`](docs/api/fase4-mesh.md).

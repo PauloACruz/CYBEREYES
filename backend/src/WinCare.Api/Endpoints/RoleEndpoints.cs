@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using WinCare.Api.Infrastructure;
+using WinCare.Api.Rmm.Mesh;
 using WinCare.Core.Audit;
 using WinCare.Core.Identity;
 using WinCare.Core.Persistence;
@@ -16,9 +17,9 @@ public static class RoleEndpoints
 
         group.MapGet("/", ListAsync);
         group.MapGet("/permissions", () => TypedResults.Ok(Permissions.Catalog));
-        group.MapPost("/", CreateAsync);
-        group.MapPut("/{id:guid}", UpdateAsync);
-        group.MapDelete("/{id:guid}", DeleteAsync);
+        group.MapPost("/", CreateAsync).RequestsMeshSync();
+        group.MapPut("/{id:guid}", UpdateAsync).RequestsMeshSync();
+        group.MapDelete("/{id:guid}", DeleteAsync).RequestsMeshSync();
 
         app.MapGet("/api/roles/options", OptionsAsync).WithTags("Papeis")
             .RequireAuthorization(Policies.Permission(Permissions.UsersManage));
