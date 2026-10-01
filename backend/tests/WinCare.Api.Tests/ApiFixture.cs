@@ -28,7 +28,7 @@ public sealed class ApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
             .WithEntrypoint("/bin/sh", "/run.sh")
             .WithEnvironment("NATS_API_USER", NatsApiUser)
             .WithEnvironment("NATS_API_PASSWORD", NatsApiPassword)
-            .WithEnvironment("API_UID", "0")
+            .WithEnvironment("API_UID", CurrentUid())
             .WithBindMount(Path.Combine(infra, "nats.conf"), "/etc/nats/nats.conf")
             .WithBindMount(Path.Combine(infra, "run.sh"), "/run.sh")
             .WithBindMount(NatsAuthDir, "/etc/nats/auth")
@@ -36,6 +36,10 @@ public sealed class ApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
             .WithWaitStrategy(Wait.ForUnixContainer().UntilMessageIsLogged("Server is ready"))
             .Build();
     }
+
+    private static string CurrentUid() =>
+        File.ReadLines("/proc/self/status").First(l => l.StartsWith("Uid:", StringComparison.Ordinal))
+            .Split('\t', StringSplitOptions.RemoveEmptyEntries)[1];
 
     private static string FindRepoRoot()
     {
