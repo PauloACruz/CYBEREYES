@@ -47,8 +47,10 @@ public static class Hardware
                 Values(root, "cpu", "Name"), Values(root, "graphics", "Caption"), ramGb, disks, ips, os, lastUser, bootTime);
         }
 
-        var makeModel = Str(root, "make_model");
-        return new HardwareInfo("agent", null, null, string.IsNullOrWhiteSpace(makeModel) ? null : makeModel.Trim(), CleanSerial(Str(root, "serial_number")),
+        var makeModel = string.Join(' ', (Str(root, "make_model") ?? string.Empty)
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(w => !w.Equals("unknown", StringComparison.OrdinalIgnoreCase)));
+        return new HardwareInfo("agent", null, null, makeModel.Length == 0 ? null : makeModel, CleanSerial(Str(root, "serial_number")),
             Strings(root, "cpus"), Strings(root, "gpus"), ramGb, Strings(root, "disks"), Strings(root, "local_ips"), os, lastUser, bootTime);
     }
 

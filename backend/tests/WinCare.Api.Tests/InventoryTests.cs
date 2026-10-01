@@ -147,3 +147,15 @@ public sealed class NetUtilTests
         Assert.Null(NetUtil.NormalizeMac("00:1A:2B:3C:4D"));
     }
 }
+
+public sealed class HardwareTests
+{
+    [Fact]
+    public void LinuxInventory_IgnoresUnknownMakeModel()
+    {
+        var hw = Hardware.Parse("""{"make_model":"unknown unknown","cpus":["Xeon"],"local_ips":["10.0.0.5/24"]}""", "linux", 8, "Ubuntu", null, null)!;
+        Assert.Null(hw.MakeModel);
+        Assert.Equal("Xeon", Assert.Single(hw.Cpus));
+        Assert.Equal("10.0.0.5/24", Assert.Single(hw.LocalIps));
+    }
+}
