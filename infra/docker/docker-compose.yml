@@ -1,0 +1,156 @@
+name: wincare
+
+x-restart: &restart
+  restart: unless-stopped
+
+services:
+  nginx:
+    <<: *restart
+    build: ./nginx
+    image: ${REGISTRY:-ghcr.io/pauloacruz}/wincare-nginx:${VERSION:-latest}
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      WINCARE_HOST: ${WINCARE_HOST}
+      MESH_HOST: ${MESH_HOST}
+    volumes:
+      - letsencrypt:/etc/letsencrypt:ro
+      - certbot_webroot:/var/www/certbot:ro
+      - ./certs:/etc/nginx/custom-certs:ro
+    healthcheck:
+      test: ["CMD", "nginx", "-t", "-q"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+    networks:
+      edge:
+        ipv4_address: 172.30.0.10
+        aliases:
+          - ${MESH_HOST}
+
+  certbot:
+    <<: *restart
+    image: certbot/certbot:v5.8.0
+    entrypoint: ["/bin/sh", "/run.sh"]
+    environment:
+      WINCARE_HOST: ${WINCARE_HOST}
+      MESH_HOST: ${MESH_HOST}
+      ACME_EMAIL: ${ACME_EMAIL}
+    volumes:
+      - ./certbot/run.sh:/run.sh:ro
+      - letsencrypt:/etc/letsencrypt
+      - certbot_webroot:/var/www/certbot
+    depends_on:
+      - nginx
+    networks: [edge]
+    profiles: [letsencrypt]
+
+  migrate:
+    image: ${REGISTRY:-ghcr.io/pauloacruz}/wincare-api:${VERSION:-latest}
+    build: ../../backend
+    command: ["--migrate-only"]
+    environment:
+      ConnectionStrings__Default: Host=postgres;Database=wincare;Username=wincare;Password=${POSTGRES_PASSWORD}
+      Seed__AdminUsername: ${ADMIN_USERNAME}
+      Seed__AdminPassword: ${ADMIN_PASSWORD}
+      Seed__AdminEmail: ${ADMIN_EMAIL}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [data]
+    restart: "no"
+
+  api:
+    <<: *restart
+    image: ${REGISTRY:-ghcr.io/pauloacruz}/wincare-api:${VERSION:-latest}
+    build: ../../backend
+    deploy:
+      replicas: ${API_REPLICAS:-2}
+    environment:
+      ConnectionStrings__Default: Host=postgres;Database=wincare;Username=wincare;Password=${POSTGRES_PASSWORD}
+      Proxy__TrustAll: "true"
+      Database__MigrateOnStartup: "false"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    networks: [edge, data]
+
+  web:
+    <<: *restart
+    image: ${REGISTRY:-ghcr.io/pauloacruz}/wincare-web:${VERSION:-latest}
+    build: ../../frontend
+    networks: [edge]
+
+  postgres:
+    <<: *restart
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: wincare
+      POSTGRES_USER: wincare
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wincare -d wincare"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks: [data]
+
+  redis:
+    <<: *restart
+    image: redis:7.4-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - redis_data:/data
+    networks: [data]
+
+  nats:
+    <<: *restart
+    image: nats:2.11-alpine
+    command: ["-c", "/etc/nats/nats.conf"]
+    environment:
+      NATS_API_USER: ${NATS_API_USER}
+      NATS_API_PASSWORD: ${NATS_API_PASSWORD}
+    volumes:
+      - ./nats/nats.conf:/etc/nats/nats.conf:ro
+    networks: [edge, data]
+
+  meshcentral:
+    <<: *restart
+    build:
+      context: ./meshcentral
+      args:
+        MESHCENTRAL_VERSION: ${MESHCENTRAL_VERSION:-1.2.5}
+    image: ${REGISTRY:-ghcr.io/pauloacruz}/wincare-meshcentral:${MESHCENTRAL_VERSION:-1.2.5}
+    environment:
+      MESH_HOST: ${MESH_HOST}
+      PROXY_IP: 172.30.0.10
+    volumes:
+      - mesh_data:/opt/meshcentral/meshcentral-data
+      - mesh_files:/opt/meshcentral/meshcentral-files
+    networks: [edge]
+
+networks:
+  edge:
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+  data:
+    internal: true
+
+volumes:
+  letsencrypt:
+  certbot_webroot:
+  postgres_data:
+  redis_data:
+  mesh_data:
+  mesh_files:

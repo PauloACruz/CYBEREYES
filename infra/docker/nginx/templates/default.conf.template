@@ -1,0 +1,120 @@
+resolver 127.0.0.11 valid=10s ipv6=off;
+server_tokens off;
+
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+
+upstream wincare_api {
+    zone wincare_api 64k;
+    least_conn;
+    server api:8080 resolve max_fails=3 fail_timeout=10s;
+    keepalive 32;
+}
+
+upstream wincare_web {
+    zone wincare_web 64k;
+    server web:8080 resolve;
+    keepalive 16;
+}
+
+upstream wincare_nats {
+    zone wincare_nats 64k;
+    server nats:9235 resolve;
+}
+
+upstream wincare_mesh {
+    zone wincare_mesh 64k;
+    server meshcentral:4443 resolve;
+}
+
+ssl_protocols TLSv1.2 TLSv1.3;
+ssl_prefer_server_ciphers on;
+ssl_ciphers EECDH+AESGCM:EDH+AESGCM;
+ssl_session_cache shared:WINCARESSL:10m;
+ssl_session_timeout 1d;
+
+server {
+    listen 80 default_server;
+    server_name _;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name ${WINCARE_HOST};
+
+    ssl_certificate     /etc/nginx/certs/${WINCARE_HOST}/fullchain.pem;
+    ssl_certificate_key /etc/nginx/certs/${WINCARE_HOST}/privkey.pem;
+
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    client_max_body_size 300M;
+
+    proxy_set_header Host              $host;
+    proxy_set_header X-Real-IP         $remote_addr;
+    proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+
+    location ~ ^/(api|openapi)/ {
+        proxy_pass http://wincare_api;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_connect_timeout 3s;
+        proxy_next_upstream error timeout http_502 http_503;
+        proxy_next_upstream_tries 2;
+    }
+
+    location = /health {
+        proxy_pass http://wincare_api;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+    }
+
+    location /natsws {
+        proxy_pass http://wincare_nats;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade    $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_read_timeout 330s;
+        proxy_send_timeout 330s;
+    }
+
+    location / {
+        proxy_pass http://wincare_web;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+    }
+}
+
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name ${MESH_HOST};
+
+    ssl_certificate     /etc/nginx/certs/${MESH_HOST}/fullchain.pem;
+    ssl_certificate_key /etc/nginx/certs/${MESH_HOST}/privkey.pem;
+
+    proxy_read_timeout 330s;
+    proxy_send_timeout 330s;
+
+    location / {
+        proxy_pass http://wincare_mesh;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade           $http_upgrade;
+        proxy_set_header Connection        $connection_upgrade;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-Host  $host:$server_port;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}

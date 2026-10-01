@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet restore
+      - run: dotnet build --no-restore -c Release
+      - run: dotnet test --no-build -c Release --collect:"XPlat Code Coverage"
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  images:
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      REGISTRY: ghcr.io/pauloacruz
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validar docker-compose
+        working-directory: infra/docker
+        run: cp .env.example .env && docker compose config -q
+      - name: Login no GHCR
+        if: github.event_name == 'push'
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: Build das imagens
+        run: |
+          docker build -t $REGISTRY/wincare-api:${{ github.sha }} backend
+          docker build -t $REGISTRY/wincare-web:${{ github.sha }} frontend
+          docker build -t $REGISTRY/wincare-meshcentral:1.2.5 infra/docker/meshcentral
+      - name: Publicar imagens
+        if: github.event_name == 'push'
+        run: |
+          for img in wincare-api wincare-web; do
+            docker tag $REGISTRY/$img:${{ github.sha }} $REGISTRY/$img:latest
+            docker push $REGISTRY/$img:${{ github.sha }}
+            docker push $REGISTRY/$img:latest
+          done
+          docker push $REGISTRY/wincare-meshcentral:1.2.5

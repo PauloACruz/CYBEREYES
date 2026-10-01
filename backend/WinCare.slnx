@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/WinCare.Api/WinCare.Api.csproj" />
+    <Project Path="src/WinCare.Core/WinCare.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/WinCare.Api.Tests/WinCare.Api.Tests.csproj" />
+  </Folder>
+</Solution>

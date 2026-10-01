@@ -1,0 +1,14 @@
+bin/
+obj/
+node_modules/
+dist/
+coverage/
+*.user
+.vs/
+.vscode/
+.idea/
+.env
+!.env.example
+TestResults/
+infra/docker/certs/*
+!infra/docker/certs/.gitkeep
