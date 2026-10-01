@@ -15,6 +15,7 @@ public static class ErrorCodes
     public const string Conflict = "CONFLICT";
     public const string RateLimited = "RATE_LIMITED";
     public const string Internal = "INTERNAL_ERROR";
+    public const string AgentTimeout = "AGENT_TIMEOUT";
 
     public static string ForStatus(int status) => status switch
     {
@@ -41,6 +42,11 @@ public static class Problems
 
     public static IResult NotFound(string resource) =>
         Create(StatusCodes.Status404NotFound, $"{resource} nao encontrado", ErrorCodes.NotFound);
+
+    public static IResult AgentTimeout() =>
+        Create(StatusCodes.Status504GatewayTimeout, "O agente nao respondeu a tempo", ErrorCodes.AgentTimeout);
+
+    public static IResult BadRequest(string title) => Create(StatusCodes.Status400BadRequest, title, ErrorCodes.Validation);
 
     public static IResult Conflict(string title) => Create(StatusCodes.Status409Conflict, title, ErrorCodes.Conflict);
 

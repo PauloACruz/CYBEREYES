@@ -9,7 +9,7 @@ using WinCare.Api.Rmm.Nats;
 namespace WinCare.Api.Tests;
 
 [Collection(ApiCollection.Name)]
-public sealed class AgentTests(ApiFixture fixture)
+public sealed partial class AgentTests(ApiFixture fixture)
 {
     private static readonly string AgentVersion = "2.11.0";
 

@@ -64,6 +64,11 @@ if (builder.Configuration.GetConnectionString("Redis") is { Length: > 0 } redis)
     signalR.AddStackExchangeRedis(redis, o => o.Configuration.ChannelPrefix = StackExchange.Redis.RedisChannel.Literal("wincare"));
 }
 builder.Services.AddSingleton<IAgentNotifier, AgentNotifier>();
+builder.Services.AddScoped<WinCare.Api.Rmm.Actions.SystemEndpoints.Deps>();
+builder.Services.AddSingleton(sp => new WinCare.Api.Rmm.Actions.TerminalSessions(
+    sp.GetService<NATS.Client.Core.INatsConnection>(), sp.GetRequiredService<IAgentRpc>(),
+    sp.GetRequiredService<Microsoft.AspNetCore.SignalR.IHubContext<ConsoleHub>>(),
+    sp.GetRequiredService<ILogger<WinCare.Api.Rmm.Actions.TerminalSessions>>()));
 builder.Services.AddSingleton<NatsAuthWriter>();
 builder.Services.AddSingleton<NatsAuthSync>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<NatsAuthSync>());
@@ -138,6 +143,9 @@ app.MapClientEndpoints();
 app.MapAgentEndpoints();
 app.MapInstallerEndpoints();
 app.MapAgentProtocolEndpoints();
+WinCare.Api.Rmm.Actions.CommandEndpoints.MapCommandEndpoints(app);
+WinCare.Api.Rmm.Actions.SystemEndpoints.MapSystemEndpoints(app);
+WinCare.Api.Rmm.Actions.LibraryEndpoints.MapLibraryEndpoints(app);
 
 if (args.Contains("--migrate-only"))
 {

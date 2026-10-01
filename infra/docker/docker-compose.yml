@@ -51,7 +51,7 @@ services:
     build: ../../backend
     command: ["--migrate-only"]
     environment:
-      ConnectionStrings__Default: Host=postgres;Database=wincare;Username=wincare;Password=${POSTGRES_PASSWORD}
+      ConnectionStrings__Default: Host=postgres;Database=wincare;Username=wincare;Password=${POSTGRES_PASSWORD};GSS Encryption Mode=Disable
       Seed__AdminUsername: ${ADMIN_USERNAME}
       Seed__AdminPassword: ${ADMIN_PASSWORD}
       Seed__AdminEmail: ${ADMIN_EMAIL}
@@ -68,7 +68,7 @@ services:
     deploy:
       replicas: ${API_REPLICAS:-2}
     environment:
-      ConnectionStrings__Default: Host=postgres;Database=wincare;Username=wincare;Password=${POSTGRES_PASSWORD}
+      ConnectionStrings__Default: Host=postgres;Database=wincare;Username=wincare;Password=${POSTGRES_PASSWORD};GSS Encryption Mode=Disable
       Proxy__TrustAll: "true"
       Database__MigrateOnStartup: "false"
       ConnectionStrings__Redis: redis:6379

@@ -44,7 +44,7 @@ public static class AgentProtocolEndpoints
         agent.MapPost("/superseded/", () => Ok);
         agent.MapGet("/{pk:int}/{agentId}/taskrunner/", () => Results.Json(new { detail = "Not found." }, statusCode: StatusCodes.Status404NotFound));
         agent.MapPatch("/{pk:int}/{agentId}/taskrunner/", () => Ok);
-        agent.MapPatch("/{pk:int}/{agentId}/histresult/", () => Ok);
+        agent.MapPatch("/{pk:int}/{agentId}/histresult/", HistoryResultAsync);
         agent.MapGet("/{agentId}/meshreinstall/", () => Error("MeshCentral ainda nao configurado"));
         app.MapPatch("/api/v4/{agentId}/{pk:int}/chocoresult/", () => Ok).RequireAuthorization(Policies.Agent).ExcludeFromDescription();
     }
@@ -194,6 +194,32 @@ public static class AgentProtocolEndpoints
         {
             row.Software = software.GetRawText();
             row.UpdatedAt = time.GetUtcNow();
+        }
+        await db.SaveChangesAsync(ct);
+        return Ok;
+    }
+
+    private static async Task<IResult> HistoryResultAsync(long pk, JsonElement body, ClaimsPrincipal principal, WinCareDbContext db, CancellationToken ct)
+    {
+        var agentPk = AgentPk(principal);
+        var history = await db.AgentHistory.FirstOrDefaultAsync(h => h.Id == pk && h.AgentId == agentPk, ct);
+        if (history is null || body.ValueKind != JsonValueKind.Object)
+        {
+            return Ok;
+        }
+
+        if (body.TryGetProperty("script_results", out var sr) && sr.ValueKind == JsonValueKind.Object)
+        {
+            var result = new Actions.ScriptResultDto(
+                sr.TryGetProperty("stdout", out var o) ? o.GetString() ?? string.Empty : string.Empty,
+                sr.TryGetProperty("stderr", out var e) ? e.GetString() ?? string.Empty : string.Empty,
+                sr.TryGetProperty("retcode", out var r) && r.TryGetInt32(out var rc) ? rc : 1,
+                sr.TryGetProperty("execution_time", out var t) && t.TryGetDouble(out var et) ? et : 0);
+            history.ScriptResults = JsonSerializer.Serialize(result);
+        }
+        else if (body.TryGetProperty("results", out var results) && results.ValueKind == JsonValueKind.String)
+        {
+            history.Results = results.GetString();
         }
         await db.SaveChangesAsync(ct);
         return Ok;

@@ -19,6 +19,11 @@ public sealed class WinCareDbContext(DbContextOptions<WinCareDbContext> options)
     public DbSet<AgentSoftware> AgentSoftware => Set<AgentSoftware>();
     public DbSet<InstallerToken> InstallerTokens => Set<InstallerToken>();
     public DbSet<Deployment> Deployments => Set<Deployment>();
+    public DbSet<Script> Scripts => Set<Script>();
+    public DbSet<ScriptSnippet> ScriptSnippets => Set<ScriptSnippet>();
+    public DbSet<GlobalKey> GlobalKeys => Set<GlobalKey>();
+    public DbSet<UrlAction> UrlActions => Set<UrlAction>();
+    public DbSet<AgentHistory> AgentHistory => Set<AgentHistory>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -121,6 +126,56 @@ public sealed class WinCareDbContext(DbContextOptions<WinCareDbContext> options)
             e.Property(t => t.TokenHash).HasMaxLength(64);
             e.HasIndex(t => t.TokenHash).IsUnique();
             e.Property(t => t.CreatedBy).HasMaxLength(256);
+        });
+
+        builder.Entity<Script>(e =>
+        {
+            e.ToTable("scripts");
+            e.Property(x => x.Name).HasMaxLength(255);
+            e.HasIndex(x => x.Name).IsUnique();
+            e.Property(x => x.Description).HasMaxLength(1000);
+            e.Property(x => x.Category).HasMaxLength(100);
+            e.Property(x => x.Shell).HasMaxLength(32);
+            e.Property(x => x.DefaultArgs).HasColumnType("text[]");
+            e.Property(x => x.EnvVars).HasColumnType("text[]");
+            e.Property(x => x.Platforms).HasColumnType("text[]");
+            e.Property(x => x.CreatedBy).HasMaxLength(256);
+        });
+
+        builder.Entity<ScriptSnippet>(e =>
+        {
+            e.ToTable("script_snippets");
+            e.Property(x => x.Name).HasMaxLength(100);
+            e.HasIndex(x => x.Name).IsUnique();
+            e.Property(x => x.Description).HasMaxLength(1000);
+            e.Property(x => x.Shell).HasMaxLength(32);
+        });
+
+        builder.Entity<GlobalKey>(e =>
+        {
+            e.ToTable("global_keys");
+            e.Property(x => x.Name).HasMaxLength(100);
+            e.HasIndex(x => x.Name).IsUnique();
+        });
+
+        builder.Entity<UrlAction>(e =>
+        {
+            e.ToTable("url_actions");
+            e.Property(x => x.Name).HasMaxLength(100);
+            e.HasIndex(x => x.Name).IsUnique();
+            e.Property(x => x.Description).HasMaxLength(1000);
+            e.Property(x => x.Pattern).HasMaxLength(2000);
+        });
+
+        builder.Entity<AgentHistory>(e =>
+        {
+            e.ToTable("agent_history");
+            e.Property(x => x.Type).HasMaxLength(32);
+            e.Property(x => x.Username).HasMaxLength(256);
+            e.Property(x => x.ScriptName).HasMaxLength(255);
+            e.Property(x => x.ScriptResults).HasColumnType("jsonb");
+            e.HasIndex(x => new { x.AgentId, x.Time });
+            e.HasOne(x => x.Agent).WithMany().HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.Cascade);
         });
 
         builder.Entity<Deployment>(e =>
