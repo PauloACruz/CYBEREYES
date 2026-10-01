@@ -39,6 +39,12 @@ public sealed class ConsoleHub(TerminalSessions terminals, WinCareDbContext db, 
 
     public Task StopTerminal(string sessionId) => terminals.StopAsync(Context.ConnectionId, sessionId);
 
+    public Task JoinTicket(int ticketId) => Context.User?.HasPermission(Permissions.TicketsView) == true
+        ? Groups.AddToGroupAsync(Context.ConnectionId, Tickets.TicketService.ConsoleGroup(ticketId))
+        : throw new HubException("Sem permissao para ver chamados");
+
+    public Task LeaveTicket(int ticketId) => Groups.RemoveFromGroupAsync(Context.ConnectionId, Tickets.TicketService.ConsoleGroup(ticketId));
+
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
         await terminals.StopAllAsync(Context.ConnectionId);

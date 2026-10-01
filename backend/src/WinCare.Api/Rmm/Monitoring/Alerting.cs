@@ -62,7 +62,7 @@ public sealed class NotificationSender(IHttpClientFactory http, IDataProtectionP
 
 /// <summary>Cria, atualiza e resolve alertas e envia as notificacoes conforme o template do agente.</summary>
 public sealed partial class AlertService(WinCareDbContext db, INotificationSender sender, IHubContext<ConsoleHub> hub, IConfiguration config,
-    TimeProvider time, ILogger<AlertService> logger)
+    TimeProvider time, ILogger<AlertService> logger, Tickets.IncidentService incidents)
 {
     public async Task<Alert> RaiseAsync(AlertRequest request, CancellationToken ct)
     {
@@ -107,6 +107,7 @@ public sealed partial class AlertService(WinCareDbContext db, INotificationSende
         }
 
         await BroadcastAsync(ct);
+        await incidents.OnAlertRaisedAsync(alert, ct);
         return alert;
     }
 
@@ -140,7 +141,10 @@ public sealed partial class AlertService(WinCareDbContext db, INotificationSende
         }
         await db.SaveChangesAsync(ct);
         await BroadcastAsync(ct);
+        await incidents.OnAlertsResolvedAsync(open.Select(a => a.Id).ToList(), ct);
     }
+
+    public Task AlertsResolvedAsync(IReadOnlyCollection<long> alertIds, CancellationToken ct) => incidents.OnAlertsResolvedAsync(alertIds, ct);
 
     public async Task BroadcastAsync(CancellationToken ct)
     {

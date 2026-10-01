@@ -267,4 +267,9 @@ public sealed class CoreSettings
     public int? DefaultServerPolicyId { get; set; }
     public int? DefaultWorkstationPolicyId { get; set; }
     public int? DefaultAlertTemplateId { get; set; }
+    public bool IncidentsEnabled { get; set; } = true;
+    public List<string> IncidentSeverities { get; set; } = [Severity.Error];
+    public string IncidentPriority { get; set; } = "high";
+    public int? IncidentQueueId { get; set; }
+    public bool IncidentResolveWithAlert { get; set; } = true;
 }

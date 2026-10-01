@@ -16,6 +16,7 @@ public static class ErrorCodes
     public const string RateLimited = "RATE_LIMITED";
     public const string Internal = "INTERNAL_ERROR";
     public const string AgentTimeout = "AGENT_TIMEOUT";
+    public const string ChatLocked = "CHAT_LOCKED";
 
     public static string ForStatus(int status) => status switch
     {

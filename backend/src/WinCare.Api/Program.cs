@@ -74,6 +74,8 @@ builder.Services.AddSingleton<WinCare.Api.Rmm.Mesh.MeshSync>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<WinCare.Api.Rmm.Mesh.MeshSync>());
 builder.Services.AddSingleton<WinCare.Api.Rmm.Monitoring.INotificationSender, WinCare.Api.Rmm.Monitoring.NotificationSender>();
 builder.Services.AddScoped<WinCare.Api.Rmm.Monitoring.AlertService>();
+builder.Services.AddScoped<WinCare.Api.Tickets.TicketService>();
+builder.Services.AddScoped<WinCare.Api.Tickets.IncidentService>();
 builder.Services.AddSingleton<WinCare.Api.Rmm.Monitoring.AgentTaskScheduler>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<WinCare.Api.Rmm.Monitoring.AgentTaskScheduler>());
 builder.Services.AddSingleton<WinCare.Api.Rmm.Monitoring.PatchScheduler>();
@@ -164,6 +166,8 @@ WinCare.Api.Rmm.Actions.LibraryEndpoints.MapLibraryEndpoints(app);
 WinCare.Api.Rmm.Monitoring.ChecksTasksEndpoints.MapChecksTasksEndpoints(app);
 WinCare.Api.Rmm.Monitoring.AlertsPatchesEndpoints.MapAlertsPatchesEndpoints(app);
 WinCare.Api.Rmm.Mesh.MeshEndpoints.MapMeshEndpoints(app);
+WinCare.Api.Tickets.TicketEndpoints.MapTicketEndpoints(app);
+WinCare.Api.Tickets.Tray.MapTrayEndpoints(app);
 
 if (args.Contains("--migrate-only"))
 {

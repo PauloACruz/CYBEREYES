@@ -11,6 +11,7 @@ public static class Policies
     public const string Partial = "partial";
     public const string Agent = "agent";
     public const string Installer = "installer";
+    public const string Tray = "tray";
     private const string PermissionPrefix = "perm:";
 
     public static string Permission(string permission) => PermissionPrefix + permission;

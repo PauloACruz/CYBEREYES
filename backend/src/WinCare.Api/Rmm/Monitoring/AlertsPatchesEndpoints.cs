@@ -216,6 +216,7 @@ public static class AlertsPatchesEndpoints
         {
             case "resolve":
                 await alerts.ExecuteUpdateAsync(s => s.SetProperty(a => a.Resolved, true).SetProperty(a => a.ResolvedAt, DateTimeOffset.UtcNow), ct);
+                await svc.AlertsResolvedAsync(r.Ids, ct);
                 break;
             case "snooze" when r.Until is { } until && until > DateTimeOffset.UtcNow:
                 var u = until.ToUniversalTime();

@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using WinCare.Core.Identity;
 using WinCare.Core.Persistence;
 using WinCare.Core.Security;
+using WinCare.Core.Tickets;
 
 namespace WinCare.Api.Infrastructure;
 
@@ -29,7 +30,13 @@ public static partial class DatabaseSeeder
         }
         if (!await roleManager.RoleExistsAsync(TechnicianRole))
         {
-            await roleManager.CreateAsync(new AppRole { Name = TechnicianRole, Permissions = [Permissions.UsersView, Permissions.ClientsView, Permissions.AgentsView, Permissions.AgentsInstall, Permissions.AgentsRun, Permissions.AgentsControl, Permissions.ScriptsView, Permissions.AlertsView, Permissions.AlertsManage, Permissions.AgentsRemote] });
+            await roleManager.CreateAsync(new AppRole { Name = TechnicianRole, Permissions = [Permissions.UsersView, Permissions.ClientsView, Permissions.AgentsView, Permissions.AgentsInstall, Permissions.AgentsRun, Permissions.AgentsControl, Permissions.ScriptsView, Permissions.AlertsView, Permissions.AlertsManage, Permissions.AgentsRemote, Permissions.TicketsView, Permissions.TicketsManage] });
+        }
+
+        if (!await db.TicketQueues.AnyAsync(cancellationToken))
+        {
+            db.TicketQueues.Add(new TicketQueue { Name = "Geral", Description = "Fila padrao", IsDefault = true });
+            await db.SaveChangesAsync(cancellationToken);
         }
 
         if (await db.Users.AnyAsync(cancellationToken))

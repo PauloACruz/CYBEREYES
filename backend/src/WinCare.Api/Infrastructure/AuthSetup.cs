@@ -84,13 +84,18 @@ public static class AuthSetup
                     {
                         return WinCareClaims.ApiKeyScheme;
                     }
+                    if (Tickets.TrayTokenAuthenticationHandler.Matches(ctx.Request))
+                    {
+                        return Tickets.TrayTokenAuthenticationHandler.SchemeName;
+                    }
                     return Rmm.AgentTokenAuthenticationHandler.HasTokenHeader(ctx.Request)
                         ? WinCareClaims.AgentTokenScheme
                         : IdentityConstants.ApplicationScheme;
                 };
             })
             .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>(WinCareClaims.ApiKeyScheme, null)
-            .AddScheme<AuthenticationSchemeOptions, Rmm.AgentTokenAuthenticationHandler>(WinCareClaims.AgentTokenScheme, null);
+            .AddScheme<AuthenticationSchemeOptions, Rmm.AgentTokenAuthenticationHandler>(WinCareClaims.AgentTokenScheme, null)
+            .AddScheme<AuthenticationSchemeOptions, Tickets.TrayTokenAuthenticationHandler>(Tickets.TrayTokenAuthenticationHandler.SchemeName, null);
 
         services.AddScoped<IClaimsTransformation, PermissionClaimsTransformation>();
         services.AddSingleton<IAuthorizationPolicyProvider, WinCarePolicyProvider>();
@@ -103,6 +108,7 @@ public static class AuthSetup
             .SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().AddRequirements(new MfaRequirement()).Build())
             .AddPolicy(Policies.Partial, p => p.RequireAuthenticatedUser())
             .AddPolicy(Policies.Agent, p => p.RequireClaim(WinCareClaims.AgentPk))
+            .AddPolicy(Policies.Tray, p => p.RequireClaim(WinCareClaims.TrayAgent).RequireClaim(WinCareClaims.TrayUser))
             .AddPolicy(Policies.Installer, p => p.RequireAssertion(ctx =>
                 ctx.User.HasClaim(c => c.Type == WinCareClaims.Installer) ||
                 (ctx.User.Identities.Any(i => i.IsAuthenticated && i.AuthenticationType == WinCareClaims.ApiKeyScheme) &&

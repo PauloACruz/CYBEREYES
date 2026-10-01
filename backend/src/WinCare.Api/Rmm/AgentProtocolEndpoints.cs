@@ -35,6 +35,7 @@ public static class AgentProtocolEndpoints
         agent.MapGet("/{agentId}/checkrunner/", (ClaimsPrincipal p, WinCareDbContext db, TimeProvider t, CancellationToken ct) => Monitoring.MonitoringProtocol.ChecksAsync(false, p, db, t, ct));
         agent.MapGet("/{agentId}/runchecks/", (ClaimsPrincipal p, WinCareDbContext db, TimeProvider t, CancellationToken ct) => Monitoring.MonitoringProtocol.ChecksAsync(true, p, db, t, ct));
         agent.MapPatch("/checkrunner/", Monitoring.MonitoringProtocol.CheckResultAsync);
+        agent.MapPost("/traytoken/", Tickets.Tray.IssueTokenAsync);
         agent.MapPost("/checkin/", Monitoring.MonitoringProtocol.CheckinAsync);
         agent.MapPost("/syncmesh/", SyncMeshAsync);
         agent.MapPost("/choco/", ChocoAsync);

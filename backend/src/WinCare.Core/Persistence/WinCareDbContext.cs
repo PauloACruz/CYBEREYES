@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using WinCare.Core.Audit;
 using WinCare.Core.Identity;
 using WinCare.Core.Rmm;
+using WinCare.Core.Tickets;
 
 namespace WinCare.Core.Persistence;
 
@@ -37,6 +38,14 @@ public sealed class WinCareDbContext(DbContextOptions<WinCareDbContext> options)
     public DbSet<PatchPolicy> PatchPolicies => Set<PatchPolicy>();
     public DbSet<PendingAction> PendingActions => Set<PendingAction>();
     public DbSet<CoreSettings> CoreSettings => Set<CoreSettings>();
+    public DbSet<TicketQueue> TicketQueues => Set<TicketQueue>();
+    public DbSet<Ticket> Tickets => Set<Ticket>();
+    public DbSet<TicketMessage> TicketMessages => Set<TicketMessage>();
+    public DbSet<TicketAttachment> TicketAttachments => Set<TicketAttachment>();
+    public DbSet<TicketAttachmentData> TicketAttachmentData => Set<TicketAttachmentData>();
+    public DbSet<TimeEntry> TimeEntries => Set<TimeEntry>();
+    public DbSet<SlaRule> SlaRules => Set<SlaRule>();
+    public DbSet<TrayToken> TrayTokens => Set<TrayToken>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -344,7 +353,11 @@ public sealed class WinCareDbContext(DbContextOptions<WinCareDbContext> options)
             e.ToTable("core_settings");
             e.Property(x => x.Id).ValueGeneratedNever();
             e.Property(x => x.TimeZone).HasMaxLength(64);
+            e.Property(x => x.IncidentSeverities).HasColumnType("text[]");
+            e.Property(x => x.IncidentPriority).HasMaxLength(16);
         });
+
+        ConfigureTickets(builder);
 
         builder.Entity<Client>().HasOne<Policy>().WithMany().HasForeignKey(c => c.ServerPolicyId).OnDelete(DeleteBehavior.SetNull);
         builder.Entity<Client>().HasOne<Policy>().WithMany().HasForeignKey(c => c.WorkstationPolicyId).OnDelete(DeleteBehavior.SetNull);
@@ -354,5 +367,98 @@ public sealed class WinCareDbContext(DbContextOptions<WinCareDbContext> options)
         builder.Entity<Site>().HasOne<AlertTemplate>().WithMany().HasForeignKey(c => c.AlertTemplateId).OnDelete(DeleteBehavior.SetNull);
         builder.Entity<Agent>().HasOne<Policy>().WithMany().HasForeignKey(a => a.PolicyId).OnDelete(DeleteBehavior.SetNull);
         builder.Entity<Agent>().HasOne<AlertTemplate>().WithMany().HasForeignKey(a => a.AlertTemplateId).OnDelete(DeleteBehavior.SetNull);
+    }
+
+    private static void ConfigureTickets(ModelBuilder builder)
+    {
+        builder.Entity<TicketQueue>(e =>
+        {
+            e.ToTable("ticket_queues");
+            e.Property(x => x.Name).HasMaxLength(100);
+            e.Property(x => x.Description).HasMaxLength(500);
+            e.HasIndex(x => x.Name).IsUnique();
+        });
+
+        builder.Entity<Ticket>(e =>
+        {
+            e.ToTable("tickets");
+            e.Property(x => x.Type).HasMaxLength(16);
+            e.Property(x => x.Title).HasMaxLength(200);
+            e.Property(x => x.Description).HasMaxLength(20000);
+            e.Property(x => x.Status).HasMaxLength(16);
+            e.Property(x => x.Priority).HasMaxLength(16);
+            e.Property(x => x.RequesterName).HasMaxLength(200);
+            e.Property(x => x.RequesterUsername).HasMaxLength(256);
+            e.Property(x => x.RequesterEmail).HasMaxLength(256);
+            e.Property(x => x.Source).HasMaxLength(16);
+            e.Property(x => x.LastMessageAuthor).HasMaxLength(16);
+            e.HasIndex(x => new { x.Status, x.UpdatedAt });
+            e.HasIndex(x => new { x.AssignedToId, x.Status });
+            e.HasIndex(x => new { x.AgentId, x.RequesterUsername });
+            e.HasIndex(x => x.AlertId);
+            e.HasOne(x => x.Queue).WithMany().HasForeignKey(x => x.QueueId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<Agent>().WithMany().HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne<Client>().WithMany().HasForeignKey(x => x.ClientId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne<Site>().WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne<AppUser>().WithMany().HasForeignKey(x => x.AssignedToId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne<AppUser>().WithMany().HasForeignKey(x => x.CreatedById).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne<Alert>().WithMany().HasForeignKey(x => x.AlertId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<TicketMessage>(e =>
+        {
+            e.ToTable("ticket_messages");
+            e.Property(x => x.AuthorType).HasMaxLength(16);
+            e.Property(x => x.AuthorName).HasMaxLength(200);
+            e.Property(x => x.Body).HasMaxLength(20000);
+            e.HasIndex(x => new { x.TicketId, x.CreatedAt });
+            e.HasOne<Ticket>().WithMany().HasForeignKey(x => x.TicketId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<TicketAttachment>(e =>
+        {
+            e.ToTable("ticket_attachments");
+            e.Property(x => x.FileName).HasMaxLength(255);
+            e.Property(x => x.ContentType).HasMaxLength(128);
+            e.Property(x => x.UploadedBy).HasMaxLength(200);
+            e.HasIndex(x => x.TicketId);
+            e.HasIndex(x => x.MessageId);
+            e.HasOne<Ticket>().WithMany().HasForeignKey(x => x.TicketId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<TicketMessage>().WithMany().HasForeignKey(x => x.MessageId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<TicketAttachmentData>(e =>
+        {
+            e.ToTable("ticket_attachment_data");
+            e.HasKey(x => x.AttachmentId);
+            e.HasOne<TicketAttachment>().WithOne().HasForeignKey<TicketAttachmentData>(x => x.AttachmentId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<TimeEntry>(e =>
+        {
+            e.ToTable("time_entries");
+            e.Property(x => x.Description).HasMaxLength(1000);
+            e.HasIndex(x => x.TicketId);
+            e.HasOne<Ticket>().WithMany().HasForeignKey(x => x.TicketId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<SlaRule>(e =>
+        {
+            e.ToTable("sla_rules");
+            e.HasKey(x => x.Priority);
+            e.Property(x => x.Priority).HasMaxLength(16);
+            e.HasData(SlaRule.Defaults());
+        });
+
+        builder.Entity<TrayToken>(e =>
+        {
+            e.ToTable("tray_tokens");
+            e.Property(x => x.Username).HasMaxLength(256);
+            e.Property(x => x.TokenHash).HasMaxLength(64);
+            e.HasIndex(x => x.TokenHash).IsUnique();
+            e.HasIndex(x => x.ExpiresAt);
+            e.HasOne<Agent>().WithMany().HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.Cascade);
+        });
     }
 }
