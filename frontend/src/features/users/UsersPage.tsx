@@ -133,6 +133,16 @@ export function UsersPage() {
                           Sem 2FA
                         </Badge>
                       )}
+                      {user.ssoLogins && user.ssoLogins.length > 0 && (
+                        <Badge color="indigo" variant="light" size="sm">
+                          SSO
+                        </Badge>
+                      )}
+                      {user.hasPassword === false && (
+                        <Badge color="gray" variant="light" size="sm">
+                          Sem senha local
+                        </Badge>
+                      )}
                     </Group>
                   </Table.Td>
                   <Table.Td>{formatDateTime(user.lastLoginAt)}</Table.Td>

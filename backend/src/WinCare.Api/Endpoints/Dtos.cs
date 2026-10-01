@@ -31,7 +31,13 @@ public sealed record Paged<T>(IReadOnlyList<T> Items, int Total, int Page, int P
 public sealed record RoleRef(Guid Id, string Name);
 
 public sealed record UserDto(Guid Id, string Username, string? Email, string FullName, bool IsActive, bool TwoFactorEnabled,
-    IReadOnlyList<RoleRef> Roles, DateTimeOffset? LastLoginAt, DateTimeOffset CreatedAt);
+    IReadOnlyList<RoleRef> Roles, DateTimeOffset? LastLoginAt, DateTimeOffset CreatedAt)
+{
+    public IReadOnlyList<SsoLoginRef>? SsoLogins { get; init; }
+    public bool? HasPassword { get; init; }
+}
+
+public sealed record SsoLoginRef(int ProviderId, string ProviderName);
 
 public sealed record CreateUserRequest(
     [property: Required, StringLength(150, MinimumLength = 3), RegularExpression(@"^[a-zA-Z0-9._@-]+$")] string Username,

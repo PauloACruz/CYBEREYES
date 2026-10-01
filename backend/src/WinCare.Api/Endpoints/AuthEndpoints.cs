@@ -26,13 +26,19 @@ public static class AuthEndpoints
     }
 
     private static async Task<IResult> LoginAsync(LoginRequest request, UserManager<AppUser> userManager,
-        SignInManager<AppUser> signInManager, IAuditService audit, CancellationToken ct)
+        SignInManager<AppUser> signInManager, IAuditService audit, WinCare.Core.Persistence.WinCareDbContext db, CancellationToken ct)
     {
         var user = await userManager.FindByNameAsync(request.Username);
         if (user is null || !user.IsActive)
         {
             await audit.LogAsync("login.failed", "user", null, "Usuario inexistente ou inativo", request.Username, ct);
             return Problems.Unauthorized("Usuario ou senha incorretos", ErrorCodes.InvalidCredentials);
+        }
+
+        if (await Sso.SsoPolicy.PasswordLoginBlockedAsync(user, db, ct))
+        {
+            await audit.LogAsync("login.failed", "user", user.Id.ToString(), "Login por senha desativado (use o SSO)", user.UserName, ct);
+            return Problems.Forbidden("O login por senha esta desativado; entre pelo SSO", Sso.SsoErrors.PasswordLoginDisabled);
         }
 
         var result = await signInManager.PasswordSignInAsync(user, request.Password, request.RememberMe ?? false, lockoutOnFailure: true);

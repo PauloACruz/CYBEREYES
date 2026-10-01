@@ -31,7 +31,7 @@ describe('fluxo de login', () => {
 
     expect(await screen.findByRole('heading', { name: /Olá, Maria/ })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/');
-    const [, init] = fetchMock.mock.calls[0]!;
+    const [, init] = fetchMock.mock.calls.find(([, call]) => call?.method === 'POST')!;
     expect(JSON.parse(init?.body as string)).toEqual({ username: 'tecnico', password: 'segredo123', rememberMe: false });
   });
 

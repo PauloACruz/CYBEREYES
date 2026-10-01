@@ -6,6 +6,7 @@ import { usersApi } from '../../api/users';
 import type { UserDto } from '../../api/types';
 import { notifySuccess } from '../../lib/feedback';
 import { applyServerErrors } from '../../lib/forms';
+import { UserSsoLogins } from './UserSsoLogins';
 
 interface UserFormModalProps {
   opened: boolean;
@@ -102,6 +103,7 @@ function UserForm({ user, onDone }: { user: UserDto | null; onDone: () => void }
           {...form.getInputProps('roleIds')}
         />
         <Switch label="Usuário ativo" {...form.getInputProps('isActive', { type: 'checkbox' })} />
+        {isEdit && <UserSsoLogins user={user} canManage />}
         <Group justify="flex-end" mt="sm">
           <Button variant="default" onClick={onDone}>
             Cancelar

@@ -3,10 +3,36 @@ name: wincare
 x-restart: &restart
   restart: unless-stopped
 
+# Hardening comum (ADR-018): sem escalada de privilegio e sem capacidades do kernel;
+# cada servico devolve so as capacidades que precisa com cap_add.
+x-hardening: &hardening
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  # Rotacao dos logs dos conteineres (o json-file padrao do Docker cresce sem limite).
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "5"
+
 services:
   nginx:
-    <<: *restart
+    <<: [*restart, *hardening]
     build: ./nginx
+    # Mestre como root: troca para o usuario nginx nos workers e le certificados proprios em certs/
+    # mesmo quando a chave privada pertence a outro usuario do host (DAC_READ_SEARCH, so leitura).
+    cap_add: [CHOWN, SETUID, SETGID, NET_BIND_SERVICE, DAC_READ_SEARCH]
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /run
+      - /var/cache/nginx
+      - /etc/nginx/conf.d
+      - /etc/nginx/certs
+      - /etc/nginx/selfsigned
+    mem_limit: 256m
     image: ${REGISTRY:-ghcr.io/pauloacruz}/wincare-nginx:${VERSION:-latest}
     ports:
       - "80:80"
@@ -30,8 +56,9 @@ services:
           - ${MESH_HOST}
 
   certbot:
-    <<: *restart
+    <<: [*restart, *hardening]
     image: certbot/certbot:v5.8.0
+    mem_limit: 256m
     entrypoint: ["/bin/sh", "/run.sh"]
     environment:
       WINCARE_HOST: ${WINCARE_HOST}
@@ -47,9 +74,13 @@ services:
     profiles: [letsencrypt]
 
   migrate:
+    <<: *hardening
     image: ${REGISTRY:-ghcr.io/pauloacruz}/wincare-api:${VERSION:-latest}
     build: ../../backend
     command: ["--migrate-only"]
+    read_only: true
+    tmpfs: [/tmp]
+    mem_limit: 512m
     environment:
       ConnectionStrings__Default: Host=postgres;Database=wincare;Username=wincare;Password=${POSTGRES_PASSWORD};GSS Encryption Mode=Disable
       Seed__AdminUsername: ${ADMIN_USERNAME}
@@ -62,16 +93,19 @@ services:
     restart: "no"
 
   api:
-    <<: *restart
+    <<: [*restart, *hardening]
     image: ${REGISTRY:-ghcr.io/pauloacruz}/wincare-api:${VERSION:-latest}
     build: ../../backend
     deploy:
       replicas: ${API_REPLICAS:-2}
+    read_only: true
+    tmpfs: [/tmp]
+    mem_limit: 1g
     environment:
       ConnectionStrings__Default: Host=postgres;Database=wincare;Username=wincare;Password=${POSTGRES_PASSWORD};GSS Encryption Mode=Disable
       Proxy__TrustAll: "true"
       Database__MigrateOnStartup: "false"
-      ConnectionStrings__Redis: redis:6379
+      ConnectionStrings__Redis: redis:6379,password=${REDIS_PASSWORD}
       App__PublicUrl: https://${WINCARE_HOST}
       Nats__Url: nats://nats:4222
       Nats__User: ${NATS_API_USER}
@@ -99,14 +133,28 @@ services:
     networks: [edge, data]
 
   web:
-    <<: *restart
+    <<: [*restart, *hardening]
     image: ${REGISTRY:-ghcr.io/pauloacruz}/wincare-web:${VERSION:-latest}
     build: ../../frontend
+    cap_add: [CHOWN, SETUID, SETGID]
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /run
+      - /var/cache/nginx
+    mem_limit: 128m
     networks: [edge]
 
   postgres:
-    <<: *restart
+    <<: [*restart, *hardening]
     image: postgres:17-alpine
+    # Usuario postgres da imagem alpine (uid 70); dispensa o chown/gosu do entrypoint.
+    user: "70:70"
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/run/postgresql:uid=70,gid=70
+    mem_limit: 1536m
     environment:
       POSTGRES_DB: wincare
       POSTGRES_USER: wincare
@@ -121,9 +169,17 @@ services:
     networks: [data]
 
   redis:
-    <<: *restart
+    <<: [*restart, *hardening]
     image: redis:7.4-alpine
-    command: ["redis-server", "--appendonly", "yes"]
+    # Usuario redis da imagem (uid 999). A senha vem do ambiente para nao aparecer na configuracao do conteiner.
+    user: "999:1000"
+    command: ["sh", "-c", "exec redis-server --appendonly yes --requirepass \"$$REDIS_PASSWORD\""]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?defina REDIS_PASSWORD no .env}
+      REDISCLI_AUTH: ${REDIS_PASSWORD}
+    read_only: true
+    tmpfs: [/tmp]
+    mem_limit: 512m
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -134,9 +190,13 @@ services:
     networks: [data]
 
   nats:
-    <<: *restart
+    <<: [*restart, *hardening]
     image: nats:2.11-alpine
     entrypoint: ["/bin/sh", "/run.sh"]
+    # run.sh roda como root para entregar o arquivo de usuarios a API (uid 1654) e ler esse arquivo depois.
+    cap_add: [CHOWN, FOWNER, DAC_OVERRIDE]
+    read_only: true
+    mem_limit: 512m
     environment:
       NATS_API_USER: ${NATS_API_USER}
       NATS_API_PASSWORD: ${NATS_API_PASSWORD}
@@ -147,7 +207,8 @@ services:
     networks: [edge, data]
 
   meshcentral:
-    <<: *restart
+    <<: [*restart, *hardening]
+    mem_limit: 1g
     build:
       context: ./meshcentral
       args:
@@ -163,6 +224,37 @@ services:
       - mesh_files:/opt/meshcentral/meshcentral-files
       - mesh_shared:/opt/meshcentral/shared
     networks: [edge]
+
+  # Backup diario (sempre ativo, sem perfil: o RPO de 24 h depende dele e um perfil esquecido
+  # no .env desligaria o backup sem aviso). Ver docs/runbooks/backup-restauracao.md.
+  backup:
+    <<: [*restart, *hardening]
+    build: ./backup
+    image: ${REGISTRY:-ghcr.io/pauloacruz}/wincare-backup:${VERSION:-latest}
+    # Root com DAC_READ_SEARCH apenas para ler os arquivos do MeshCentral (uid 1000) nos volumes somente leitura.
+    cap_add: [DAC_READ_SEARCH]
+    read_only: true
+    tmpfs: [/tmp]
+    mem_limit: 512m
+    environment:
+      TZ: ${TZ:-America/Sao_Paulo}
+      PGHOST: postgres
+      PGUSER: wincare
+      PGDATABASE: wincare
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      BACKUP_TIME: ${BACKUP_TIME:-02:30}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+      BACKUP_PASSPHRASE: ${BACKUP_PASSPHRASE:-}
+      BACKUP_INCLUDE_ENV: ${BACKUP_INCLUDE_ENV:-false}
+    volumes:
+      - ${BACKUP_HOST_DIR:-./backups}:/backups
+      - mesh_data:/volumes/mesh_data:ro
+      - mesh_files:/volumes/mesh_files:ro
+      - ./.env:/config/.env:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [data]
 
 networks:
   edge:

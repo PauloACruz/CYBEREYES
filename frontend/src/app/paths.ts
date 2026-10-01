@@ -23,6 +23,7 @@ export const PATHS = {
   newDocPage: '/documentacao/paginas/nova',
   logs: '/logs',
   snmp: '/snmp',
+  reports: '/relatorios',
 } as const;
 
 export function agentPath(id: number): string {

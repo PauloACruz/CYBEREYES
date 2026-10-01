@@ -51,7 +51,9 @@ public static class UserEndpoints
         {
             return Problems.NotFound("Usuario");
         }
-        return TypedResults.Ok(ToDto(user, await LoadRolesAsync(db, [id], ct)));
+        var logins = await db.UserLogins.AsNoTracking().Where(l => l.UserId == id && l.LoginProvider.StartsWith("oidc:")).ToListAsync(ct);
+        var sso = logins.Select(l => new SsoLoginRef(int.TryParse(l.LoginProvider[5..], out var pid) ? pid : 0, l.ProviderDisplayName ?? l.LoginProvider)).ToList();
+        return TypedResults.Ok(ToDto(user, await LoadRolesAsync(db, [id], ct)) with { SsoLogins = sso, HasPassword = user.PasswordHash is not null });
     }
 
     private static async Task<IResult> CreateAsync(CreateUserRequest request, WinCareDbContext db, UserManager<AppUser> userManager,
@@ -129,7 +131,9 @@ public static class UserEndpoints
         }
 
         await audit.LogAsync("user.updated", "user", id.ToString(), $"Usuario {user.UserName} alterado", cancellationToken: ct);
-        return TypedResults.Ok(ToDto(user, await LoadRolesAsync(db, [id], ct)));
+        var logins = await db.UserLogins.AsNoTracking().Where(l => l.UserId == id && l.LoginProvider.StartsWith("oidc:")).ToListAsync(ct);
+        var sso = logins.Select(l => new SsoLoginRef(int.TryParse(l.LoginProvider[5..], out var pid) ? pid : 0, l.ProviderDisplayName ?? l.LoginProvider)).ToList();
+        return TypedResults.Ok(ToDto(user, await LoadRolesAsync(db, [id], ct)) with { SsoLogins = sso, HasPassword = user.PasswordHash is not null });
     }
 
     private static async Task<IResult> ResetPasswordAsync(Guid id, ResetPasswordRequest request, UserManager<AppUser> userManager,

@@ -10,4 +10,6 @@ export const usersApi = {
     api.post<undefined>(`/api/users/${encodeURIComponent(id)}/reset-password`, body),
   resetTwoFactor: (id: string) => api.post<undefined>(`/api/users/${encodeURIComponent(id)}/reset-2fa`),
   remove: (id: string) => api.delete(`/api/users/${encodeURIComponent(id)}`),
+  removeSsoLogin: (id: string, providerId: number) =>
+    api.delete(`/api/users/${encodeURIComponent(id)}/sso/${encodeURIComponent(String(providerId))}`),
 };

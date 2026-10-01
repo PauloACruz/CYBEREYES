@@ -289,4 +289,5 @@ public sealed class CoreSettings
     public List<string> LogWindowsLogs { get; set; } = ["System", "Application"];
     public int LogMaxPerCycle { get; set; } = 500;
     public int LogRetentionDays { get; set; } = 30;
+    public bool DisablePasswordLogin { get; set; }
 }

@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using WinCare.Core.Audit;
 using WinCare.Core.Identity;
 using WinCare.Core.Inventory;
+using WinCare.Core.Reports;
 using WinCare.Core.Rmm;
 using WinCare.Core.Tickets;
 
@@ -66,6 +67,10 @@ public sealed class WinCareDbContext(DbContextOptions<WinCareDbContext> options)
     public DbSet<SnmpInterface> SnmpInterfaces => Set<SnmpInterface>();
     public DbSet<SnmpSensor> SnmpSensors => Set<SnmpSensor>();
     public DbSet<SnmpSample> SnmpSamples => Set<SnmpSample>();
+    public DbSet<ReportRun> ReportRuns => Set<ReportRun>();
+    public DbSet<ReportSchedule> ReportSchedules => Set<ReportSchedule>();
+    public DbSet<ReportDispatch> ReportDispatches => Set<ReportDispatch>();
+    public DbSet<OidcProvider> OidcProviders => Set<OidcProvider>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -385,6 +390,7 @@ public sealed class WinCareDbContext(DbContextOptions<WinCareDbContext> options)
         ConfigureInventory(builder);
         ConfigureWinCare(builder);
         ConfigureLogsSnmp(builder);
+        ConfigureReportsSso(builder);
 
         builder.Entity<Client>().HasOne<Policy>().WithMany().HasForeignKey(c => c.ServerPolicyId).OnDelete(DeleteBehavior.SetNull);
         builder.Entity<Client>().HasOne<Policy>().WithMany().HasForeignKey(c => c.WorkstationPolicyId).OnDelete(DeleteBehavior.SetNull);
@@ -759,6 +765,62 @@ public sealed class WinCareDbContext(DbContextOptions<WinCareDbContext> options)
             e.HasKey(x => new { x.DeviceId, x.Metric, x.Time });
             e.Property(x => x.Metric).HasMaxLength(64);
             e.HasIndex(x => x.Time);
+        });
+    }
+
+    private static void ConfigureReportsSso(ModelBuilder builder)
+    {
+        builder.Entity<ReportRun>(e =>
+        {
+            e.ToTable("report_runs");
+            e.Property(x => x.Type).HasMaxLength(32);
+            e.Property(x => x.Title).HasMaxLength(200);
+            e.Property(x => x.Format).HasMaxLength(8);
+            e.Property(x => x.Status).HasMaxLength(16);
+            e.Property(x => x.Error).HasMaxLength(2000);
+            e.Property(x => x.FileName).HasMaxLength(255);
+            e.Property(x => x.Params).HasColumnType("jsonb");
+            e.Property(x => x.RequestedBy).HasMaxLength(256);
+            e.Property(x => x.EmailedTo).HasColumnType("text[]");
+            e.HasIndex(x => x.CreatedAt);
+            e.HasIndex(x => new { x.ScheduleId, x.CreatedAt });
+            e.HasOne<ReportSchedule>().WithMany().HasForeignKey(x => x.ScheduleId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<ReportSchedule>(e =>
+        {
+            e.ToTable("report_schedules");
+            e.Property(x => x.Name).HasMaxLength(200);
+            e.Property(x => x.Type).HasMaxLength(32);
+            e.Property(x => x.Params).HasColumnType("jsonb");
+            e.Property(x => x.Format).HasMaxLength(8);
+            e.Property(x => x.Frequency).HasMaxLength(16);
+            e.Property(x => x.Time).HasMaxLength(5);
+            e.Property(x => x.Recipients).HasColumnType("text[]");
+            e.Property(x => x.LastStatus).HasMaxLength(16);
+            e.Property(x => x.CreatedBy).HasMaxLength(256);
+        });
+
+        builder.Entity<ReportDispatch>(e =>
+        {
+            e.ToTable("report_dispatches");
+            e.HasIndex(x => new { x.ScheduleId, x.Slot }).IsUnique();
+            e.HasOne<ReportSchedule>().WithMany().HasForeignKey(x => x.ScheduleId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<OidcProvider>(e =>
+        {
+            e.ToTable("oidc_providers");
+            e.Ignore(x => x.LoginProvider);
+            e.Property(x => x.Name).HasMaxLength(100);
+            e.Property(x => x.Authority).HasMaxLength(500);
+            e.Property(x => x.ClientId).HasMaxLength(255);
+            e.Property(x => x.ClientSecretEncrypted).HasMaxLength(2000);
+            e.Property(x => x.Scopes).HasMaxLength(500);
+            e.Property(x => x.UsernameClaim).HasMaxLength(100);
+            e.Property(x => x.AllowedDomains).HasColumnType("text[]");
+            e.HasIndex(x => x.Name).IsUnique();
+            e.HasOne<AppRole>().WithMany().HasForeignKey(x => x.DefaultRoleId).OnDelete(DeleteBehavior.SetNull);
         });
     }
 }

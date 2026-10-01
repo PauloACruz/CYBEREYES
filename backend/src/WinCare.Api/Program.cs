@@ -66,6 +66,8 @@ if (builder.Configuration.GetConnectionString("Redis") is { Length: > 0 } redis)
 builder.Services.AddSingleton<IAgentNotifier, AgentNotifier>();
 builder.Services.AddScoped<WinCare.Api.Rmm.Actions.SystemEndpoints.Deps>();
 builder.Services.AddHttpClient("webhooks");
+builder.Services.AddHttpClient("oidc");
+builder.Services.AddScoped<WinCare.Api.Sso.SsoService>();
 builder.Services.AddHttpClient("mesh", c => c.Timeout = TimeSpan.FromMinutes(5));
 builder.Services.Configure<WinCare.Api.Rmm.Mesh.MeshSettings>(builder.Configuration.GetSection(WinCare.Api.Rmm.Mesh.MeshSettings.Section));
 builder.Services.AddSingleton<WinCare.Api.Rmm.Mesh.MeshClient>();
@@ -88,6 +90,10 @@ builder.Services.AddSingleton<WinCare.Api.Rmm.Monitoring.PatchScheduler>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<WinCare.Api.Rmm.Monitoring.PatchScheduler>());
 builder.Services.AddHostedService<WinCare.Api.Rmm.Monitoring.MaintenanceService>();
 builder.Services.AddScoped<WinCare.Api.Snmp.SnmpService>();
+builder.Services.AddScoped<WinCare.Api.Reports.ReportBuilder>();
+builder.Services.AddScoped<WinCare.Api.Reports.ReportService>();
+builder.Services.AddSingleton<WinCare.Api.Reports.ReportScheduler>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<WinCare.Api.Reports.ReportScheduler>());
 builder.Services.AddSingleton<WinCare.Api.Logs.LogPartitionService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<WinCare.Api.Logs.LogPartitionService>());
 builder.Services.AddSingleton<WinCare.Api.Logs.LogAlertEvaluator>();
@@ -185,6 +191,8 @@ WinCare.Api.Inventory.DocsEndpoints.MapDocsEndpoints(app);
 WinCare.Api.Rmm.Maintenance.WinCareEndpoints.MapWinCareEndpoints(app);
 WinCare.Api.Logs.LogEndpoints.MapLogEndpoints(app);
 WinCare.Api.Snmp.SnmpEndpoints.MapSnmpEndpoints(app);
+WinCare.Api.Reports.ReportEndpoints.MapReportEndpoints(app);
+WinCare.Api.Sso.SsoEndpoints.MapSsoEndpoints(app);
 
 if (args.Contains("--migrate-only"))
 {

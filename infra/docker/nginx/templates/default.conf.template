@@ -57,7 +57,19 @@ server {
     ssl_certificate_key /etc/nginx/certs/${WINCARE_HOST}/privkey.pem;
 
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
-    client_max_body_size 300M;
+    # O MeshCentral abre em nova aba (window.open), nunca em iframe: frame-src e frame-ancestors ficam 'none'.
+    # style-src precisa de 'unsafe-inline' porque o Mantine e o Monaco injetam estilos em tempo de execucao.
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' wss://${WINCARE_HOST}; worker-src 'self' blob:; frame-src 'none'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Referrer-Policy "no-referrer" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()" always;
+    # A API e o conteiner web ja mandam alguns desses cabecalhos; escondemos os deles para nao duplicar.
+    proxy_hide_header X-Content-Type-Options;
+    proxy_hide_header X-Frame-Options;
+    proxy_hide_header Referrer-Policy;
+    # Maior upload da API e 10 MB (anexos e arquivos da documentacao); 30M acompanha o limite padrao do Kestrel.
+    client_max_body_size 30M;
 
     proxy_set_header Host              $host;
     proxy_set_header X-Real-IP         $remote_addr;
@@ -111,6 +123,8 @@ server {
 
     ssl_certificate     /etc/nginx/certs/${MESH_HOST}/fullchain.pem;
     ssl_certificate_key /etc/nginx/certs/${MESH_HOST}/privkey.pem;
+
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 
     proxy_read_timeout 330s;
     proxy_send_timeout 330s;

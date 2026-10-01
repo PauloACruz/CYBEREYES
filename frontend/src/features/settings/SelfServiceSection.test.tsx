@@ -14,6 +14,8 @@ describe('autoatendimento nas configurações', () => {
     mockFetch({
       'GET /api/auth/me': () => json(makeMe({ permissions: ['settings.manage'] })),
       'GET /api/wincare/self-service': () => json({ enabled: false, tasks: ['winget.upgrade_all'] }),
+      'GET /api/sso/providers': () => json([]),
+      'GET /api/sso/settings': () => json({ disablePasswordLogin: false }),
       'GET /api/agents': (_init, url) => {
         agentQuery = url.searchParams.get('status');
         return json({ items: [makeAgent()], total: 1, page: 1, pageSize: 50 });

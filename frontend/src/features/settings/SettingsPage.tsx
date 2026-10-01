@@ -9,6 +9,7 @@ import { LogsSection } from './LogsSection';
 import { MeshSection } from './MeshSection';
 import { NotificationsSection } from './NotificationsSection';
 import { SelfServiceSection } from './SelfServiceSection';
+import { SsoSection } from './SsoSection';
 import { TicketsSection } from './TicketsSection';
 import { UrlActionsSection } from './UrlActionsSection';
 
@@ -22,6 +23,7 @@ export function SettingsPage() {
         <KeystoreSection />
         <UrlActionsSection />
         <MeshSection />
+        <SsoSection />
         <TicketsSection />
         <SelfServiceSection />
         <LogsSection />

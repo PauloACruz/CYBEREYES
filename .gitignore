@@ -14,3 +14,4 @@ infra/docker/certs/*
 !infra/docker/certs/.gitkeep
 infra/docker/agents/*
 !infra/docker/agents/.gitkeep
+infra/docker/backups/

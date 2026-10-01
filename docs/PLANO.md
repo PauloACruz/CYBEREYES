@@ -109,7 +109,9 @@ Referencia de arquitetura e decisoes: `.team-context.md`.
 ### Fase 9: Relatorios, SSO e entrada em producao
 - Relatorios com agendamento e exportacao em PDF; SSO via OIDC (projetados do zero).
 - Hardening, backup e restauracao testados, runbooks.
-- Migracao gradual das 400 estacoes (piloto com 10, depois por site).
+  - Feito: cabecalhos de seguranca e limite de corpo de 30 MB no Nginx; `no-new-privileges`, `cap_drop: ALL`, raiz somente leitura, usuario nao root e `mem_limit` nos conteineres; rotacao dos logs dos conteineres; Redis com senha; verificacao de pacotes vulneraveis (NuGet e npm) no CI; servico `backup` diario com `backup.sh`/`restore.sh`, restauracao testada em projeto separado; runbooks em `docs/runbooks/`.
+  - Pendente: ensaio completo de restauracao em VPS nova (medir o RTO real), copia automatica do backup para fora da VPS, ferramenta de recifragem do cofre para trocar a `VAULT_KEY`, CSP validada no navegador.
+- Migracao gradual das 400 estacoes (piloto com 10, depois por site). Plano em `docs/runbooks/migracao-400-estacoes.md`; nada executado ainda.
 
 ## Servidor (estimativa inicial, validar com teste de carga)
 VPS com 4 vCPU, 8 GB de RAM e 160 GB de SSD para 400 estacoes, incluindo MeshCentral e logs. Esta e uma estimativa minha, sem medicao; o volume de logs e o fator que mais pode exigir aumento de disco.

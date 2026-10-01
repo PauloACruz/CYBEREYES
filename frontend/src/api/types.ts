@@ -24,7 +24,14 @@ export type ErrorCode =
   | 'AGENT_TIMEOUT'
   | 'AGENT_BUSY'
   | 'MESH_DISABLED'
-  | 'VAULT_DISABLED';
+  | 'VAULT_DISABLED'
+  | 'SSO_PROVIDER_ERROR'
+  | 'SSO_INVALID_STATE'
+  | 'SSO_INVALID_TOKEN'
+  | 'SSO_USER_NOT_FOUND'
+  | 'SSO_USER_DISABLED'
+  | 'SSO_DOMAIN_NOT_ALLOWED'
+  | 'PASSWORD_LOGIN_DISABLED';
 
 export interface Paged<T> {
   items: T[];
@@ -108,6 +115,14 @@ export interface UserDto {
   roles: RoleRef[];
   lastLoginAt: string | null;
   createdAt: string;
+  /** Fase 9: vinculos SSO e senha local (garantidos no GET /api/users/{id}). */
+  ssoLogins?: UserSsoLogin[];
+  hasPassword?: boolean;
+}
+
+export interface UserSsoLogin {
+  providerId: number;
+  providerName: string;
 }
 
 export interface ListUsersParams {
@@ -554,6 +569,8 @@ export const PERMISSIONS = {
   logsView: 'logs.view',
   snmpView: 'snmp.view',
   snmpManage: 'snmp.manage',
+  reportsView: 'reports.view',
+  reportsManage: 'reports.manage',
 } as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -1884,3 +1901,153 @@ export interface SnmpCollectorDto {
 
 /** Evento snmpDeviceChanged do hub do console. */
 export type SnmpDeviceChangedEvent = SnmpDeviceDto;
+
+// Relatorios (docs/api/fase9-relatorios-sso.md, secao 1)
+
+export type ReportType = 'agents' | 'inventory' | 'alerts' | 'tickets' | 'patches' | 'health' | 'snmp_availability';
+export type ReportPeriod = 'last_24h' | 'last_7d' | 'last_30d' | 'previous_month' | 'current_month';
+export type ReportFormat = 'pdf' | 'csv';
+export type ReportColumnKind = 'text' | 'number' | 'date' | 'datetime' | 'percent' | 'duration';
+export type ReportFilterKey = 'clientId' | 'siteId' | 'status' | 'severity' | 'assignedToId' | 'assetType' | 'onlyPending' | 'maxScore';
+
+export interface ReportTypeDto {
+  type: ReportType;
+  label: string;
+  description: string;
+  usesPeriod: boolean;
+  filters: string[];
+}
+
+export interface ReportParams {
+  type: ReportType;
+  clientId?: number;
+  siteId?: number;
+  from?: string;
+  to?: string;
+  period?: ReportPeriod;
+  severity?: string;
+  status?: string;
+  assignedToId?: string;
+  assetType?: string;
+  onlyPending?: boolean;
+  maxScore?: number;
+}
+
+export interface ReportSummaryItem {
+  label: string;
+  value: string | number | null;
+}
+
+export interface ReportColumn {
+  key: string;
+  label: string;
+  kind: ReportColumnKind;
+}
+
+export type ReportRow = Record<string, unknown>;
+
+export interface ReportData {
+  type: ReportType;
+  title: string;
+  generatedAt: string;
+  periodFrom?: string | null;
+  periodTo?: string | null;
+  filtersText: string[];
+  summary: ReportSummaryItem[];
+  columns: ReportColumn[];
+  rows: ReportRow[];
+  truncated: boolean;
+}
+
+export type GenerateReportRequest = ReportParams & { format: ReportFormat };
+
+export interface ReportRunDto {
+  id: number;
+  type: ReportType;
+  title: string;
+  format: ReportFormat;
+  status: 'ok' | 'error';
+  error?: string | null;
+  fileName: string;
+  size: number;
+  createdAt: string;
+  requestedBy: string;
+  scheduleId?: number | null;
+  emailedTo: string[];
+}
+
+export interface ListReportRunsParams {
+  page: number;
+  pageSize: number;
+  scheduleId?: number;
+}
+
+export type ReportFrequency = 'daily' | 'weekly' | 'monthly';
+
+export interface SaveReportSchedule {
+  name: string;
+  /** period obrigatorio para tipos com periodo; from/to nao sao aceitos. */
+  params: ReportParams;
+  format: ReportFormat;
+  frequency: ReportFrequency;
+  /** HH:mm no fuso das configuracoes. */
+  time: string;
+  dayOfWeek?: number | null;
+  dayOfMonth?: number | null;
+  recipients: string[];
+  enabled: boolean;
+}
+
+export interface ReportScheduleDto extends SaveReportSchedule {
+  id: number;
+  lastRunAt?: string | null;
+  lastStatus?: 'ok' | 'error' | null;
+  nextRunAt: string | null;
+  createdBy: string;
+}
+
+// SSO via OIDC (docs/api/fase9-relatorios-sso.md, secao 2)
+
+export interface SsoProviderOption {
+  id: number;
+  name: string;
+}
+
+export interface SsoLoginOptions {
+  providers: SsoProviderOption[];
+  passwordLoginEnabled: boolean;
+}
+
+export interface SaveOidcProvider {
+  name: string;
+  authority: string;
+  clientId: string;
+  /** Ausente no PUT mantem o segredo atual. */
+  clientSecret?: string;
+  scopes: string;
+  usernameClaim: string;
+  linkByEmail: boolean;
+  autoProvision: boolean;
+  defaultRoleId?: string | null;
+  allowedDomains: string[];
+  trustProviderMfa: boolean;
+  enabled: boolean;
+}
+
+export interface OidcProviderDto extends Omit<SaveOidcProvider, 'clientSecret'> {
+  id: number;
+  hasClientSecret: boolean;
+  redirectUri: string;
+  userCount: number;
+}
+
+export interface OidcDiscoveryTestResult {
+  ok: boolean;
+  issuer?: string | null;
+  authorizationEndpoint?: string | null;
+  error?: string | null;
+}
+
+export interface SsoSettingsDto {
+  disablePasswordLogin: boolean;
+}

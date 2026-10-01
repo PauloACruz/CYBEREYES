@@ -38,6 +38,8 @@ public static class Permissions
     public const string LogsView = "logs.view";
     public const string SnmpView = "snmp.view";
     public const string SnmpManage = "snmp.manage";
+    public const string ReportsView = "reports.view";
+    public const string ReportsManage = "reports.manage";
 
     public static IReadOnlyList<PermissionInfo> Catalog { get; } =
     [
@@ -75,6 +77,8 @@ public static class Permissions
         new(LogsView, "Logs", "Ver logs de sistema das maquinas e traps SNMP"),
         new(SnmpView, "SNMP", "Ver dispositivos SNMP, interfaces, sensores e graficos"),
         new(SnmpManage, "SNMP", "Cadastrar dispositivos SNMP, sensores e coletores"),
+        new(ReportsView, "Relatorios", "Gerar, visualizar e baixar relatorios"),
+        new(ReportsManage, "Relatorios", "Criar e alterar agendamentos e excluir relatorios gerados"),
     ];
 
     private static readonly HashSet<string> Known = Catalog.Select(p => p.Key).ToHashSet(StringComparer.Ordinal);

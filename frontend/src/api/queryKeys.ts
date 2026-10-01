@@ -1,5 +1,6 @@
 import type {
   AgentStatus,
+  ListReportRunsParams,
   ListAgentsParams,
   ListAlertsParams,
   ListAssetsParams,
@@ -110,4 +111,13 @@ export const queryKeys = {
   snmpDevice: (id: number) => ['snmp', 'device', id] as const,
   snmpMetrics: (id: number, metric: string, hours: number) => ['snmp', 'device', id, 'metrics', metric, hours] as const,
   snmpCollectors: ['snmp', 'collectors'] as const,
+  reportTypes: ['reports', 'types'] as const,
+  reportRuns: ['reports', 'runs'] as const,
+  reportRunList: (params: ListReportRunsParams) => ['reports', 'runs', params] as const,
+  reportSchedules: ['reports', 'schedules'] as const,
+  ssoLoginOptions: ['sso-login-options'] as const,
+  ssoProviders: ['sso', 'providers'] as const,
+  ssoSettings: ['sso', 'settings'] as const,
+  roleOptions: ['roles', 'options'] as const,
+  userDetail: (id: string) => ['users', 'detail', id] as const,
 };

@@ -16,16 +16,25 @@ public sealed record SubjectAlertRequest(int? AgentId, int? SnmpDeviceId, string
 public sealed record AlertRequest(int AgentId, string AlertType, int? CheckId, int? TaskId, string Severity, string Message,
     bool Email, bool Webhook, bool Dashboard);
 
+public sealed record EmailAttachment(string FileName, string ContentType, byte[] Content);
+
 public interface INotificationSender
 {
     Task SendEmailAsync(CoreSettings settings, IReadOnlyList<string> recipients, string subject, string body, CancellationToken ct);
+
+    Task SendEmailAsync(CoreSettings settings, IReadOnlyList<string> recipients, string subject, string body, IReadOnlyList<EmailAttachment> attachments,
+        CancellationToken ct);
 
     Task SendWebhookAsync(string url, object payload, CancellationToken ct);
 }
 
 public sealed class NotificationSender(IHttpClientFactory http, IDataProtectionProvider protection) : INotificationSender
 {
-    public async Task SendEmailAsync(CoreSettings settings, IReadOnlyList<string> recipients, string subject, string body, CancellationToken ct)
+    public Task SendEmailAsync(CoreSettings settings, IReadOnlyList<string> recipients, string subject, string body, CancellationToken ct) =>
+        SendEmailAsync(settings, recipients, subject, body, [], ct);
+
+    public async Task SendEmailAsync(CoreSettings settings, IReadOnlyList<string> recipients, string subject, string body,
+        IReadOnlyList<EmailAttachment> attachments, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(settings.SmtpHost) || string.IsNullOrWhiteSpace(settings.SmtpFrom) || recipients.Count == 0)
         {
@@ -39,7 +48,12 @@ public sealed class NotificationSender(IHttpClientFactory http, IDataProtectionP
             message.To.Add(MailboxAddress.Parse(address));
         }
         message.Subject = subject;
-        message.Body = new TextPart("plain") { Text = body };
+        var builder = new BodyBuilder { TextBody = body };
+        foreach (var attachment in attachments)
+        {
+            builder.Attachments.Add(attachment.FileName, attachment.Content, ContentType.Parse(attachment.ContentType));
+        }
+        message.Body = builder.ToMessageBody();
 
         using var client = new SmtpClient();
         client.Timeout = 15000;
