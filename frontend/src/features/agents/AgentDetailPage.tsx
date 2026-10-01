@@ -62,6 +62,7 @@ import { EventLogTab } from './actions/EventLogTab';
 import { HistoryTab } from './actions/HistoryTab';
 import { LiveServicesTab } from './actions/LiveServicesTab';
 import { ProcessesTab } from './actions/ProcessesTab';
+import { RemoteAccessMenu } from './actions/RemoteAccessMenu';
 import { ScriptRunTab } from './actions/ScriptRunTab';
 import { isWindows } from './actions/shells';
 import { AgentAlertsTab } from './monitoring/AgentAlertsTab';
@@ -115,6 +116,7 @@ function AgentDetailView({ agent }: { agent: AgentDetail }) {
   const canManage = hasPermission(me, PERMISSIONS.agentsManage);
   const canRun = hasPermission(me, PERMISSIONS.agentsRun);
   const canControl = hasPermission(me, PERMISSIONS.agentsControl);
+  const canRemote = hasPermission(me, PERMISSIONS.agentsRemote);
   const canViewScripts = hasPermission(me, PERMISSIONS.scriptsView);
   const canViewAlerts = hasPermission(me, PERMISSIONS.alertsView);
   const windows = isWindows(agent.plat);
@@ -220,6 +222,7 @@ function AgentDetailView({ agent }: { agent: AgentDetail }) {
           <Button variant="light" leftSection={<IconActivity size={16} />} loading={ping.isPending} onClick={() => ping.mutate()}>
             Ping
           </Button>
+          {canRemote && <RemoteAccessMenu agent={agent} />}
           <AgentActionsMenu agent={agent} canControl={canControl} />
           {canManage && (
             <Button color="red" variant="light" leftSection={<IconTrash size={16} />} onClick={deleteModal.open}>

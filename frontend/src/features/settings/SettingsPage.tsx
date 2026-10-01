@@ -1,6 +1,7 @@
 import { Stack } from '@mantine/core';
 import { PageHeader } from '../../components/PageHeader';
 import { KeystoreSection } from './KeystoreSection';
+import { MeshSection } from './MeshSection';
 import { NotificationsSection } from './NotificationsSection';
 import { UrlActionsSection } from './UrlActionsSection';
 
@@ -12,6 +13,7 @@ export function SettingsPage() {
         <NotificationsSection />
         <KeystoreSection />
         <UrlActionsSection />
+        <MeshSection />
       </Stack>
     </>
   );

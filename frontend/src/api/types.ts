@@ -21,7 +21,8 @@ export type ErrorCode =
   | 'NOT_FOUND'
   | 'CONFLICT'
   | 'RATE_LIMITED'
-  | 'AGENT_TIMEOUT';
+  | 'AGENT_TIMEOUT'
+  | 'MESH_DISABLED';
 
 export interface Paged<T> {
   items: T[];
@@ -528,6 +529,7 @@ export const PERMISSIONS = {
   agentsInstall: 'agents.install',
   agentsRun: 'agents.run',
   agentsControl: 'agents.control',
+  agentsRemote: 'agents.remote',
   scriptsView: 'scripts.view',
   scriptsManage: 'scripts.manage',
   checksManage: 'checks.manage',
@@ -880,4 +882,28 @@ export interface GlobalSettingsDto {
 export interface SaveGlobalSettingsRequest extends Omit<GlobalSettingsDto, 'smtpPasswordSet'> {
   /** Enviada somente quando o usuario digita uma nova senha. */
   smtpPassword?: string;
+}
+
+// Acesso remoto com MeshCentral (docs/api/fase4-mesh.md)
+
+export type RemoteView = 'control' | 'terminal' | 'files';
+
+export interface RemoteAccessDto {
+  hostname: string;
+  control: string;
+  terminal: string;
+  files: string;
+}
+
+export interface MeshSyncResult {
+  lastSync: string | null;
+  lastError: string | null;
+  users: number;
+}
+
+export interface MeshStatusDto extends MeshSyncResult {
+  enabled: boolean;
+  url: string | null;
+  deviceGroup: string | null;
+  groupId: string | null;
 }

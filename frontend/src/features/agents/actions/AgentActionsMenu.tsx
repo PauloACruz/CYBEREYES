@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Button, Group, Loader, Menu, Modal, Stack, Text, TextInput } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { IconChevronDown, IconExternalLink, IconPower, IconRefresh, IconRotateClockwise } from '@tabler/icons-react';
+import { IconChevronDown, IconExternalLink, IconFirstAidKit, IconPlugConnected, IconPower, IconRefresh, IconRotateClockwise } from '@tabler/icons-react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { agentActionsApi } from '../../../api/agentActions';
+import { meshApi } from '../../../api/mesh';
 import { queryKeys } from '../../../api/queryKeys';
 import { urlActionsApi } from '../../../api/settings';
 import type { AgentDetail, UrlActionDto } from '../../../api/types';
@@ -28,6 +29,14 @@ export function AgentActionsMenu({ agent, canControl }: AgentActionsMenuProps) {
   const refresh = useMutation({
     mutationFn: () => agentActionsApi.refresh(agent.id),
     onSuccess: () => notifySuccess(`${agent.hostname} vai reenviar o inventário em instantes.`),
+  });
+  const wake = useMutation({
+    mutationFn: () => meshApi.wake(agent.id),
+    onSuccess: () => notifySuccess('Wake-on-LAN enviado.'),
+  });
+  const recoverMesh = useMutation({
+    mutationFn: () => meshApi.recover(agent.id),
+    onSuccess: () => notifySuccess('Recuperação do MeshAgent solicitada.'),
   });
   const openUrl = useMutation({
     mutationFn: async (action: UrlActionDto) => {
@@ -63,7 +72,15 @@ export function AgentActionsMenu({ agent, canControl }: AgentActionsMenuProps) {
       onConfirm: () => reboot.mutate(),
     });
 
-  const busy = reboot.isPending || refresh.isPending || openUrl.isPending;
+  const confirmRecoverMesh = () =>
+    confirmAction({
+      title: 'Recuperar MeshAgent',
+      message: `Reinstalar o MeshAgent em ${agent.hostname}? O acesso remoto fica indisponível até a reinstalação terminar.`,
+      confirmLabel: 'Recuperar',
+      onConfirm: () => recoverMesh.mutate(),
+    });
+
+  const busy = reboot.isPending || refresh.isPending || openUrl.isPending || wake.isPending || recoverMesh.isPending;
 
   return (
     <>
@@ -86,6 +103,14 @@ export function AgentActionsMenu({ agent, canControl }: AgentActionsMenuProps) {
               </Menu.Item>
               <Menu.Item color="red" leftSection={<IconPower size={16} />} onClick={() => setShutdownOpen(true)}>
                 Desligar
+              </Menu.Item>
+              <Menu.Item leftSection={<IconPlugConnected size={16} />} onClick={() => wake.mutate()}>
+                Wake-on-LAN
+              </Menu.Item>
+              <Menu.Divider />
+              <Menu.Label>MeshCentral</Menu.Label>
+              <Menu.Item leftSection={<IconFirstAidKit size={16} />} onClick={confirmRecoverMesh}>
+                Recuperar MeshAgent
               </Menu.Item>
             </>
           )}

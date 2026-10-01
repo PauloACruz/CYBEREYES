@@ -22,6 +22,7 @@ export const queryKeys = {
   keystore: ['keystore'] as const,
   urlActions: ['url-actions'] as const,
   globalSettings: ['global-settings'] as const,
+  meshStatus: ['mesh-status'] as const,
   // Monitoramento: fora de ['agents'] pelo mesmo motivo das consultas ao vivo.
   agentMonitoring: (id: number) => ['agent-monitoring', id] as const,
   agentChecks: (id: number) => ['agent-monitoring', id, 'checks'] as const,
