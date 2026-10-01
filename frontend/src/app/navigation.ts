@@ -1,4 +1,5 @@
 import {
+  IconAlertTriangle,
   IconBuilding,
   IconCode,
   IconDeviceDesktop,
@@ -6,6 +7,7 @@ import {
   IconKey,
   IconListDetails,
   IconRocket,
+  IconShieldCheckered,
   IconSettings,
   IconShieldLock,
   IconUsers,
@@ -21,11 +23,15 @@ export interface NavItem {
   to: string;
   icon: Icon;
   permission?: string;
+  /** Mostra o contador de alertas ativos ao lado do item. */
+  alertCounter?: boolean;
 }
 
 export const NAV_ITEMS: readonly NavItem[] = [
   { label: 'Painel', to: PATHS.dashboard, icon: IconHome },
   { label: 'Agentes', to: PATHS.agents, icon: IconDeviceDesktop, permission: PERMISSIONS.agentsView },
+  { label: 'Alertas', to: PATHS.alerts, icon: IconAlertTriangle, permission: PERMISSIONS.alertsView, alertCounter: true },
+  { label: 'Políticas', to: PATHS.policies, icon: IconShieldCheckered, permission: PERMISSIONS.agentsView },
   { label: 'Clientes', to: PATHS.clients, icon: IconBuilding, permission: PERMISSIONS.clientsView },
   { label: 'Scripts', to: PATHS.scripts, icon: IconCode, permission: PERMISSIONS.scriptsView },
   { label: 'Implantações', to: PATHS.deployments, icon: IconRocket, permission: PERMISSIONS.agentsInstall },

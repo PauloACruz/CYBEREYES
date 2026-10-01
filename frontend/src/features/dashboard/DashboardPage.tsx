@@ -4,6 +4,7 @@ import { PERMISSIONS } from '../../api/types';
 import { hasPermission } from '../../auth/permissions';
 import { useMe } from '../../auth/useMe';
 import { AgentStats } from './AgentStats';
+import { AlertStats } from './AlertStats';
 
 interface ComingSoonCard {
   title: string;
@@ -27,6 +28,7 @@ export function DashboardPage() {
         Bem-vindo ao WinCare.
       </Text>
       {hasPermission(me, PERMISSIONS.agentsView) && <AgentStats />}
+      {hasPermission(me, PERMISSIONS.alertsView) && <AlertStats />}
       <Text fw={600} mb="sm">
         Próximas fases
       </Text>

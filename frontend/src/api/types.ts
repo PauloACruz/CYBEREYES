@@ -530,6 +530,354 @@ export const PERMISSIONS = {
   agentsControl: 'agents.control',
   scriptsView: 'scripts.view',
   scriptsManage: 'scripts.manage',
+  checksManage: 'checks.manage',
+  policiesManage: 'policies.manage',
+  alertsView: 'alerts.view',
+  alertsManage: 'alerts.manage',
+  patchesManage: 'patches.manage',
+  softwareManage: 'software.manage',
 } as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
+
+// Monitoramento e automacao (docs/api/fase3-monitoramento.md)
+
+export type Severity = 'info' | 'warning' | 'error';
+export type CheckType = 'diskspace' | 'cpuload' | 'memory' | 'ping' | 'script' | 'winsvc' | 'eventlog';
+export type CheckStatus = 'passing' | 'failing' | 'pending';
+export type EventType = 'INFO' | 'WARNING' | 'ERROR' | 'AUDIT_SUCCESS' | 'AUDIT_FAILURE';
+export type FailWhen = 'contains' | 'not_contains';
+
+export interface CheckDto {
+  id: number;
+  agentId: number | null;
+  policyId: number | null;
+  checkType: CheckType;
+  name: string;
+  /** Segundos; 0 usa o intervalo do agente. */
+  runInterval: number;
+  failsBeforeAlert: number;
+  alertSeverity: Severity;
+  warningThreshold: number;
+  errorThreshold: number;
+  disk: string | null;
+  ip: string | null;
+  scriptId: number | null;
+  scriptArgs: string[];
+  envVars: string[];
+  timeout: number | null;
+  infoReturnCodes: number[];
+  warningReturnCodes: number[];
+  successReturnCodes: number[];
+  svcName: string | null;
+  passIfStartPending: boolean;
+  passIfSvcNotExist: boolean;
+  restartIfStopped: boolean;
+  logName: EventLogName | null;
+  eventId: number | null;
+  eventIdIsWildcard: boolean;
+  eventType: EventType | null;
+  eventSource: string | null;
+  eventMessage: string | null;
+  failWhen: FailWhen;
+  searchLastDays: number;
+  numberOfEventsBeforeAlert: number;
+  emailAlert: boolean;
+  webhookAlert: boolean;
+  dashboardAlert: boolean;
+}
+
+export type SaveCheckRequest = Omit<CheckDto, 'id'>;
+
+export interface CheckResultDto {
+  status: CheckStatus;
+  alertSeverity: Severity | null;
+  moreInfo: string | null;
+  lastRun: string | null;
+  failCount: number;
+  stdout: string | null;
+  stderr: string | null;
+  retcode: number | null;
+  executionTime: number | null;
+  history: number[];
+}
+
+export interface AgentCheckDto {
+  check: CheckDto;
+  inherited: boolean;
+  policyName: string | null;
+  result: CheckResultDto | null;
+}
+
+export interface CheckHistoryPoint {
+  time: string;
+  value: number;
+  status: CheckStatus;
+  results: string | null;
+}
+
+export type TaskScheduleType = 'manual' | 'once' | 'daily' | 'weekly' | 'monthly' | 'check_failure';
+
+export interface TaskCommandAction {
+  type: 'cmd';
+  command: string;
+  shell: CommandShell;
+  timeout: number;
+}
+
+export interface TaskScriptAction {
+  type: 'script';
+  scriptId: number;
+  args: string[];
+  envVars: string[];
+  timeout: number;
+  runAsUser: boolean;
+}
+
+export type TaskAction = TaskCommandAction | TaskScriptAction;
+
+export interface TaskDto {
+  id: number;
+  agentId: number | null;
+  policyId: number | null;
+  name: string;
+  enabled: boolean;
+  continueOnError: boolean;
+  alertSeverity: Severity;
+  actions: TaskAction[];
+  scheduleType: TaskScheduleType;
+  /** ISO, para "once". */
+  runAt: string | null;
+  /** "HH:mm" no fuso das configuracoes globais. */
+  time: string | null;
+  /** 0 = domingo. */
+  daysOfWeek: number[];
+  dayOfMonth: number | null;
+  everyDays?: number | null;
+  assignedCheckId: number | null;
+  emailAlert: boolean;
+  webhookAlert: boolean;
+  dashboardAlert: boolean;
+}
+
+export type SaveTaskRequest = Omit<TaskDto, 'id' | 'everyDays'>;
+
+export interface TaskResultDto {
+  status: string;
+  retcode: number | null;
+  stdout: string | null;
+  stderr: string | null;
+  executionTime: number | null;
+  lastRun: string | null;
+}
+
+export interface AgentTaskDto {
+  task: TaskDto;
+  inherited: boolean;
+  policyName: string | null;
+  result: TaskResultDto | null;
+  nextRun: string | null;
+}
+
+export interface PolicyDto {
+  id: number;
+  name: string;
+  description: string;
+  enabled: boolean;
+  checkCount: number;
+  taskCount: number;
+  appliedTo: { clients: number; sites: number; agents: number };
+}
+
+export type PatchRule = 'approve' | 'ignore' | 'manual';
+export type RebootAfterInstall = 'never' | 'required' | 'always';
+
+export interface PatchPolicy {
+  critical: PatchRule;
+  important: PatchRule;
+  moderate: PatchRule;
+  low: PatchRule;
+  other: PatchRule;
+  runTimeDays: number[];
+  runTimeHour: number;
+  rebootAfterInstall: RebootAfterInstall;
+}
+
+export interface PolicyDetailDto {
+  id: number;
+  name: string;
+  description: string;
+  enabled: boolean;
+  checks: CheckDto[];
+  tasks: TaskDto[];
+  patchPolicy: PatchPolicy | null;
+}
+
+export interface SavePolicyRequest {
+  name: string;
+  description: string;
+  enabled: boolean;
+}
+
+export type AssignmentTarget = 'global' | 'client' | 'site' | 'agent';
+
+export interface PolicyAssignmentRequest {
+  target: AssignmentTarget;
+  targetId: number | null;
+  monitoringType: MonitoringType | null;
+  policyId: number | null;
+}
+
+export interface PolicyAssignmentsDto {
+  globalServer: number | null;
+  globalWorkstation: number | null;
+  clients: { id: number; name: string; serverPolicyId: number | null; workstationPolicyId: number | null; blockPolicyInheritance: boolean }[];
+  sites: { id: number; clientId: number; name: string; serverPolicyId: number | null; workstationPolicyId: number | null; blockPolicyInheritance: boolean }[];
+  agents: { id: number; hostname: string; policyId: number | null; blockPolicyInheritance: boolean }[];
+}
+
+export interface BlockInheritanceRequest {
+  target: Exclude<AssignmentTarget, 'global'>;
+  targetId: number;
+  block: boolean;
+}
+
+export type PolicySource = 'agente' | 'site' | 'cliente' | 'global';
+
+export interface EffectivePolicyDto {
+  policyId: number;
+  name: string;
+  source: PolicySource;
+}
+
+export type AlertType = 'availability' | 'check' | 'task';
+export type AlertStatusFilter = 'active' | 'resolved' | 'all';
+
+export interface AlertDto {
+  id: number;
+  agentId: number;
+  hostname: string;
+  clientName: string;
+  siteName: string;
+  alertType: AlertType;
+  checkId: number | null;
+  taskId: number | null;
+  severity: Severity;
+  message: string;
+  createdAt: string;
+  resolved: boolean;
+  resolvedAt: string | null;
+  snoozedUntil: string | null;
+  emailSent: boolean;
+  webhookSent: boolean;
+}
+
+export interface ListAlertsParams {
+  status: AlertStatusFilter;
+  severity?: Severity;
+  clientId?: number;
+  agentId?: number;
+  page: number;
+  pageSize: number;
+}
+
+export type BulkAlertRequest = { ids: number[]; action: 'resolve' } | { ids: number[]; action: 'snooze'; until: string };
+
+export interface AlertsChangedEvent {
+  activeCount: number;
+}
+
+export interface AlertTemplateDto {
+  id: number;
+  name: string;
+  emailRecipients: string[];
+  webhookUrl: string | null;
+  emailSeverities: Severity[];
+  webhookSeverities: Severity[];
+  dashboardSeverities: Severity[];
+  notifyOnResolved: boolean;
+  agentOverdueEmail: boolean;
+  agentOverdueWebhook: boolean;
+  agentOverdueDashboard: boolean;
+}
+
+export type SaveAlertTemplateRequest = Omit<AlertTemplateDto, 'id'>;
+
+export interface TemplateAssignmentRequest {
+  target: AssignmentTarget;
+  targetId: number | null;
+  templateId: number | null;
+}
+
+export interface TemplateAssignmentsDto {
+  global: number | null;
+  clients: { id: number; name: string; alertTemplateId: number | null }[];
+  sites: { id: number; clientId: number; name: string; alertTemplateId: number | null }[];
+  agents: { id: number; hostname: string; alertTemplateId: number | null }[];
+}
+
+export type UpdateAction = 'approve' | 'ignore' | 'nothing';
+
+export interface WinUpdateDto {
+  id: number;
+  guid: string;
+  kb: string;
+  title: string;
+  severity: string;
+  categories: string[];
+  installed: boolean;
+  downloaded: boolean;
+  action: UpdateAction;
+  result: string;
+  dateInstalled: string | null;
+  moreInfoUrls: string[];
+}
+
+export interface AgentPatchPolicyDto {
+  own: PatchPolicy | null;
+  effective: PatchPolicy;
+}
+
+export interface SoftwareItem {
+  name: string;
+  version: string;
+  publisher: string;
+  installDate: string;
+  size: string;
+  source: string;
+  location: string;
+  uninstall: string;
+}
+
+export interface SoftwareInventory {
+  updatedAt: string | null;
+  items: SoftwareItem[];
+}
+
+export interface PendingActionDto {
+  id: number;
+  type: string;
+  /** JSON com os detalhes da acao. */
+  details: string;
+  status: string;
+  output: string | null;
+  createdAt: string;
+}
+
+export interface GlobalSettingsDto {
+  smtpHost: string | null;
+  smtpPort: number;
+  smtpUsername: string | null;
+  smtpPasswordSet: boolean;
+  smtpFrom: string | null;
+  smtpUseTls: boolean;
+  defaultWebhookUrl: string | null;
+  timeZone: string;
+  checkHistoryDays: number;
+  agentHistoryDays: number;
+}
+
+export interface SaveGlobalSettingsRequest extends Omit<GlobalSettingsDto, 'smtpPasswordSet'> {
+  /** Enviada somente quando o usuario digita uma nova senha. */
+  smtpPassword?: string;
+}

@@ -20,18 +20,23 @@ import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import {
   IconActivity,
+  IconAlertTriangle,
   IconBinaryTree,
+  IconCalendarTime,
+  IconChecklist,
   IconCode,
   IconDatabase,
   IconFileText,
   IconHistory,
   IconInfoCircle,
   IconListDetails,
+  IconPackage,
   IconPrompt,
   IconRefreshAlert,
   IconServer,
   IconTerminal2,
   IconTrash,
+  IconWorldDownload,
   type Icon,
 } from '@tabler/icons-react';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -59,6 +64,12 @@ import { LiveServicesTab } from './actions/LiveServicesTab';
 import { ProcessesTab } from './actions/ProcessesTab';
 import { ScriptRunTab } from './actions/ScriptRunTab';
 import { isWindows } from './actions/shells';
+import { AgentAlertsTab } from './monitoring/AgentAlertsTab';
+import { ChecksTab } from './monitoring/ChecksTab';
+import { EffectivePolicies } from './monitoring/EffectivePolicies';
+import { SoftwareTab } from './monitoring/SoftwareTab';
+import { TasksTab } from './monitoring/TasksTab';
+import { UpdatesTab } from './monitoring/UpdatesTab';
 
 // Abas pesadas (xterm.js e navegador do registro) carregam sob demanda.
 const TerminalTab = lazy(() => import('./actions/TerminalTab').then((m) => ({ default: m.TerminalTab })));
@@ -105,6 +116,7 @@ function AgentDetailView({ agent }: { agent: AgentDetail }) {
   const canRun = hasPermission(me, PERMISSIONS.agentsRun);
   const canControl = hasPermission(me, PERMISSIONS.agentsControl);
   const canViewScripts = hasPermission(me, PERMISSIONS.scriptsView);
+  const canViewAlerts = hasPermission(me, PERMISSIONS.alertsView);
   const windows = isWindows(agent.plat);
   const [deleteOpened, deleteModal] = useDisclosure(false);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -113,7 +125,12 @@ function AgentDetailView({ agent }: { agent: AgentDetail }) {
   const tabs: TabDef[] = [
     { value: 'resumo', label: 'Resumo', icon: IconInfoCircle, render: () => <SummaryTab agent={agent} /> },
     { value: 'discos', label: 'Discos', icon: IconDatabase, render: () => <DisksTab disks={parseDisks(agent.disks)} /> },
+    { value: 'checks', label: 'Checks', icon: IconChecklist, render: () => <ChecksTab agent={agent} /> },
+    { value: 'tarefas', label: 'Tarefas', icon: IconCalendarTime, render: () => <TasksTab agent={agent} /> },
   ];
+  if (windows) tabs.push({ value: 'atualizacoes', label: 'Atualizações', icon: IconWorldDownload, render: () => <UpdatesTab agent={agent} /> });
+  tabs.push({ value: 'software', label: 'Software', icon: IconPackage, render: () => <SoftwareTab agent={agent} /> });
+  if (canViewAlerts) tabs.push({ value: 'alertas', label: 'Alertas', icon: IconAlertTriangle, render: () => <AgentAlertsTab agent={agent} /> });
   if (canRun) tabs.push({ value: 'comando', label: 'Comando', icon: IconPrompt, render: () => <CommandTab agent={agent} /> });
   if (canRun && canViewScripts) tabs.push({ value: 'scripts', label: 'Scripts', icon: IconCode, render: () => <ScriptRunTab agent={agent} /> });
   if (canRun) {
@@ -252,25 +269,28 @@ function orDash(value: string | null | undefined): string {
 function SummaryTab({ agent }: { agent: AgentDetail }) {
   const arch = agent.goArch ?? agent.goarch;
   return (
-    <Paper withBorder p="lg">
-      <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg">
-        <Field label="Sistema operacional">
-          <OperatingSystem plat={agent.plat} operatingSystem={agent.operatingSystem} />
-        </Field>
-        <Field label="Arquitetura">{orDash(arch)}</Field>
-        <Field label="Memória RAM">{agent.totalRam ? `${agent.totalRam} GB` : 'Não informado'}</Field>
-        <Field label="IP público">{orDash(agent.publicIp)}</Field>
-        <Field label="Último boot">{formatDateTime(agent.bootTime, 'Não informado')}</Field>
-        <Field label="Usuário logado">{orDash(loggedUser(agent))}</Field>
-        <Field label="Versão do agente">{orDash(agent.version)}</Field>
-        <Field label="Criado em">{formatDateTime(agent.createdAt)}</Field>
-        <Field label="Visto por último">{formatDateTime(agent.lastSeen)}</Field>
-        <Field label="Descrição">{orDash(agent.description)}</Field>
-        <Field label="Intervalos">
-          Check-in a cada {agent.checkInterval} s; offline após {agent.offlineTime} min; em atraso após {agent.overdueTime} min
-        </Field>
-      </SimpleGrid>
-    </Paper>
+    <>
+      <Paper withBorder p="lg">
+        <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg">
+          <Field label="Sistema operacional">
+            <OperatingSystem plat={agent.plat} operatingSystem={agent.operatingSystem} />
+          </Field>
+          <Field label="Arquitetura">{orDash(arch)}</Field>
+          <Field label="Memória RAM">{agent.totalRam ? `${agent.totalRam} GB` : 'Não informado'}</Field>
+          <Field label="IP público">{orDash(agent.publicIp)}</Field>
+          <Field label="Último boot">{formatDateTime(agent.bootTime, 'Não informado')}</Field>
+          <Field label="Usuário logado">{orDash(loggedUser(agent))}</Field>
+          <Field label="Versão do agente">{orDash(agent.version)}</Field>
+          <Field label="Criado em">{formatDateTime(agent.createdAt)}</Field>
+          <Field label="Visto por último">{formatDateTime(agent.lastSeen)}</Field>
+          <Field label="Descrição">{orDash(agent.description)}</Field>
+          <Field label="Intervalos">
+            Check-in a cada {agent.checkInterval} s; offline após {agent.offlineTime} min; em atraso após {agent.overdueTime} min
+          </Field>
+        </SimpleGrid>
+      </Paper>
+      <EffectivePolicies agentId={agent.id} />
+    </>
   );
 }
 

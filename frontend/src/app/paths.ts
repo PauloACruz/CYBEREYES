@@ -12,8 +12,16 @@ export const PATHS = {
   audit: '/auditoria',
   scripts: '/scripts',
   settings: '/configuracoes',
+  alerts: '/alertas',
+  alertTemplates: '/alertas/templates',
+  policies: '/politicas',
+  policyAssignments: '/politicas/atribuicoes',
 } as const;
 
 export function agentPath(id: number): string {
   return `${PATHS.agents}/${id}`;
+}
+
+export function policyPath(id: number): string {
+  return `${PATHS.policies}/${id}`;
 }

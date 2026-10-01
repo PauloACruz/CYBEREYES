@@ -1,4 +1,4 @@
-import type { AgentStatus, ListAgentsParams } from './types';
+import type { AgentStatus, ListAgentsParams, ListAlertsParams, Severity } from './types';
 
 export const queryKeys = {
   clients: ['clients'] as const,
@@ -21,4 +21,25 @@ export const queryKeys = {
   snippets: ['snippets'] as const,
   keystore: ['keystore'] as const,
   urlActions: ['url-actions'] as const,
+  globalSettings: ['global-settings'] as const,
+  // Monitoramento: fora de ['agents'] pelo mesmo motivo das consultas ao vivo.
+  agentMonitoring: (id: number) => ['agent-monitoring', id] as const,
+  agentChecks: (id: number) => ['agent-monitoring', id, 'checks'] as const,
+  checkHistory: (checkId: number, agentId: number, hours: number) => ['agent-monitoring', agentId, 'check-history', checkId, hours] as const,
+  agentTasks: (id: number) => ['agent-monitoring', id, 'tasks'] as const,
+  agentPolicies: (id: number) => ['agent-monitoring', id, 'policies'] as const,
+  agentUpdates: (id: number) => ['agent-monitoring', id, 'updates'] as const,
+  agentPatchPolicy: (id: number) => ['agent-monitoring', id, 'patch-policy'] as const,
+  agentSoftware: (id: number) => ['agent-monitoring', id, 'software'] as const,
+  agentPendingActions: (id: number) => ['agent-monitoring', id, 'pending-actions'] as const,
+  policies: ['policies'] as const,
+  policy: (id: number) => ['policies', 'detail', id] as const,
+  policyAssignments: ['policies', 'assignments'] as const,
+  alerts: ['alerts'] as const,
+  alertList: (params: ListAlertsParams) => ['alerts', 'list', params] as const,
+  alertSeverityCount: (severity: Severity) => ['alerts', 'count', severity] as const,
+  /** Contador do menu: atualizado pelo evento alertsChanged, sem nova requisicao. */
+  activeAlertCount: ['alert-active-count'] as const,
+  alertTemplates: ['alert-templates'] as const,
+  alertTemplateAssignments: ['alert-templates', 'assignments'] as const,
 };

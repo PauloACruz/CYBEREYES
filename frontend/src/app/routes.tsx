@@ -32,6 +32,36 @@ export const routes: RouteObject[] = [
                 path: `${PATHS.agents}/:id`,
                 lazy: () => import('../features/agents/AgentDetailPage').then((m) => ({ Component: m.AgentDetailPage })),
               },
+              {
+                path: PATHS.policies,
+                lazy: () => import('../features/policies/PoliciesPage').then((m) => ({ Component: m.PoliciesPage })),
+              },
+              {
+                path: PATHS.policyAssignments,
+                lazy: () => import('../features/policies/PolicyAssignmentsPage').then((m) => ({ Component: m.PolicyAssignmentsPage })),
+              },
+              {
+                path: `${PATHS.policies}/:id`,
+                lazy: () => import('../features/policies/PolicyDetailPage').then((m) => ({ Component: m.PolicyDetailPage })),
+              },
+            ],
+          },
+          {
+            element: <RequirePermission permission={PERMISSIONS.alertsView} />,
+            children: [
+              {
+                path: PATHS.alerts,
+                lazy: () => import('../features/alerts/AlertsPage').then((m) => ({ Component: m.AlertsPage })),
+              },
+            ],
+          },
+          {
+            element: <RequirePermission permission={PERMISSIONS.alertsManage} />,
+            children: [
+              {
+                path: PATHS.alertTemplates,
+                lazy: () => import('../features/alerts/AlertTemplatesPage').then((m) => ({ Component: m.AlertTemplatesPage })),
+              },
             ],
           },
           {

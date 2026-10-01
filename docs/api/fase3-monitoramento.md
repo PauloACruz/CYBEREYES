@@ -57,7 +57,7 @@ Avaliacao (mesmas regras do Tactical):
 ```
 { id, agentId, policyId, name, enabled, continueOnError, alertSeverity, actions: [ { type: "cmd", command, shell, timeout } | { type: "script", scriptId, args[], envVars[], timeout, runAsUser } ],
   scheduleType: "manual" | "once" | "daily" | "weekly" | "monthly" | "check_failure", runAt (ISO, para "once"), time ("HH:mm", no fuso de `settings.timeZone`, padrao America/Sao_Paulo),
-  daysOfWeek: number[] (0 = domingo), dayOfMonth, everyDays, assignedCheckId, emailAlert, webhookAlert, dashboardAlert }
+  daysOfWeek: number[] (0 = domingo), dayOfMonth, assignedCheckId, emailAlert, webhookAlert, dashboardAlert }
 ```
 
 | Metodo | Rota | Permissao |
@@ -92,7 +92,7 @@ Politicas efetivas de um agente, da mais especifica para a mais geral: a do agen
 
 | Metodo | Rota | Permissao |
 |---|---|---|
-| GET | `/api/alerts?status=active|resolved|all&severity=&clientId=&page=` | `alerts.view` -> `Paged<AlertDto>` |
+| GET | `/api/alerts?status=active|resolved|all&severity=&clientId=&agentId=&page=` | `alerts.view` -> `Paged<AlertDto>` |
 | POST | `/api/alerts/{id}/resolve` | `alerts.manage` |
 | POST | `/api/alerts/{id}/snooze` `{ until }` | `alerts.manage` |
 | POST | `/api/alerts/bulk` `{ ids, action: "resolve"|"snooze", until? }` | `alerts.manage` |
@@ -114,7 +114,7 @@ Webhook: `POST` JSON `{ event: "alert.created"|"alert.resolved", alert: AlertDto
 | POST | `/api/agents/{id}/updates/scan` | `agents.view` -> 202 |
 | POST | `/api/agents/{id}/updates/install` | `patches.manage` -> 202 (instala as aprovadas agora) |
 
-Politica de patch (por politica ou agente): `{ critical, important, moderate, low, other: "approve"|"ignore"|"manual", runTimeDays: number[], runTimeHour, rebootAfterInstall: "never"|"required"|"always" }` em `GET/PUT /api/policies/{id}/patch-policy` e `GET/PUT /api/agents/{id}/patch-policy`.
+Politica de patch (por politica ou agente; `DELETE /api/agents/{id}/patch-policy` volta a usar a herdada): `{ critical, important, moderate, low, other: "approve"|"ignore"|"manual", runTimeDays: number[], runTimeHour, rebootAfterInstall: "never"|"required"|"always" }` em `GET/PUT /api/policies/{id}/patch-policy` e `GET/PUT /api/agents/{id}/patch-policy`.
 
 ## 6. Software
 
