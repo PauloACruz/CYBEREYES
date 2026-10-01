@@ -9,6 +9,8 @@ namespace WinCare.Api.Infrastructure;
 public static class Policies
 {
     public const string Partial = "partial";
+    public const string Agent = "agent";
+    public const string Installer = "installer";
     private const string PermissionPrefix = "perm:";
 
     public static string Permission(string permission) => PermissionPrefix + permission;

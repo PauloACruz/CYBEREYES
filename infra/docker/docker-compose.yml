@@ -71,7 +71,19 @@ services:
       ConnectionStrings__Default: Host=postgres;Database=wincare;Username=wincare;Password=${POSTGRES_PASSWORD}
       Proxy__TrustAll: "true"
       Database__MigrateOnStartup: "false"
+      ConnectionStrings__Redis: redis:6379
+      App__PublicUrl: https://${WINCARE_HOST}
+      Nats__Url: nats://nats:4222
+      Nats__User: ${NATS_API_USER}
+      Nats__Password: ${NATS_API_PASSWORD}
+      Nats__AuthFile: /etc/nats/auth/users.conf
+      Agent__BinariesPath: /agents
+    volumes:
+      - nats_auth:/etc/nats/auth
+      - ./agents:/agents:ro
     depends_on:
+      nats:
+        condition: service_started
       migrate:
         condition: service_completed_successfully
       redis:
@@ -116,12 +128,14 @@ services:
   nats:
     <<: *restart
     image: nats:2.11-alpine
-    command: ["-c", "/etc/nats/nats.conf"]
+    entrypoint: ["/bin/sh", "/run.sh"]
     environment:
       NATS_API_USER: ${NATS_API_USER}
       NATS_API_PASSWORD: ${NATS_API_PASSWORD}
     volumes:
       - ./nats/nats.conf:/etc/nats/nats.conf:ro
+      - ./nats/run.sh:/run.sh:ro
+      - nats_auth:/etc/nats/auth
     networks: [edge, data]
 
   meshcentral:
@@ -148,6 +162,7 @@ networks:
     internal: true
 
 volumes:
+  nats_auth:
   letsencrypt:
   certbot_webroot:
   postgres_data:

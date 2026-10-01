@@ -8,4 +8,8 @@ public static class WinCareClaims
     public const string AuthMethods = "amr";
     public const string Mfa = "mfa";
     public const string ApiKeyScheme = "ApiKey";
+    public const string AgentTokenScheme = "AgentToken";
+    public const string AgentPk = "wc_agent_pk";
+    public const string AgentIdentifier = "wc_agent_id";
+    public const string Installer = "wc_installer";
 }

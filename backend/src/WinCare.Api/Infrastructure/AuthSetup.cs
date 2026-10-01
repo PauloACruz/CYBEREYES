@@ -78,11 +78,19 @@ public static class AuthSetup
             })
             .AddPolicyScheme(SelectorScheme, SelectorScheme, o =>
             {
-                o.ForwardDefaultSelector = ctx => ctx.Request.Headers.ContainsKey(ApiKeyAuthenticationHandler.HeaderName)
-                    ? WinCareClaims.ApiKeyScheme
-                    : IdentityConstants.ApplicationScheme;
+                o.ForwardDefaultSelector = ctx =>
+                {
+                    if (ctx.Request.Headers.ContainsKey(ApiKeyAuthenticationHandler.HeaderName))
+                    {
+                        return WinCareClaims.ApiKeyScheme;
+                    }
+                    return Rmm.AgentTokenAuthenticationHandler.HasTokenHeader(ctx.Request)
+                        ? WinCareClaims.AgentTokenScheme
+                        : IdentityConstants.ApplicationScheme;
+                };
             })
-            .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>(WinCareClaims.ApiKeyScheme, null);
+            .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>(WinCareClaims.ApiKeyScheme, null)
+            .AddScheme<AuthenticationSchemeOptions, Rmm.AgentTokenAuthenticationHandler>(WinCareClaims.AgentTokenScheme, null);
 
         services.AddScoped<IClaimsTransformation, PermissionClaimsTransformation>();
         services.AddSingleton<IAuthorizationPolicyProvider, WinCarePolicyProvider>();
@@ -93,7 +101,12 @@ public static class AuthSetup
         services.AddAuthorizationBuilder()
             .SetDefaultPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().AddRequirements(new MfaRequirement()).Build())
             .SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().AddRequirements(new MfaRequirement()).Build())
-            .AddPolicy(Policies.Partial, p => p.RequireAuthenticatedUser());
+            .AddPolicy(Policies.Partial, p => p.RequireAuthenticatedUser())
+            .AddPolicy(Policies.Agent, p => p.RequireClaim(WinCareClaims.AgentPk))
+            .AddPolicy(Policies.Installer, p => p.RequireAssertion(ctx =>
+                ctx.User.HasClaim(c => c.Type == WinCareClaims.Installer) ||
+                (ctx.User.Identities.Any(i => i.IsAuthenticated && i.AuthenticationType == WinCareClaims.ApiKeyScheme) &&
+                 ctx.User.HasPermission(Permissions.AgentsInstall))));
 
         var permitPerMinute = configuration.GetValue("RateLimiting:AuthPermitPerMinute", 10);
         services.AddRateLimiter(o =>

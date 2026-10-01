@@ -2,6 +2,8 @@ using System.Net.Http.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using OtpNet;
+using DotNet.Testcontainers.Builders;
+using DotNet.Testcontainers.Containers;
 using Testcontainers.PostgreSql;
 
 namespace WinCare.Api.Tests;
@@ -11,16 +13,49 @@ public sealed class ApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
     public const string AdminUsername = "admin";
     public const string AdminPassword = "senha-admin-de-teste";
 
+    public const string NatsApiUser = "wincare-api";
+    public const string NatsApiPassword = "senha-nats-teste";
+
     private readonly PostgreSqlContainer postgres = new PostgreSqlBuilder("postgres:17-alpine").Build();
+    private readonly IContainer nats;
+    public string NatsAuthDir { get; } = Directory.CreateTempSubdirectory("wincare-nats-").FullName;
+    public string NatsUrl => $"nats://127.0.0.1:{nats.GetMappedPublicPort(4222)}";
+
+    public ApiFixture()
+    {
+        var infra = Path.Combine(FindRepoRoot(), "infra", "docker", "nats");
+        nats = new ContainerBuilder("nats:2.11-alpine")
+            .WithEntrypoint("/bin/sh", "/run.sh")
+            .WithEnvironment("NATS_API_USER", NatsApiUser)
+            .WithEnvironment("NATS_API_PASSWORD", NatsApiPassword)
+            .WithEnvironment("API_UID", "0")
+            .WithBindMount(Path.Combine(infra, "nats.conf"), "/etc/nats/nats.conf")
+            .WithBindMount(Path.Combine(infra, "run.sh"), "/run.sh")
+            .WithBindMount(NatsAuthDir, "/etc/nats/auth")
+            .WithPortBinding(4222, true)
+            .WithWaitStrategy(Wait.ForUnixContainer().UntilMessageIsLogged("Server is ready"))
+            .Build();
+    }
+
+    private static string FindRepoRoot()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !Directory.Exists(Path.Combine(dir.FullName, "infra")))
+        {
+            dir = dir.Parent;
+        }
+        return dir?.FullName ?? throw new InvalidOperationException("Raiz do repositorio nao encontrada");
+    }
     private readonly Dictionary<string, string> totpKeys = new(StringComparer.Ordinal);
     private readonly SemaphoreSlim totpLock = new(1, 1);
 
-    public async Task InitializeAsync() => await postgres.StartAsync();
+    public async Task InitializeAsync() => await Task.WhenAll(postgres.StartAsync(), nats.StartAsync());
 
     async Task IAsyncLifetime.DisposeAsync()
     {
-        await postgres.DisposeAsync();
         await base.DisposeAsync();
+        await postgres.DisposeAsync();
+        await nats.DisposeAsync();
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -30,6 +65,11 @@ public sealed class ApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseSetting("Seed:AdminUsername", AdminUsername);
         builder.UseSetting("Seed:AdminPassword", AdminPassword);
         builder.UseSetting("RateLimiting:AuthPermitPerMinute", "10000");
+        builder.UseSetting("Nats:Url", NatsUrl);
+        builder.UseSetting("Nats:User", NatsApiUser);
+        builder.UseSetting("Nats:Password", NatsApiPassword);
+        builder.UseSetting("Nats:AuthFile", Path.Combine(NatsAuthDir, "users.conf"));
+        builder.UseSetting("App:PublicUrl", "https://rmm.exemplo.com");
     }
 
     public HttpClient NewClient() => CreateClient(new WebApplicationFactoryClientOptions
