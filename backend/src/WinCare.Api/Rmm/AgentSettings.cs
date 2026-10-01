@@ -5,7 +5,7 @@ public sealed class AgentSettings
     public const string Section = "Agent";
 
     /// <summary>Versao do agente distribuida pelo servidor e versao minima aceita no registro.</summary>
-    public string LatestVersion { get; set; } = "2.11.0";
+    public string LatestVersion { get; set; } = "2.12.0";
 
     /// <summary>Pasta local com os binarios do agente (tacticalagent-v{versao}-{plat}-{arch}[.exe]).</summary>
     public string? BinariesPath { get; set; }

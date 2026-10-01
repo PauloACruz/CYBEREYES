@@ -97,11 +97,11 @@ Referencia de arquitetura e decisoes: `.team-context.md`.
 - Health Check reescrito em Go para Windows, Linux e macOS.
 - Acoes de autoatendimento opcionais no app de bandeja (por exemplo, limpar temporarios), liberadas pelo tecnico por politica.
 - Paridade Linux e macOS nos comandos que fazem sentido.
-- Coleta de logs de sistema (Event Log no Windows, journald/syslog no Linux, log unificado no macOS).
-- Papel "coletor SNMP": polling v2c/v3 e recepcao de traps.
+- (Coleta de logs e coletor SNMP foram para a fase 8, junto com a parte do servidor; ver ADR-016.)
 - **Entrega**: agente novo publicado, mantendo compatibilidade com o contrato da fase 1.
 
 ### Fase 8: Logs de sistema e SNMP no servidor
+- Agente: coleta de logs de sistema (Event Log no Windows, journald/syslog no Linux, log unificado no macOS) e papel "coletor SNMP" (polling v2c/v3 e recepcao de traps).
 - Ingestao, busca, filtros e retencao de logs (PostgreSQL particionado por mes).
 - Dispositivos SNMP, metricas, graficos, alertas por limite e por trap.
 - **Entrega**: logs e equipamentos de rede visiveis no console, com alertas.
