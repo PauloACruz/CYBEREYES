@@ -16,7 +16,11 @@
 - Testes de integracao: abertura pelo app com captura, chat bloqueado ate a atribuicao, notas internas ocultas, isolamento entre usuarios da mesma maquina, mensagem em tempo real no hub do app, incidente aberto por alerta e resolvido com o alerta.
 - Ponta a ponta: check de disco falhando no agente Go real gerou alerta e incidente; o incidente foi assumido e respondido no console pelo navegador; ao normalizar o disco, o alerta se resolveu e o incidente recebeu o aviso. O canal local foi testado no Linux com um usuario comum (`maria`): o agente identificou o usuario pelo kernel e o token obtido acessou somente as rotas do app.
 
+- App de bandeja (`rmmagentwincare/tray`) executado como `maria` sob Xvfb contra o ambiente real: token pelo canal local, abertura de chamado com captura (janela escondida durante a captura), resposta do tecnico recebida em tempo real com notificacao do sistema, chat liberado apos a atribuicao e resposta da usuaria gravada no servidor. Renovacao forcada do token (refresh) verificada no agente.
+
 ## Limites conhecidos
+- App de bandeja: Wails v3.0.0-beta.26 exige Go 1.25 e, no Linux com GTK3, a tag de compilacao `gtk3`. O icone e o menu da bandeja nao foram testados no Linux (o Xvfb nao tem area de notificacao); no Windows o app so foi compilado, sem execucao; no macOS nao foi compilado (precisa do SDK da Apple).
+- A instalacao do app junto com o agente (inicio automatico por sessao) tem arquivos de exemplo em `tray/packaging`, mas o instalador oficial fica para a fase 7.
 - SLA 24x7, sem calendario de expediente e sem pausa em "Aguardando usuario".
 - O token do app trafega na query `access_token` ao abrir o WebSocket do hub (limitacao do WebSocket no navegador); pode aparecer em logs de acesso do proxy. Por isso e curto e restrito.
 - Chamados abertos pelo console nao aparecem no app do usuario (sem `requesterUsername`).
