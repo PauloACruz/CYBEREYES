@@ -24,6 +24,7 @@
 - O servidor procurava o numero de serie em outra chave; passou a ler `serialnumber`.
 
 ## Limites conhecidos
+- A tag `v2.12.0` nao pode ser enviada a partir do ambiente de desenvolvimento (o push da tag foi recusado). A publicacao depende de criar a tag no GitHub; ate la a API continua distribuindo a 2.11.0 (`AGENT_VERSION`).
 - Nenhuma acao do Windows foi executada em Windows real (SFC, DISM, Windows Update, WMI, Appx, tarefa na sessao do usuario, cancelamento por arvore de processos). O codigo compila e os scripts tem sintaxe valida.
 - macOS nao foi executado.
 - Acoes que dependem da sessao do usuario terminam com aviso quando ninguem esta logado.

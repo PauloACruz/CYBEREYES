@@ -111,7 +111,7 @@ Evento no hub `/hubs/tray`: `selfServiceChanged({ runId, status, progress, messa
 Cada execucao pelo app gera auditoria com o usuario da maquina.
 
 ## 6. Agente
-- Versao `2.12.0`. O servidor passa a distribuir `Agent:LatestVersion = 2.12.0`.
+- Versao `2.12.0`. A versao distribuida pela API vem de `AGENT_VERSION` no `.env` (padrao 2.11.0); depois de publicar a tag `v2.12.0`, mude para `2.12.0`.
 - O agente ja enviava `serialnumber` no inventario (Linux: placa-mae; macOS: `ioreg`), mas o servidor procurava outra chave; o servidor passa a ler `serialnumber` e o agente Linux passa a preferir o numero de serie do produto (`/sys/class/dmi/id/product_serial`).
 - Publicacao: workflow de release no repositorio do agente gera, ao criar a tag `v2.12.0`, os arquivos `tacticalagent-v2.12.0-{plat}-{arch}[.exe]` no formato que a API ja usa (`{DownloadBaseUrl}/v{versao}/{arquivo}`), mais o `wincare-tray` para Windows.
 

@@ -78,6 +78,7 @@ services:
       Nats__Password: ${NATS_API_PASSWORD}
       Nats__AuthFile: /etc/nats/auth/users.conf
       Agent__BinariesPath: /agents
+      Agent__LatestVersion: ${AGENT_VERSION:-2.11.0}
       Mesh__Url: https://${MESH_HOST}
       Mesh__InternalUrl: http://meshcentral:4443
       Mesh__Username: ${MESH_USER:-wincare}
