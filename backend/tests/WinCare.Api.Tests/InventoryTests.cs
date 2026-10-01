@@ -159,3 +159,11 @@ public sealed class HardwareTests
         Assert.Equal("10.0.0.5/24", Assert.Single(hw.LocalIps));
     }
 }
+
+public sealed class HardwareBootTests
+{
+    [Fact]
+    public void BootTime_IsConvertedFromUnixSeconds() =>
+        Assert.Equal(new DateTimeOffset(2026, 10, 1, 0, 0, 0, TimeSpan.Zero),
+            Hardware.Parse("{}", "linux", null, "Ubuntu", null, 1790812800)!.BootTime);
+}

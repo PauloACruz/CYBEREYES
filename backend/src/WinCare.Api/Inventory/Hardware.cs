@@ -5,7 +5,7 @@ namespace WinCare.Api.Inventory;
 
 public sealed record HardwareInfo(
     string Source, string? Manufacturer, string? Model, string? MakeModel, string? SerialNumber, IReadOnlyList<string> Cpus, IReadOnlyList<string> Gpus,
-    int? RamGb, IReadOnlyList<string> Disks, IReadOnlyList<string> LocalIps, string? OperatingSystem, string? LastLoggedInUser, double? BootTime);
+    int? RamGb, IReadOnlyList<string> Disks, IReadOnlyList<string> LocalIps, string? OperatingSystem, string? LastLoggedInUser, DateTimeOffset? BootTime);
 
 /// <summary>
 /// Le o inventario que o agente envia em "agent-wmi". No Windows vem do WMI (listas de listas de objetos por classe);
@@ -15,8 +15,9 @@ public static class Hardware
 {
     private static readonly string[] SerialPlaceholders = ["to be filled by o.e.m.", "default string", "system serial number", "0", "none", "n/a"];
 
-    public static HardwareInfo? Parse(string? wmiJson, string plat, int? ramGb, string? os, string? lastUser, double? bootTime)
+    public static HardwareInfo? Parse(string? wmiJson, string plat, int? ramGb, string? os, string? lastUser, double? bootSeconds)
     {
+        DateTimeOffset? bootTime = bootSeconds is > 0 ? DateTimeOffset.FromUnixTimeSeconds((long)bootSeconds.Value) : null;
         JsonElement root;
         try
         {

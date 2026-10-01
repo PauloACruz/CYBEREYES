@@ -78,6 +78,52 @@ export const routes: RouteObject[] = [
             ],
           },
           {
+            element: <RequirePermission permission={PERMISSIONS.inventoryView} />,
+            children: [
+              {
+                path: PATHS.inventory,
+                lazy: () => import('../features/inventory/AssetsPage').then((m) => ({ Component: m.AssetsPage })),
+              },
+              {
+                path: PATHS.people,
+                lazy: () => import('../features/inventory/PeoplePage').then((m) => ({ Component: m.PeoplePage })),
+              },
+              {
+                path: `${PATHS.people}/:id`,
+                lazy: () => import('../features/inventory/PersonDetailPage').then((m) => ({ Component: m.PersonDetailPage })),
+              },
+              {
+                path: `${PATHS.inventory}/:id`,
+                lazy: () => import('../features/inventory/AssetSheetPage').then((m) => ({ Component: m.AssetSheetPage })),
+              },
+            ],
+          },
+          {
+            element: <RequirePermission permission={PERMISSIONS.docsView} />,
+            children: [
+              {
+                path: PATHS.docs,
+                lazy: () => import('../features/docs/DocsPage').then((m) => ({ Component: m.DocsPage })),
+              },
+              {
+                path: `${PATHS.docs}/redes/:id`,
+                lazy: () => import('../features/docs/networks/NetworkDetailPage').then((m) => ({ Component: m.NetworkDetailPage })),
+              },
+              {
+                path: `${PATHS.docs}/diagramas/:id`,
+                lazy: () => import('../features/docs/diagrams/DiagramEditorPage').then((m) => ({ Component: m.DiagramEditorPage })),
+              },
+              {
+                path: PATHS.newDocPage,
+                lazy: () => import('../features/docs/pages/DocPageEditorPage').then((m) => ({ Component: m.NewDocPagePage })),
+              },
+              {
+                path: `${PATHS.docs}/paginas/:id`,
+                lazy: () => import('../features/docs/pages/DocPageEditorPage').then((m) => ({ Component: m.DocPageEditorPage })),
+              },
+            ],
+          },
+          {
             element: <RequirePermission permission={PERMISSIONS.scriptsView} />,
             children: [
               {

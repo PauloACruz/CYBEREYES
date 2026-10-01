@@ -22,7 +22,8 @@ export type ErrorCode =
   | 'CONFLICT'
   | 'RATE_LIMITED'
   | 'AGENT_TIMEOUT'
-  | 'MESH_DISABLED';
+  | 'MESH_DISABLED'
+  | 'VAULT_DISABLED';
 
 export interface Paged<T> {
   items: T[];
@@ -540,6 +541,12 @@ export const PERMISSIONS = {
   softwareManage: 'software.manage',
   ticketsView: 'tickets.view',
   ticketsManage: 'tickets.manage',
+  inventoryView: 'inventory.view',
+  inventoryManage: 'inventory.manage',
+  docsView: 'docs.view',
+  docsManage: 'docs.manage',
+  credentialsReveal: 'credentials.reveal',
+  credentialsManage: 'credentials.manage',
 } as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -1089,4 +1096,390 @@ export interface IncidentSettingsDto {
 
 export interface TicketsChangedEvent {
   ticketId: number;
+}
+
+// Inventario e documentacao de rede (docs/api/fase6-inventario.md)
+
+export type AssetType =
+  | 'workstation'
+  | 'server'
+  | 'laptop'
+  | 'printer'
+  | 'switch'
+  | 'router'
+  | 'firewall'
+  | 'access_point'
+  | 'phone'
+  | 'monitor'
+  | 'ups'
+  | 'other';
+export type AssetStatus = 'active' | 'stock' | 'maintenance' | 'retired';
+export type IpKind = 'static' | 'reserved' | 'dhcp';
+export type DocOwnerType = 'asset' | 'network' | 'page';
+
+export interface PersonRef {
+  id: number;
+  name: string;
+}
+
+export interface AssetListItem {
+  id: number;
+  clientId: number;
+  clientName: string;
+  siteId: number | null;
+  siteName: string | null;
+  agentId: number | null;
+  type: AssetType;
+  name: string;
+  manufacturer: string | null;
+  model: string | null;
+  serialNumber: string | null;
+  /** Numero de patrimonio. */
+  assetTag: string | null;
+  status: AssetStatus;
+  ipAddress: string | null;
+  responsible: PersonRef | null;
+  agentStatus: AgentStatus | null;
+  updatedAt: string;
+}
+
+export interface ListAssetsParams {
+  page: number;
+  pageSize: number;
+  clientId?: number;
+  siteId?: number;
+  type?: AssetType;
+  status?: AssetStatus;
+  personId?: number;
+  search?: string;
+}
+
+export interface AssetDetail extends AssetListItem {
+  /** Data (AAAA-MM-DD). */
+  purchaseDate: string | null;
+  /** Data (AAAA-MM-DD). */
+  warrantyUntil: string | null;
+  location: string | null;
+  macAddress: string | null;
+  notes: string | null;
+  createdAt: string;
+}
+
+export interface AssetResponsibleDto {
+  personId: number;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  department: string | null;
+  assignedAt: string;
+  assignedBy: string;
+}
+
+export interface AssetHistoryEntry {
+  id: number;
+  personId: number;
+  personName: string;
+  assignedAt: string;
+  unassignedAt: string | null;
+  assignedBy: string;
+  notes: string | null;
+}
+
+export interface AssetHardwareDto {
+  source: 'agent' | 'manual';
+  makeModel: string | null;
+  serialNumber: string | null;
+  cpus: string[];
+  gpus: string[];
+  ramGb: number | null;
+  disks: string[];
+  localIps: string[];
+  operatingSystem: string | null;
+  lastLoggedInUser: string | null;
+  bootTime: string | null;
+}
+
+export interface AssetAgentDto {
+  id: number;
+  hostname: string;
+  status: AgentStatus;
+  plat: string;
+  lastSeen: string | null;
+}
+
+export interface AssetNetworkEntry {
+  networkId: number;
+  networkName: string;
+  cidr: string;
+  vlanId: number | null;
+  address: string | null;
+  kind: IpKind | null;
+}
+
+export interface AssetCredentialRef {
+  id: number;
+  name: string;
+  username: string | null;
+  url: string | null;
+}
+
+export interface DocAttachmentDto {
+  id: number;
+  fileName: string;
+  contentType: string;
+  size: number;
+  createdAt: string;
+}
+
+export interface AssetTicketRef {
+  id: number;
+  title: string;
+  status: TicketStatus;
+  createdAt: string;
+}
+
+export interface AssetSheet {
+  asset: AssetDetail;
+  responsible: AssetResponsibleDto | null;
+  suggestedPerson: PersonRef | null;
+  history: AssetHistoryEntry[];
+  hardware: AssetHardwareDto | null;
+  software: { count: number; updatedAt: string | null } | null;
+  agent: AssetAgentDto | null;
+  network: AssetNetworkEntry[];
+  credentials: AssetCredentialRef[];
+  attachments: DocAttachmentDto[];
+  tickets: { open: number; recent: AssetTicketRef[] };
+}
+
+export interface SaveAssetRequest {
+  clientId: number;
+  siteId?: number;
+  type: AssetType;
+  name: string;
+  manufacturer?: string;
+  model?: string;
+  serialNumber?: string;
+  assetTag?: string;
+  status: AssetStatus;
+  purchaseDate?: string;
+  warrantyUntil?: string;
+  location?: string;
+  ipAddress?: string;
+  macAddress?: string;
+  notes?: string;
+}
+
+export interface SetResponsibleRequest {
+  personId: number | null;
+  notes?: string;
+}
+
+export interface AgentAssetDto {
+  assetId: number;
+}
+
+export interface PersonListItem {
+  id: number;
+  clientId: number;
+  clientName: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  department: string | null;
+  jobTitle: string | null;
+  /** Login no sistema operacional. */
+  username: string | null;
+  active: boolean;
+  assetCount: number;
+}
+
+export interface ListPeopleParams {
+  page: number;
+  pageSize: number;
+  clientId?: number;
+  search?: string;
+  active?: boolean;
+}
+
+/** Ativo atual de uma pessoa; o contrato nao detalha o formato, so os campos basicos sao lidos. */
+export interface PersonAssetRef {
+  id: number;
+  name: string;
+  type: AssetType;
+  status?: AssetStatus;
+  assetTag?: string | null;
+}
+
+export interface PersonHistoryEntry {
+  id: number;
+  assetId: number;
+  assetName: string;
+  assignedAt: string;
+  unassignedAt: string | null;
+  assignedBy: string;
+  notes: string | null;
+}
+
+export interface PersonDetail extends Omit<PersonListItem, 'clientName' | 'assetCount'> {
+  clientName?: string;
+  createdAt?: string;
+  assets: PersonAssetRef[];
+  history: PersonHistoryEntry[];
+}
+
+export interface SavePersonRequest {
+  clientId: number;
+  name: string;
+  email?: string;
+  phone?: string;
+  department?: string;
+  jobTitle?: string;
+  username?: string;
+  active: boolean;
+}
+
+export interface NetworkDto {
+  id: number;
+  clientId: number;
+  clientName: string;
+  siteId: number | null;
+  siteName: string | null;
+  name: string;
+  cidr: string;
+  vlanId: number | null;
+  vlanName: string | null;
+  gateway: string | null;
+  dnsServers: string | null;
+  dhcpRange: string | null;
+  description: string | null;
+  usedCount: number;
+  totalHosts: number;
+}
+
+export interface IpRecordDto {
+  id: number;
+  networkId: number;
+  address: string;
+  assetId: number | null;
+  assetName: string | null;
+  hostname: string | null;
+  macAddress: string | null;
+  kind: IpKind;
+  description: string | null;
+}
+
+export interface DiscoveredIpDto {
+  address: string;
+  assetId: number | null;
+  assetName: string | null;
+  source: string;
+}
+
+export interface NetworkDetail extends NetworkDto {
+  ips: IpRecordDto[];
+  discovered: DiscoveredIpDto[];
+}
+
+export interface SaveNetworkRequest {
+  clientId: number;
+  siteId?: number;
+  name: string;
+  cidr: string;
+  vlanId?: number;
+  vlanName?: string;
+  gateway?: string;
+  dnsServers?: string;
+  dhcpRange?: string;
+  description?: string;
+}
+
+export interface SaveIpRecordRequest {
+  address: string;
+  assetId?: number;
+  hostname?: string;
+  macAddress?: string;
+  kind: IpKind;
+  description?: string;
+}
+
+export interface DiagramListItem {
+  id: number;
+  clientId: number;
+  clientName: string;
+  siteId: number | null;
+  name: string;
+  updatedAt: string;
+  updatedBy: string;
+}
+
+export interface DiagramDetail extends DiagramListItem {
+  /** JSON do React Flow ({ nodes, edges, viewport }); validar antes de usar. */
+  data: unknown;
+}
+
+export interface SaveDiagramRequest {
+  clientId: number;
+  siteId?: number;
+  name: string;
+  data: unknown;
+}
+
+export interface CredentialDto {
+  id: number;
+  clientId: number;
+  clientName: string;
+  siteId: number | null;
+  assetId: number | null;
+  assetName: string | null;
+  name: string;
+  username: string | null;
+  url: string | null;
+  notes: string | null;
+  updatedAt: string;
+  updatedBy: string;
+}
+
+export interface ListCredentialsParams {
+  clientId?: number;
+  assetId?: number;
+  search?: string;
+}
+
+export interface SaveCredentialRequest {
+  clientId: number;
+  siteId?: number;
+  assetId?: number;
+  name: string;
+  username?: string;
+  /** Obrigatorio na criacao; ausente no PUT mantem o atual. */
+  secret?: string;
+  url?: string;
+  notes?: string;
+}
+
+export interface RevealedSecretDto {
+  secret: string;
+}
+
+export interface DocPageListItem {
+  id: number;
+  clientId: number;
+  clientName?: string;
+  siteId: number | null;
+  title: string;
+  updatedAt: string;
+  updatedBy: string;
+}
+
+export interface DocPageDetail extends DocPageListItem {
+  /** Markdown. */
+  body: string;
+}
+
+export interface SaveDocPageRequest {
+  clientId: number;
+  siteId?: number;
+  title: string;
+  body: string;
 }

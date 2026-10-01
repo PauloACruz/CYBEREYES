@@ -87,7 +87,7 @@ O papel padrao "Tecnico" recebe `inventory.view`, `inventory.manage`, `docs.view
   tickets: { open, recent: [{ id, title, status, createdAt }] }
 }
 ```
-`hardware` vem do inventario enviado pelo agente (Windows: WMI; Linux e macOS: modelo, CPU, GPU, discos e IPs locais; o agente Linux nao envia numero de serie). `network` lista os registros de IP do ativo e as redes cujo `cidr` contem o `ipAddress` do ativo ou um dos `localIps`.
+`hardware` vem do inventario enviado pelo agente (Windows: WMI; Linux e macOS: modelo, CPU, GPU, discos e IPs locais; o agente Linux nao envia numero de serie). `network` lista os registros de IP do ativo (`kind` do registro) e as redes cujo `cidr` contem o `ipAddress` do ativo ou um dos `localIps` sem registro (`kind: null`).
 
 ## 5. Pessoas (`inventory.*`)
 | Metodo | Rota | Permissao | Corpo / resposta |

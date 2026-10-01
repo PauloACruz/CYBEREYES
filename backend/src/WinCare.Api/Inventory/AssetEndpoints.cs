@@ -200,7 +200,7 @@ public static class AssetEndpoints
         var networks = await db.Networks.AsNoTracking().Where(n => n.ClientId == a.ClientId).ToListAsync(ct);
         var inferred = networks
             .SelectMany(n => NetUtil.ParseCidr(n.Cidr) is { } cidr
-                ? addresses.Where(cidr.Contains).Select(ip => new { networkId = n.Id, networkName = n.Name, n.Cidr, n.VlanId, address = ip.ToString(), kind = "observed" })
+                ? addresses.Where(cidr.Contains).Select(ip => new { networkId = n.Id, networkName = n.Name, n.Cidr, n.VlanId, address = ip.ToString(), kind = (string?)null })
                 : [])
             .Where(x => !ipRecords.Any(r => r.networkId == x.networkId && r.address == x.address));
 

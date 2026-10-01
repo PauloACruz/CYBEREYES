@@ -17,6 +17,10 @@ export const PATHS = {
   policies: '/politicas',
   policyAssignments: '/politicas/atribuicoes',
   tickets: '/chamados',
+  inventory: '/inventario',
+  people: '/inventario/pessoas',
+  docs: '/documentacao',
+  newDocPage: '/documentacao/paginas/nova',
 } as const;
 
 export function agentPath(id: number): string {
@@ -29,4 +33,29 @@ export function policyPath(id: number): string {
 
 export function ticketPath(id: number): string {
   return `${PATHS.tickets}/${id}`;
+}
+
+export function assetPath(id: number): string {
+  return `${PATHS.inventory}/${id}`;
+}
+
+export function personPath(id: number): string {
+  return `${PATHS.people}/${id}`;
+}
+
+export function networkPath(id: number): string {
+  return `${PATHS.docs}/redes/${id}`;
+}
+
+export function diagramPath(id: number): string {
+  return `${PATHS.docs}/diagramas/${id}`;
+}
+
+export function docPagePath(id: number): string {
+  return `${PATHS.docs}/paginas/${id}`;
+}
+
+/** Aba da tela de documentacao (?aba=). */
+export function docsTabPath(tab: 'redes' | 'diagramas' | 'credenciais' | 'paginas'): string {
+  return tab === 'redes' ? PATHS.docs : `${PATHS.docs}?aba=${tab}`;
 }

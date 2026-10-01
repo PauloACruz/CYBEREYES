@@ -1,4 +1,13 @@
-import type { AgentStatus, ListAgentsParams, ListAlertsParams, ListTicketsParams, Severity } from './types';
+import type {
+  AgentStatus,
+  ListAgentsParams,
+  ListAlertsParams,
+  ListAssetsParams,
+  ListCredentialsParams,
+  ListPeopleParams,
+  ListTicketsParams,
+  Severity,
+} from './types';
 
 export const queryKeys = {
   clients: ['clients'] as const,
@@ -58,4 +67,25 @@ export const queryKeys = {
   ticketQueues: ['ticket-queues'] as const,
   ticketSla: ['ticket-sla'] as const,
   ticketIncidentSettings: ['ticket-incident-settings'] as const,
+  assets: ['assets'] as const,
+  assetLists: ['assets', 'list'] as const,
+  assetList: (params: ListAssetsParams) => ['assets', 'list', params] as const,
+  assetSheets: ['assets', 'sheet'] as const,
+  assetSheet: (id: number) => ['assets', 'sheet', id] as const,
+  people: ['people'] as const,
+  peopleLists: ['people', 'list'] as const,
+  peopleList: (params: ListPeopleParams) => ['people', 'list', params] as const,
+  person: (id: number) => ['people', 'detail', id] as const,
+  networks: ['networks'] as const,
+  networkList: (clientId: number | undefined) => ['networks', 'list', clientId ?? null] as const,
+  network: (id: number) => ['networks', 'detail', id] as const,
+  diagrams: ['diagrams'] as const,
+  diagramLists: ['diagrams', 'list'] as const,
+  diagramList: (clientId: number | undefined) => ['diagrams', 'list', clientId ?? null] as const,
+  diagram: (id: number) => ['diagrams', 'detail', id] as const,
+  credentials: ['credentials'] as const,
+  credentialList: (params: ListCredentialsParams) => ['credentials', 'list', params] as const,
+  docPages: ['doc-pages'] as const,
+  docPageList: (clientId: number | undefined, search: string) => ['doc-pages', 'list', clientId ?? null, search] as const,
+  docPage: (id: number) => ['doc-pages', 'detail', id] as const,
 };

@@ -73,6 +73,7 @@ import { SoftwareTab } from './monitoring/SoftwareTab';
 import { TasksTab } from './monitoring/TasksTab';
 import { UpdatesTab } from './monitoring/UpdatesTab';
 import { AgentTicketsTab } from '../tickets/AgentTicketsTab';
+import { AgentAssetButton } from '../inventory/AgentAssetButton';
 
 // Abas pesadas (xterm.js e navegador do registro) carregam sob demanda.
 const TerminalTab = lazy(() => import('./actions/TerminalTab').then((m) => ({ default: m.TerminalTab })));
@@ -122,6 +123,7 @@ function AgentDetailView({ agent }: { agent: AgentDetail }) {
   const canViewScripts = hasPermission(me, PERMISSIONS.scriptsView);
   const canViewAlerts = hasPermission(me, PERMISSIONS.alertsView);
   const canViewTickets = hasPermission(me, PERMISSIONS.ticketsView);
+  const canViewInventory = hasPermission(me, PERMISSIONS.inventoryView);
   const windows = isWindows(agent.plat);
   const [deleteOpened, deleteModal] = useDisclosure(false);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -227,6 +229,7 @@ function AgentDetailView({ agent }: { agent: AgentDetail }) {
             Ping
           </Button>
           {canRemote && <RemoteAccessMenu agent={agent} />}
+          {canViewInventory && <AgentAssetButton agentId={agent.id} />}
           <AgentActionsMenu agent={agent} canControl={canControl} />
           {canManage && (
             <Button color="red" variant="light" leftSection={<IconTrash size={16} />} onClick={deleteModal.open}>

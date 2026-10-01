@@ -1,5 +1,7 @@
 import {
   IconAlertTriangle,
+  IconBook2,
+  IconBox,
   IconBuilding,
   IconCode,
   IconDeviceDesktop,
@@ -35,6 +37,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { label: 'Agentes', to: PATHS.agents, icon: IconDeviceDesktop, permission: PERMISSIONS.agentsView },
   { label: 'Alertas', to: PATHS.alerts, icon: IconAlertTriangle, permission: PERMISSIONS.alertsView, alertCounter: true },
   { label: 'Chamados', to: PATHS.tickets, icon: IconTicket, permission: PERMISSIONS.ticketsView, ticketCounter: true },
+  { label: 'Inventário', to: PATHS.inventory, icon: IconBox, permission: PERMISSIONS.inventoryView },
+  { label: 'Documentação', to: PATHS.docs, icon: IconBook2, permission: PERMISSIONS.docsView },
   { label: 'Políticas', to: PATHS.policies, icon: IconShieldCheckered, permission: PERMISSIONS.agentsView },
   { label: 'Clientes', to: PATHS.clients, icon: IconBuilding, permission: PERMISSIONS.clientsView },
   { label: 'Scripts', to: PATHS.scripts, icon: IconCode, permission: PERMISSIONS.scriptsView },

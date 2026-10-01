@@ -1,4 +1,14 @@
-import type { AgentDetail, AgentListItem, ClientDto, TicketDetail, TicketListItem, TicketMessageDto } from '../api/types';
+import type {
+  AgentDetail,
+  AgentListItem,
+  AssetListItem,
+  AssetSheet,
+  ClientDto,
+  PersonListItem,
+  TicketDetail,
+  TicketListItem,
+  TicketMessageDto,
+} from '../api/types';
 
 export function makeAgent(overrides: Partial<AgentListItem> = {}): AgentListItem {
   return {
@@ -109,6 +119,83 @@ export function makeTicketMessage(overrides: Partial<TicketMessageDto> = {}): Ti
     internal: false,
     createdAt: '2026-10-01T10:05:00Z',
     attachments: [],
+    ...overrides,
+  };
+}
+
+export function makeAsset(overrides: Partial<AssetListItem> = {}): AssetListItem {
+  return {
+    id: 7,
+    clientId: 1,
+    clientName: 'Clínica Central',
+    siteId: 10,
+    siteName: 'Matriz',
+    agentId: 1,
+    type: 'workstation',
+    name: 'PC-RECEPCAO',
+    manufacturer: 'Dell',
+    model: 'OptiPlex 7090',
+    serialNumber: 'ABC1234',
+    assetTag: 'PAT-0042',
+    status: 'active',
+    ipAddress: '192.168.1.20',
+    responsible: null,
+    agentStatus: 'online',
+    updatedAt: '2026-10-01T10:00:00Z',
+    ...overrides,
+  };
+}
+
+export function makeAssetSheet(overrides: Partial<AssetSheet> = {}): AssetSheet {
+  return {
+    asset: {
+      ...makeAsset(),
+      purchaseDate: '2024-03-10',
+      warrantyUntil: '2027-03-10',
+      location: 'Recepção, térreo',
+      macAddress: 'AA:BB:CC:DD:EE:01',
+      notes: null,
+      createdAt: '2026-09-01T12:00:00Z',
+    },
+    responsible: null,
+    suggestedPerson: { id: 5, name: 'Maria Souza' },
+    history: [],
+    hardware: {
+      source: 'agent',
+      makeModel: 'Dell OptiPlex 7090',
+      serialNumber: 'ABC1234',
+      cpus: ['Intel Core i5-11500'],
+      gpus: ['Intel UHD Graphics 750'],
+      ramGb: 16,
+      disks: ['Samsung SSD 512 GB'],
+      localIps: ['192.168.1.20'],
+      operatingSystem: 'Windows 11 Pro 23H2',
+      lastLoggedInUser: 'CLINICA\\maria',
+      bootTime: null,
+    },
+    software: { count: 87, updatedAt: '2026-10-01T08:00:00Z' },
+    agent: { id: 1, hostname: 'PC-RECEPCAO', status: 'online', plat: 'windows', lastSeen: '2026-10-01T10:00:00Z' },
+    network: [],
+    credentials: [],
+    attachments: [],
+    tickets: { open: 0, recent: [] },
+    ...overrides,
+  };
+}
+
+export function makePerson(overrides: Partial<PersonListItem> = {}): PersonListItem {
+  return {
+    id: 5,
+    clientId: 1,
+    clientName: 'Clínica Central',
+    name: 'Maria Souza',
+    email: 'maria@clinica.com.br',
+    phone: null,
+    department: 'Recepção',
+    jobTitle: 'Recepcionista',
+    username: 'maria',
+    active: true,
+    assetCount: 0,
     ...overrides,
   };
 }

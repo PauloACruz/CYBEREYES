@@ -1,6 +1,9 @@
 import '@testing-library/jest-dom/vitest';
-import { cleanup } from '@testing-library/react';
+import { cleanup, configure } from '@testing-library/react';
 import { afterEach, vi } from 'vitest';
+
+// Com a suite rodando em paralelo, 1 s (padrao) e pouco para telas carregadas sob demanda.
+configure({ asyncUtilTimeout: 5000 });
 
 // Os testes nao abrem WebSocket: o hub do console vira uma conexao inerte.
 vi.mock('@microsoft/signalr', async (importOriginal) => {

@@ -1,0 +1,39 @@
+/* Impressao da ficha do ativo: somente o conteudo, sem menu, cabecalho e botoes. */
+@media print {
+  .mantine-AppShell-header,
+  .mantine-AppShell-navbar,
+  .mantine-Notifications-root,
+  .no-print {
+    display: none !important;
+  }
+
+  .mantine-AppShell-main {
+    padding: 0 !important;
+    min-height: auto !important;
+  }
+
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  .sheet-card {
+    break-inside: avoid;
+    box-shadow: none !important;
+  }
+
+  .sheet-grid {
+    display: block !important;
+  }
+
+  .sheet-grid > * {
+    max-width: 100% !important;
+    flex: none !important;
+    width: 100% !important;
+  }
+
+  a {
+    color: inherit !important;
+    text-decoration: none !important;
+  }
+}
