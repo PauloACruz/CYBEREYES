@@ -23,6 +23,14 @@ function makeLog(overrides: Partial<LogEntryDto>): LogEntryDto {
   };
 }
 
+/** Hora cheia de N horas atras: o grafico mostra so as ultimas 24 h, entao datas fixas envelhecem. */
+function hoursAgo(n: number): string {
+  const d = new Date();
+  d.setUTCMinutes(0, 0, 0);
+  d.setUTCHours(d.getUTCHours() - n);
+  return d.toISOString().replace('.000Z', 'Z');
+}
+
 const SUMMARY: LogSummaryDto = {
   byLevel: { critical: 3, error: 12, warning: 40, info: 250 },
   bySource: [
@@ -30,8 +38,8 @@ const SUMMARY: LogSummaryDto = {
     { source: 'Microsoft-Windows-Kernel-Power', count: 8 },
   ],
   perHour: [
-    { hour: '2026-10-01T09:00:00Z', critical: 1, error: 5, warning: 20, info: 100 },
-    { hour: '2026-10-01T10:00:00Z', critical: 2, error: 7, warning: 20, info: 150 },
+    { hour: hoursAgo(3), critical: 1, error: 5, warning: 20, info: 100 },
+    { hour: hoursAgo(2), critical: 2, error: 7, warning: 20, info: 150 },
   ],
 };
 
