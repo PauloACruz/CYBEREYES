@@ -11,7 +11,6 @@ import {
   NavLink,
   ScrollArea,
   Text,
-  ThemeIcon,
   Tooltip,
   UnstyledButton,
   useComputedColorScheme,
@@ -23,7 +22,6 @@ import {
   IconKey,
   IconLogout,
   IconMoon,
-  IconShieldCheck,
   IconSun,
 } from '@tabler/icons-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -34,6 +32,7 @@ import { PATHS } from '../../app/paths';
 import { useMe } from '../../auth/useMe';
 import { ConsoleHubContext } from '../../realtime/consoleHubContext';
 import { useConsoleHub } from '../../realtime/useConsoleHub';
+import { BrandMark } from './BrandMark';
 import { ChangePasswordModal } from './ChangePasswordModal';
 import { NavAlertBadge } from './NavAlertBadge';
 import { NavTicketBadge } from './NavTicketBadge';
@@ -75,15 +74,16 @@ export function AppLayout() {
       header={{ height: 56 }}
       navbar={{ width: 240, breakpoint: 'sm', collapsed: { mobile: !navOpened } }}
       padding="lg"
+      styles={{
+        header: { backgroundColor: 'light-dark(var(--mantine-color-white), var(--mantine-color-dark-8))' },
+        navbar: { backgroundColor: 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-7))' },
+      }}
     >
       <AppShell.Header>
         <Group h="100%" px="md" justify="space-between" wrap="nowrap">
           <Group gap="sm" wrap="nowrap">
             <Burger opened={navOpened} onClick={nav.toggle} hiddenFrom="sm" size="sm" aria-label="Abrir menu" />
-            <ThemeIcon size={30} radius="md">
-              <IconShieldCheck size={18} />
-            </ThemeIcon>
-            <Text fw={700}>WinCare</Text>
+            <BrandMark size={32} />
           </Group>
           <Group gap="xs" wrap="nowrap">
             <Tooltip label={colorScheme === 'dark' ? 'Tema claro' : 'Tema escuro'}>
@@ -100,7 +100,7 @@ export function AppLayout() {
               <Menu.Target>
                 <UnstyledButton aria-label="Menu do usuário">
                   <Group gap={8} wrap="nowrap">
-                    <Avatar radius="xl" size={30} color="blue">
+                    <Avatar radius="xl" size={30} color="gold" variant="outline">
                       {initials(displayName)}
                     </Avatar>
                     <Text size="sm" fw={500} visibleFrom="xs" maw={160} truncate>

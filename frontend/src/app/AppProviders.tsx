@@ -5,7 +5,7 @@ import { ModalsProvider } from '@mantine/modals';
 import { Notifications } from '@mantine/notifications';
 import { QueryClientProvider, type QueryClient } from '@tanstack/react-query';
 import 'dayjs/locale/pt-br';
-import { theme } from './theme';
+import { cssVariablesResolver, theme } from './theme';
 
 interface AppProvidersProps {
   queryClient: QueryClient;
@@ -15,7 +15,7 @@ interface AppProvidersProps {
 export function AppProviders({ queryClient, children }: AppProvidersProps) {
   return (
     <QueryClientProvider client={queryClient}>
-      <MantineProvider theme={theme} defaultColorScheme="auto">
+      <MantineProvider theme={theme} cssVariablesResolver={cssVariablesResolver} defaultColorScheme="dark">
         <DatesProvider settings={{ locale: 'pt-br', firstDayOfWeek: 0 }}>
           <ModalsProvider labels={{ confirm: 'Confirmar', cancel: 'Cancelar' }}>
             <Notifications position="top-right" />
