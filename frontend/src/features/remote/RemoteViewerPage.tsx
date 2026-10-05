@@ -1,9 +1,17 @@
-import { Alert, Badge, Box, Button, Center, Group, Loader, SegmentedControl, Select, Stack, Switch, Text, Tooltip } from '@mantine/core';
-import { IconClipboardCheck, IconKeyboard, IconMaximize, IconPlugConnectedX, IconScreenShare } from '@tabler/icons-react';
-import { useCallback, useEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type PointerEvent, type WheelEvent } from 'react';
+import { Alert, Anchor, Badge, Box, Button, Center, Drawer, Group, Loader, SegmentedControl, Select, Stack, Switch, Text, Tooltip } from '@mantine/core';
+import { useQuery } from '@tanstack/react-query';
+import { IconClipboardCheck, IconFolders, IconKeyboard, IconMaximize, IconPlugConnectedX, IconScreenShare } from '@tabler/icons-react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent, type PointerEvent, type WheelEvent } from 'react';
 import { useParams, useSearchParams } from 'react-router';
+import { remoteFilesApi } from '../../api/remote';
+import { PERMISSIONS } from '../../api/types';
+import { hasPermission } from '../../auth/permissions';
+import { useMe } from '../../auth/useMe';
+import { formatBytes } from '../../lib/format';
 import { ClipboardBridge } from './clipboard';
-import { FRAME, type ClipboardBody, type FrameEndFrame, type HelloBody, type RemoteDisplay, type TileFrame } from './protocol';
+import { FilesPanel } from './FilesPanel';
+import { useTransfers } from './useTransfers';
+import { FRAME, type ClipboardBody, type FilesCopiedBody, type FrameEndFrame, type HelloBody, type RemoteDisplay, type TileFrame } from './protocol';
 import { shouldCapture, toRemotePoint, wheelUnits } from './inputMap';
 import { useRemoteSession, type SessionStatus } from './useRemoteSession';
 
@@ -44,9 +52,16 @@ export function RemoteViewerPage() {
   const agentId = Number(params.agentId);
   const [search] = useSearchParams();
   const ticket = search.get('chamado');
+  const { data: me } = useMe();
+  // Com a permissao de arquivos, a mesma sessao traz o canal files (arrastar e soltar, painel e arquivos copiados).
+  const canFiles = hasPermission(me, PERMISSIONS.agentsFiles);
   const options = useMemo(
-    () => ({ channels: ['desktop' as const], viewOnly: search.get('visualizar') === '1', ticketId: ticket ? Number(ticket) : null }),
-    [search, ticket],
+    () => ({
+      channels: canFiles ? (['desktop', 'files'] as const).slice() : (['desktop'] as const).slice(),
+      viewOnly: search.get('visualizar') === '1',
+      ticketId: ticket ? Number(ticket) : null,
+    }),
+    [search, ticket, canFiles],
   );
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -61,6 +76,10 @@ export function RemoteViewerPage() {
   const [consent, setConsent] = useState<string | null>(null);
   const [agentError, setAgentError] = useState<string | null>(null);
   const [firstFrame, setFirstFrame] = useState(false);
+  const [filesOpen, setFilesOpen] = useState(false);
+  const [copied, setCopied] = useState<FilesCopiedBody | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [dropping, setDropping] = useState(false);
   // Area de transferencia automatica (contrato, secao 6): o envio passa pela conexao atual.
   const outbox = useRef<(body: ClipboardBody) => void>(() => undefined);
   const bridgeRef = useRef<ClipboardBridge | null>(null);
@@ -114,11 +133,29 @@ export function RemoteViewerPage() {
     onFrameEnd,
     onConsent: setConsent,
     onClipboard: (body) => void bridge().fromRemote(body),
-    onFilesCopied: () => undefined,
+    onFilesCopied: setCopied,
     onError: (_code, message) => setAgentError(message),
   });
 
   const connected = status.kind === 'open' && status.phase === 'connected';
+  const sessionId = status.kind === 'open' && status.session.channels.includes('files') ? status.session.sessionId : null;
+  const transfers = useTransfers(sessionId);
+  const home = useQuery({
+    queryKey: ['remote-files', sessionId, 'home'],
+    queryFn: () => remoteFilesApi.home(sessionId ?? ''),
+    enabled: sessionId !== null && connected,
+    retry: 1,
+  });
+
+  // Arrastar e soltar na tela: os arquivos vao para a Area de Trabalho do usuario (D-05).
+  const onDrop = async (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setDropping(false);
+    const files = Array.from(event.dataTransfer.files);
+    if (!home.data || files.length === 0) return;
+    const sent = await transfers.upload(files, home.data.desktop, home.data.separator);
+    if (sent.length > 0) setNotice(`${String(sent.length)} arquivo(s) enviado(s) para a Área de Trabalho.`);
+  };
 
   useEffect(() => {
     outbox.current = (body) => {
@@ -181,6 +218,18 @@ export function RemoteViewerPage() {
   const onPaste = async (event: ClipboardEvent<HTMLCanvasElement>) => {
     event.preventDefault();
     if (viewOnly) return;
+    const pastedFiles = Array.from(event.clipboardData.files);
+    if (pastedFiles.length > 0 && hello?.os === 'windows' && home.data && sessionId) {
+      // Arquivos colados: vao para Downloads e entram na area de transferencia da estacao (Windows).
+      window.clearTimeout(paste.current.timer);
+      paste.current.waiting = false;
+      const sent = await transfers.upload(pastedFiles, home.data.downloads, home.data.separator);
+      if (sent.length > 0) {
+        await remoteFilesApi.clipboard(sessionId, sent.map((r) => r.transferId)).catch(() => undefined);
+        setNotice('Arquivos prontos na máquina remota: aperte Ctrl+V onde quiser colar.');
+      }
+      return;
+    }
     const text = event.clipboardData.getData('text/plain');
     await bridge().local(text);
     if (paste.current.waiting) sendPasteKeys();
@@ -250,6 +299,11 @@ export function RemoteViewerPage() {
               <IconClipboardCheck size={18} aria-label="Área de transferência sincronizada" role="img" />
             </Tooltip>
           )}
+          {sessionId && (
+            <Button size="xs" variant="default" leftSection={<IconFolders size={14} />} onClick={() => setFilesOpen(true)} disabled={!connected}>
+              Arquivos
+            </Button>
+          )}
           <Switch size="xs" label="Somente visualizar" checked={viewOnly} onChange={(e) => setViewOnly(e.currentTarget.checked)} />
           {hello?.features.includes('cad') && (
             <Button size="xs" variant="default" leftSection={<IconKeyboard size={14} />} onClick={() => send(FRAME.cad, {})} disabled={viewOnly}>
@@ -269,7 +323,26 @@ export function RemoteViewerPage() {
           </Button>
         </Group>
       </Group>
-      <Box ref={containerRef} style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <Box
+        ref={containerRef}
+        style={{
+          flex: 1,
+          minHeight: 0,
+          position: 'relative',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          outline: dropping ? '3px dashed var(--mantine-color-blue-5)' : undefined,
+          outlineOffset: -6,
+        }}
+        onDragOver={(e) => {
+          if (!home.data) return;
+          e.preventDefault();
+          setDropping(true);
+        }}
+        onDragLeave={() => setDropping(false)}
+        onDrop={(e) => void onDrop(e)}
+      >
         <canvas
           ref={canvasRef}
           tabIndex={0}
@@ -314,12 +387,30 @@ export function RemoteViewerPage() {
             {message}
           </Alert>
         )}
+        {copied && sessionId && (
+          <Alert pos="absolute" top={12} right={12} color="blue" withCloseButton onClose={() => setCopied(null)} title="Arquivos copiados na máquina remota" maw={420}>
+            <Text size="sm">
+              {copied.paths.length === 1 ? (copied.paths[0] ?? '') : `${String(copied.paths.length)} itens`} ({formatBytes(copied.totalBytes)})
+            </Text>
+            <Anchor href={remoteFilesApi.downloadUrl(sessionId, copied.paths)} download size="sm">
+              Baixar
+            </Anchor>
+          </Alert>
+        )}
+        {notice && (
+          <Alert pos="absolute" bottom={56} color="teal" withCloseButton onClose={() => setNotice(null)}>
+            {notice}
+          </Alert>
+        )}
         {agentError && (
           <Alert pos="absolute" bottom={12} color="red" withCloseButton onClose={() => setAgentError(null)}>
             {agentError}
           </Alert>
         )}
       </Box>
+      <Drawer opened={filesOpen} onClose={() => setFilesOpen(false)} position="right" size="lg" title="Arquivos da máquina remota">
+        {sessionId && <FilesPanel sessionId={sessionId} transfers={transfers} />}
+      </Drawer>
     </Stack>
   );
 }

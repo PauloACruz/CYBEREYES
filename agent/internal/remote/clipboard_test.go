@@ -82,3 +82,35 @@ func TestClipboardPolicyBlocksEachWay(t *testing.T) {
 		t.Fatal("politica com os dois sentidos desligados deveria desligar a sincronizacao")
 	}
 }
+
+type fakeFileBoard struct {
+	fakeBoard
+	files   []string
+	written []string
+}
+
+func (f *fakeFileBoard) ReadFiles() ([]string, error) { return f.files, nil }
+func (f *fakeFileBoard) WriteFiles(p []string) error {
+	f.written = p
+	return nil
+}
+
+func TestFilesCopiedAndPasted(t *testing.T) {
+	board := &fakeFileBoard{fakeBoard: fakeBoard{changes: make(chan struct{}, 1)}}
+	var copied []filesCopiedBody
+	c := &textSync{board: board, toLocal: true, filesCopied: true, log: slog.New(slog.DiscardHandler),
+		send:      func(proto.ClipboardBody) error { t.Fatal("texto nao deveria ser enviado"); return nil },
+		sendFiles: func(b filesCopiedBody) error { copied = append(copied, b); return nil }}
+	if f := c.Features(); len(f) != 2 || f[1] != "files-copied" {
+		t.Fatalf("recursos: %v", f)
+	}
+	board.files = []string{t.TempDir()}
+	c.changed()
+	c.changed() // a mesma lista nao e reenviada
+	if len(copied) != 1 || copied[0].Paths[0] != board.files[0] {
+		t.Fatalf("FILES_COPIED: %+v", copied)
+	}
+	if err := c.SetFiles([]string{`C:\Users\maria\Desktop\a.txt`}); err != nil || board.written[0] != `C:\Users\maria\Desktop\a.txt` {
+		t.Fatalf("SetFiles: %v %v", err, board.written)
+	}
+}

@@ -40,6 +40,7 @@ import {
   IconWorldDownload,
   type Icon,
   IconScreenShare,
+  IconFolders,
 } from '@tabler/icons-react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
@@ -75,6 +76,7 @@ import { TasksTab } from './monitoring/TasksTab';
 import { UpdatesTab } from './monitoring/UpdatesTab';
 import { AgentTicketsTab } from '../tickets/AgentTicketsTab';
 import { AgentAssetButton } from '../inventory/AgentAssetButton';
+import { AgentFilesTab } from '../remote/AgentFilesTab';
 import { RemoteSessionsTable } from '../remote/RemoteSessionsTable';
 import { CareTab } from '../care/CareTab';
 import { CARE_NAME } from '../care/careFormat';
@@ -181,6 +183,9 @@ function AgentDetailView({ agent }: { agent: AgentDetail }) {
   }
   if (hasPermission(me, PERMISSIONS.agentsView)) tabs.push({ value: 'care', label: CARE_NAME, icon: IconTool, render: () => <CareTab agent={agent} /> });
   tabs.push({ value: 'historico', label: 'Histórico', icon: IconHistory, render: () => <HistoryTab agent={agent} /> });
+  if (hasPermission(me, PERMISSIONS.agentsFiles) && agent.status === 'online') {
+    tabs.push({ value: 'arquivos', label: 'Arquivos', icon: IconFolders, render: () => <AgentFilesTab agentId={agent.id} /> });
+  }
   if (hasPermission(me, PERMISSIONS.agentsView)) {
     tabs.push({ value: 'acessos', label: 'Acessos remotos', icon: IconScreenShare, render: () => <RemoteSessionsTable agentId={agent.id} /> });
   }

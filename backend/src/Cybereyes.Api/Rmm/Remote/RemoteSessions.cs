@@ -85,6 +85,9 @@ public sealed class RemoteSessionHandle
     public RelayEnd? AgentDesktop { get; set; }
     public TaskCompletionSource Paired { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public RemoteFilesChannel? Files { get; set; }
+
+    /// <summary>Completa quando o canal files do agente conecta.</summary>
+    public TaskCompletionSource FilesReady { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public CancellationTokenSource Ended { get; } = new();
     public string State { get; set; } = RemoteSessionState.Starting;
     public string? ConsentResult { get; set; }

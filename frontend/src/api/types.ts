@@ -1021,6 +1021,22 @@ export interface RemoteSessionDto {
   clipboardToLocal: number;
 }
 
+export interface RemoteHomeDto {
+  desktop: string;
+  home: string;
+  downloads: string;
+  separator: string;
+}
+
+export interface RemoteFileEntry {
+  name: string;
+  path: string;
+  kind: 'file' | 'dir' | 'link';
+  size: number;
+  modifiedAt: string;
+  hidden: boolean;
+}
+
 export interface RemoteSessionPage {
   items: RemoteSessionDto[];
   total: number;

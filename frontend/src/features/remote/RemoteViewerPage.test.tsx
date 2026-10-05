@@ -104,7 +104,7 @@ describe('visualizador de acesso remoto', () => {
     const canvas = screen.getByTestId('remote-canvas');
     socket.sent.length = 0;
     fireEvent.keyDown(canvas, { code: 'KeyV', key: 'v', ctrlKey: true });
-    fireEvent.paste(canvas, { clipboardData: { getData: () => 'texto local' } });
+    fireEvent.paste(canvas, { clipboardData: { getData: () => 'texto local', files: [] } });
     await waitFor(() => expect(socket.sent.filter((f) => f[0] === FRAME.key)).toHaveLength(2));
     const types = socket.sent.map((f) => f[0]).filter((t) => t === FRAME.clipboard || t === FRAME.key);
     expect(types).toEqual([FRAME.clipboard, FRAME.key, FRAME.key]);
@@ -112,6 +112,34 @@ describe('visualizador de acesso remoto', () => {
     expect(clip.text).toBe('texto local');
     fireEvent.keyUp(canvas, { code: 'KeyV', key: 'v', ctrlKey: true });
     expect(socket.sent.filter((f) => f[0] === FRAME.key)).toHaveLength(2);
+  });
+
+  it('arquivos copiados na estacao viram um link para baixar', async () => {
+    const created: unknown[] = [];
+    mockFetch({
+      'GET /api/auth/me': () => json(makeMe({ permissions: ['agents.view', 'agents.remote', 'agents.files'] })),
+      'POST /api/agents/1/remote/sessions': (init) => {
+        created.push(JSON.parse(init?.body as string));
+        return json({ ...session, channels: ['desktop', 'files'] }, 201);
+      },
+      [`DELETE /api/remote/sessions/${session.sessionId}`]: () => new Response(null, { status: 204 }),
+      [`GET /api/remote/sessions/${session.sessionId}/files/home`]: () => json({ desktop: 'C:\\D', home: 'C:\\H', downloads: 'C:\\W', separator: '\\' }),
+    });
+    vi.stubGlobal('WebSocket', FakeSocket);
+    renderApp('/acesso-remoto/1');
+    await waitFor(() => expect(FakeSocket.last).not.toBeNull());
+    expect(created[0]).toMatchObject({ channels: ['desktop', 'files'] });
+    const socket = FakeSocket.last!;
+    socket.readyState = FakeSocket.OPEN;
+    socket.onopen?.();
+    socket.onmessage?.({ data: new Uint8Array([FRAME.paired]).buffer });
+    const frame = jsonFrame(FRAME.filesCopied, { paths: ['C:\\Users\\maria\\Desktop\\nota.txt'], totalBytes: 1024 });
+    const copy = new Uint8Array(frame.length);
+    copy.set(frame);
+    socket.onmessage?.({ data: copy.buffer });
+    const link = await screen.findByRole('link', { name: 'Baixar' });
+    expect(link.getAttribute('href')).toBe(`/api/remote/sessions/${session.sessionId}/download?path=${encodeURIComponent('C:\\Users\\maria\\Desktop\\nota.txt')}`);
+    expect(screen.getByRole('button', { name: 'Arquivos' })).toBeInTheDocument();
   });
 
   it('explica quando a maquina esta desconectada', async () => {

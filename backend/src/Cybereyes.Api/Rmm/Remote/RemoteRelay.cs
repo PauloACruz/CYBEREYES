@@ -54,6 +54,12 @@ public sealed class RemoteRelay(RemoteSessionManager manager, RemoteForwarder fo
             {
                 var files = new RemoteFilesChannel(end, handle, time);
                 handle.Files = files;
+                handle.FilesReady.TrySetResult();
+                if (!handle.HasChannel(RemoteFrames.Desktop))
+                {
+                    // Sessao so de arquivos: fica ativa quando o agente conecta.
+                    await manager.SetStateAsync(handle, RemoteSessionState.Active);
+                }
                 await files.RunAsync(handle.Ended.Token);
                 return;
             }

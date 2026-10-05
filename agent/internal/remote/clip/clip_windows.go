@@ -39,13 +39,16 @@ var (
 	procGlobalLock                    = kernel32.NewProc("GlobalLock")
 	procGlobalUnlock                  = kernel32.NewProc("GlobalUnlock")
 	procGlobalSize                    = kernel32.NewProc("GlobalSize")
+	procDragQueryFile                 = windows.NewLazySystemDLL("shell32.dll").NewProc("DragQueryFileW")
 )
 
 const (
 	wmClipboardUpdate = 0x031D
 	wmApp             = 0x8000
 	cfUnicodeText     = 13
+	cfHDrop           = 15
 	gmemMoveable      = 0x0002
+	gmemZeroInit      = 0x0040
 	hwndMessage       = ^uintptr(2) // HWND_MESSAGE = (HWND)-3
 )
 
@@ -282,6 +285,76 @@ func (w *win) Write(text string) error {
 		defer procCloseClipboard.Call()
 		procEmptyClipboard.Call()
 		if r, _, err := procSetClipboardData.Call(cfUnicodeText, h); r == 0 {
+			procGlobalFree.Call(h)
+			return fmt.Errorf("SetClipboardData: %w", err)
+		}
+		return nil
+	})
+}
+
+// ReadFiles le a lista CF_HDROP (arquivos copiados no Explorer).
+func (w *win) ReadFiles() ([]string, error) {
+	var out []string
+	err := w.run(func() error {
+		if err := w.open(); err != nil {
+			return err
+		}
+		defer procCloseClipboard.Call()
+		h, _, _ := procGetClipboardData.Call(cfHDrop)
+		if h == 0 {
+			return nil
+		}
+		n, _, _ := procDragQueryFile.Call(h, 0xFFFFFFFF, 0, 0)
+		for i := uintptr(0); i < n && len(out) < MaxFiles; i++ {
+			size, _, _ := procDragQueryFile.Call(h, i, 0, 0)
+			buf := make([]uint16, size+1)
+			procDragQueryFile.Call(h, i, uintptr(unsafe.Pointer(&buf[0])), size+1)
+			out = append(out, windows.UTF16ToString(buf))
+		}
+		return nil
+	})
+	return out, err
+}
+
+// dropFiles e o cabecalho DROPFILES seguido da lista de caminhos em UTF-16 terminada por dois zeros.
+type dropFiles struct {
+	Files uint32
+	X, Y  int32
+	NC    int32
+	Wide  int32
+}
+
+// WriteFiles poe os arquivos na area de transferencia (CF_HDROP): Ctrl+V no Explorer copia os arquivos.
+func (w *win) WriteFiles(paths []string) error {
+	var list []uint16
+	for _, p := range paths {
+		list = append(list, utf16.Encode([]rune(p))...)
+		list = append(list, 0)
+	}
+	list = append(list, 0)
+	head := dropFiles{Wide: 1}
+	head.Files = uint32(unsafe.Sizeof(head))
+	size := uintptr(head.Files) + uintptr(len(list)*2)
+	return w.run(func() error {
+		h, _, err := procGlobalAlloc.Call(gmemMoveable|gmemZeroInit, size)
+		if h == 0 {
+			return fmt.Errorf("GlobalAlloc: %w", err)
+		}
+		p, _, _ := procGlobalLock.Call(h)
+		if p == 0 {
+			procGlobalFree.Call(h)
+			return errors.New("GlobalLock falhou")
+		}
+		*(*dropFiles)(pointer(p)) = head
+		copy(unsafe.Slice((*uint16)(unsafe.Add(pointer(p), head.Files)), len(list)), list)
+		procGlobalUnlock.Call(h)
+		if err := w.open(); err != nil {
+			procGlobalFree.Call(h)
+			return err
+		}
+		defer procCloseClipboard.Call()
+		procEmptyClipboard.Call()
+		if r, _, err := procSetClipboardData.Call(cfHDrop, h); r == 0 {
 			procGlobalFree.Call(h)
 			return fmt.Errorf("SetClipboardData: %w", err)
 		}

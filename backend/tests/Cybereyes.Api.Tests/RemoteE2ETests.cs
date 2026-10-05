@@ -23,6 +23,66 @@ public sealed class RemoteDisplayFactAttribute : FactAttribute
     }
 }
 
+/// <summary>EYES real ligado a API de teste, com uma chave de API de administrador.</summary>
+public sealed class RealAgent : IAsyncDisposable
+{
+    private static readonly TimeSpan Wait = TimeSpan.FromSeconds(60);
+
+    public required ApiProxy Proxy { get; init; }
+    public required EyesProcess Eyes { get; init; }
+    public required int Pk { get; init; }
+    public required string Key { get; init; }
+    public required HttpClient Http { get; init; }
+
+    public static async Task<RealAgent> StartAsync(ApiFixture fixture, string clientName)
+    {
+        var admin = await fixture.AdminClientAsync();
+        var created = await admin.PostAsJsonAsync("/api/clients", new { name = clientName, siteName = "Matriz" });
+        using var client = JsonDocument.Parse(await created.Content.ReadAsStringAsync());
+        var siteId = client.RootElement.GetProperty("sites")[0].GetProperty("id").GetInt32();
+        var installer = await admin.PostAsJsonAsync("/api/agents/installer", new { siteId, agentType = "workstation", plat = "linux", expiresHours = 1 });
+        using var body = JsonDocument.Parse(await installer.Content.ReadAsStringAsync());
+        var parts = body.RootElement.GetProperty("command").GetString()!.Split(' ');
+        var token = parts[Array.IndexOf(parts, "--auth") + 1];
+
+        var proxy = await ApiProxy.StartAsync(fixture);
+        var eyes = await EyesProcess.StartAsync(proxy.Url, fixture.NatsUrl, siteId, token);
+        var watch = Stopwatch.StartNew();
+        int? pk = null;
+        while (watch.Elapsed < Wait && pk is null)
+        {
+            using var list = JsonDocument.Parse(await admin.GetStringAsync($"/api/agents?siteId={siteId}"));
+            var items = list.RootElement.GetProperty("items");
+            if (items.GetArrayLength() == 1 && items[0].GetProperty("status").GetString() == "online" && items[0].GetProperty("version").GetString() == "3.1.0")
+            {
+                pk = items[0].GetProperty("id").GetInt32();
+            }
+            else
+            {
+                await Task.Delay(500);
+            }
+        }
+        if (pk is null)
+        {
+            var log = eyes.Log;
+            await eyes.DisposeAsync();
+            await proxy.DisposeAsync();
+            throw new InvalidOperationException("agente nao ficou online. Log do EYES:\n" + log);
+        }
+        var key = (await (await admin.PostAsJsonAsync("/api/apikeys", new { name = "remoto-" + clientName })).Content.ReadFromJsonAsync<JsonElement>()).GetProperty("key").GetString()!;
+        var http = fixture.NewClient();
+        http.DefaultRequestHeaders.Add("X-API-KEY", key);
+        return new RealAgent { Proxy = proxy, Eyes = eyes, Pk = pk.Value, Key = key, Http = http };
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        Http.Dispose();
+        await Eyes.DisposeAsync();
+        await Proxy.DisposeAsync();
+    }
+}
+
 [Collection(ApiCollection.Name)]
 public sealed class RemoteE2ETests(ApiFixture fixture)
 {
@@ -77,38 +137,8 @@ public sealed class RemoteE2ETests(ApiFixture fixture)
     [RemoteDisplayFact]
     public async Task Remote_RealEyesStreamsScreenAndAppliesInput()
     {
-        var admin = await fixture.AdminClientAsync();
-        var created = await admin.PostAsJsonAsync("/api/clients", new { name = "Cliente remoto real", siteName = "Matriz" });
-        using var client = JsonDocument.Parse(await created.Content.ReadAsStringAsync());
-        var siteId = client.RootElement.GetProperty("sites")[0].GetProperty("id").GetInt32();
-        var installer = await admin.PostAsJsonAsync("/api/agents/installer", new { siteId, agentType = "workstation", plat = "linux", expiresHours = 1 });
-        using var body = JsonDocument.Parse(await installer.Content.ReadAsStringAsync());
-        var parts = body.RootElement.GetProperty("command").GetString()!.Split(' ');
-        var token = parts[Array.IndexOf(parts, "--auth") + 1];
-
-        await using var proxy = await ApiProxy.StartAsync(fixture);
-        await using var eyes = await EyesProcess.StartAsync(proxy.Url, fixture.NatsUrl, siteId, token);
-
-        var watch = Stopwatch.StartNew();
-        int? pk = null;
-        while (watch.Elapsed < Wait && pk is null)
-        {
-            using var list = JsonDocument.Parse(await admin.GetStringAsync($"/api/agents?siteId={siteId}"));
-            var items = list.RootElement.GetProperty("items");
-            if (items.GetArrayLength() == 1 && items[0].GetProperty("status").GetString() == "online" && items[0].GetProperty("version").GetString() == "3.1.0")
-            {
-                pk = items[0].GetProperty("id").GetInt32();
-            }
-            else
-            {
-                await Task.Delay(500);
-            }
-        }
-        Assert.True(pk is not null, "agente nao ficou online. Log do EYES:\n" + eyes.Log);
-
-        var key = (await (await admin.PostAsJsonAsync("/api/apikeys", new { name = "remoto-real" })).Content.ReadFromJsonAsync<JsonElement>()).GetProperty("key").GetString()!;
-        using var http = fixture.NewClient();
-        http.DefaultRequestHeaders.Add("X-API-KEY", key);
+        await using var agent = await RealAgent.StartAsync(fixture, "Cliente remoto real");
+        var (eyes, pk, http) = (agent.Eyes, agent.Pk, agent.Http);
         var response = await http.PostAsJsonAsync($"/api/agents/{pk}/remote/sessions", new { channels = new[] { "desktop" } });
         Assert.True(response.StatusCode == HttpStatusCode.Created, await response.Content.ReadAsStringAsync() + "\n" + eyes.Log);
         using var session = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
@@ -116,7 +146,7 @@ public sealed class RemoteE2ETests(ApiFixture fixture)
         var viewerToken = session.RootElement.GetProperty("viewerToken").GetString()!;
 
         var wsClient = fixture.Server.CreateWebSocketClient();
-        wsClient.ConfigureRequest = r => r.Headers["X-API-KEY"] = key;
+        wsClient.ConfigureRequest = r => r.Headers["X-API-KEY"] = agent.Key;
         using var viewer = await wsClient.ConnectAsync(new Uri($"ws://localhost/api/remote/relay/{sessionId}/desktop"), CancellationToken.None);
         using var cts = new CancellationTokenSource(Wait);
         await viewer.SendAsync(Frame(RemoteFrames.Auth, new { token = viewerToken, role = "viewer", proto = 1 }), WebSocketMessageType.Binary, true, cts.Token);

@@ -59,9 +59,23 @@ Este roteiro valida em maquinas reais o que o CI nao alcanca: Windows (prova S1)
 | 4.7 | Somente visualizar | o texto do tecnico nunca chega a estacao |
 | 4.8 | Texto acima de 1 MiB | nao e sincronizado e nada trava |
 
-## 5. Itens das fases seguintes
+## 5. Arquivos (fase 12.5)
 
-As fases 12.5 a 12.7 acrescentam aqui os roteiros de arquivos, Linux, macOS e Wake-on-LAN.
+| # | Passo | Esperado |
+|---|---|---|
+| 5.1 | Arrastar 10 arquivos de uma vez para a tela | todos chegam a Area de Trabalho do usuario, com progresso no painel |
+| 5.2 | Enviar um arquivo no limite de D-05 e baixa-lo de volta | o SHA-256 confere (registrado em `remote_transfers`) |
+| 5.3 | Derrubar a rede do tecnico no meio de um envio grande e religar | o envio continua de onde parou, sem recomecar |
+| 5.4 | Copiar arquivos no Explorer da estacao | o visualizador mostra "Arquivos copiados" com "Baixar"; varios itens vem como zip |
+| 5.5 | Copiar um arquivo no computador do tecnico e apertar Ctrl+V na tela | o arquivo vai para Downloads e o Ctrl+V no Explorer da estacao cola o arquivo |
+| 5.6 | Estacao com a Area de Trabalho no OneDrive | o envio cai na Area de Trabalho que o usuario ve |
+| 5.7 | Aba "Arquivos" do agente: navegar, criar pasta, renomear, apagar, baixar pasta | tudo funciona e aparece na auditoria |
+| 5.8 | Politica com envio ou download desligado | a acao bloqueada responde "A politica nao permite ..." |
+| 5.9 | Tecnico sem `agents.files` | sem botao "Arquivos", sem aba e sem arrastar e soltar |
+
+## 6. Itens das fases seguintes
+
+As fases 12.6 e 12.7 acrescentam aqui os roteiros de Linux, macOS e Wake-on-LAN.
 
 ## Registro
 

@@ -41,6 +41,8 @@ type HelperParams struct {
 type Control struct {
 	Consent string `json:"consent,omitempty"`
 	End     string `json:"end,omitempty"`
+	// ClipboardFiles poe arquivos ja recebidos na area de transferencia da sessao (contrato, secao 7.6).
+	ClipboardFiles []string `json:"clipboardFiles,omitempty"`
 }
 
 // Limites do controle de fluxo (contrato, secao 5.3).
@@ -131,7 +133,7 @@ func RunHelper(ctx context.Context, p HelperParams, control <-chan Control, log 
 	errc := make(chan error, 3)
 	go func() { errc <- s.readLoop(ctx) }()
 	go func() { errc <- s.frameLoop(ctx) }()
-	go func() { errc <- watchEnd(ctx, conn, control) }()
+	go func() { errc <- s.watchControl(ctx, control) }()
 	err = <-errc
 	cancel()
 	if websocket.CloseStatus(err) != -1 || errors.Is(err, context.Canceled) {
@@ -170,8 +172,9 @@ func waitConsent(ctx context.Context, conn *websocket.Conn, control <-chan Contr
 	return false, nil
 }
 
-// watchEnd encerra a sessao quando o usuario pede o fim pelo eyes-tray.
-func watchEnd(ctx context.Context, conn *websocket.Conn, control <-chan Control) error {
+// watchControl atende as linhas do servico durante a sessao: fim pedido pelo usuario no eyes-tray e arquivos
+// recebidos para colar (contrato, secoes 7.6 e 8.3).
+func (s *desktopSession) watchControl(ctx context.Context, control <-chan Control) error {
 	for {
 		select {
 		case <-ctx.Done():
@@ -182,9 +185,14 @@ func watchEnd(ctx context.Context, conn *websocket.Conn, control <-chan Control)
 				<-ctx.Done()
 				return ctx.Err()
 			}
+			if len(c.ClipboardFiles) > 0 {
+				if err := s.clip.SetFiles(c.ClipboardFiles); err != nil {
+					s.log.Warn("arquivos nao foram para a area de transferencia", "erro", err)
+				}
+			}
 			if c.End != "" {
-				_ = sendJSON(ctx, conn, proto.Bye, proto.ReasonBody{Reason: c.End})
-				_ = conn.Close(websocket.StatusNormalClosure, c.End)
+				_ = sendJSON(ctx, s.conn, proto.Bye, proto.ReasonBody{Reason: c.End})
+				_ = s.conn.Close(websocket.StatusNormalClosure, c.End)
 				return context.Canceled
 			}
 		}

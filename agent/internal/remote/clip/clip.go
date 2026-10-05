@@ -23,3 +23,14 @@ type Board interface {
 	Changes() <-chan struct{}
 	Close() error
 }
+
+// MaxFiles e o limite de caminhos em FILES_COPIED (contrato, secao 7.6).
+const MaxFiles = 1000
+
+// FileBoard e a area de transferencia que tambem guarda lista de arquivos (Windows CF_HDROP).
+type FileBoard interface {
+	// ReadFiles devolve os arquivos copiados (nil quando a area de transferencia nao tem arquivos).
+	ReadFiles() ([]string, error)
+	// WriteFiles poe os arquivos na area de transferencia para o usuario colar no Explorer.
+	WriteFiles(paths []string) error
+}

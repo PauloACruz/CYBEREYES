@@ -85,7 +85,8 @@ func (m *Manager) start(_ context.Context, req rpc.Request) any {
 		return "error: sessao ja iniciada"
 	}
 	var t target
-	if contains(channels, "desktop") {
+	desktop := contains(channels, "desktop")
+	if desktop {
 		t, err = m.find(policy.AllowAtLoginScreen)
 		switch {
 		case errors.Is(err, errUnsupported):
@@ -95,7 +96,11 @@ func (m *Manager) start(_ context.Context, req rpc.Request) any {
 			m.mu.Unlock()
 			return "error: no session"
 		}
+	} else {
+		// So arquivos: o usuario conectado define as pastas (home); sem usuario, o resto continua funcionando.
+		t, _ = m.find(true)
 	}
+	control := make(chan Control, 8)
 	ctx, cancel := context.WithTimeout(m.e.Ctx, time.Duration(max(1, policy.MaxHours))*time.Hour)
 	m.sessions[id] = cancel
 	m.mu.Unlock()
@@ -103,11 +108,11 @@ func (m *Manager) start(_ context.Context, req rpc.Request) any {
 	log := m.e.Log.With("sessao_remota", id)
 	log.Info("acesso remoto iniciado", "tecnico", technician, "canais", channels, "somente_visualizacao", params.ViewOnly)
 	var wg sync.WaitGroup
-	if contains(channels, "desktop") {
+	if desktop {
 		wg.Add(1)
 		m.e.Go("remote-desktop", func(context.Context) {
 			defer wg.Done()
-			if err := m.runDesktop(ctx, t, params, technician); err != nil && ctx.Err() == nil {
+			if err := m.runDesktop(ctx, t, params, technician, control); err != nil && ctx.Err() == nil {
 				log.Warn("sessao de tela encerrada com erro", "erro", err)
 			}
 		})
@@ -116,7 +121,7 @@ func (m *Manager) start(_ context.Context, req rpc.Request) any {
 		wg.Add(1)
 		m.e.Go("remote-files", func(context.Context) {
 			defer wg.Done()
-			if err := runFiles(ctx, params, m.e.Log); err != nil && ctx.Err() == nil {
+			if err := runFiles(ctx, params, t, control, desktop, log); err != nil && ctx.Err() == nil {
 				log.Warn("canal de arquivos encerrado com erro", "erro", err)
 			}
 		})
@@ -131,9 +136,8 @@ func (m *Manager) start(_ context.Context, req rpc.Request) any {
 
 // runDesktop inicia o remote-helper na sessao grafica e, em paralelo, aplica o aviso ou o pedido de acesso pelo
 // eyes-tray; o resultado e o fim pedido pelo usuario seguem para o remote-helper pelo canal de controle.
-func (m *Manager) runDesktop(ctx context.Context, t target, p HelperParams, technician string) error {
+func (m *Manager) runDesktop(ctx context.Context, t target, p HelperParams, technician string, control chan Control) error {
 	log := m.e.Log.With("sessao_remota", p.SessionID)
-	control := make(chan Control, 4)
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	go func() {

@@ -74,10 +74,11 @@ Mesmo padrao das fases anteriores: cookie com 2FA, camelCase, ProblemDetails com
 | POST | `/api/remote/sessions/{sessionId}/files/mkdir` `{ path }` | `agents.files` | 204 |
 | POST | `/api/remote/sessions/{sessionId}/files/rename` `{ from, to }` | `agents.files` | 204 |
 | POST | `/api/remote/sessions/{sessionId}/files/delete` `{ path, recursive }` | `agents.files` | 204 |
+| POST | `/api/remote/sessions/{sessionId}/files/clipboard` `{ transferIds }` | `agents.files` | 204 (arquivos ja enviados vao para a area de transferencia da sessao, so Windows) |
 | POST | `/api/remote/sessions/{sessionId}/uploads` `{ path, size, overwrite }` | `agents.files` e politica `files.upload` | 201 `{ transferId, received }` (`received` > 0 retoma um envio interrompido) |
 | PUT | `/api/remote/sessions/{sessionId}/uploads/{transferId}` com `Content-Range: bytes a-b/total` | idem | 200 `{ received }` |
 | POST | `/api/remote/sessions/{sessionId}/uploads/{transferId}/complete` | idem | 200 `{ sha256, path }` |
-| GET | `/api/remote/sessions/{sessionId}/download?path=&zip=` (aceita `Range` quando `zip=false`) | `agents.files` e politica `files.download` | 200 ou 206, `Content-Disposition: attachment` |
+| GET | `/api/remote/sessions/{sessionId}/download?path=&zip=` (aceita `Range` quando `zip=false`; `path` repetido baixa varios itens num zip) | `agents.files` e politica `files.download` | 200 ou 206, `Content-Disposition: attachment` |
 | GET | `/api/remote/policies` | `settings.manage` | 200 `RemotePolicyDto[]` |
 | PUT | `/api/remote/policies/{scope}/{scopeId?}` | `settings.manage` | 200 `RemotePolicyDto` |
 | DELETE | `/api/remote/policies/{scope}/{scopeId}` | `settings.manage` | 204 (volta a herdar) |
@@ -306,12 +307,12 @@ O canal `files` liga a API ao servico do EYES (o navegador usa a REST da secao 2
 | `mkdir` | `path` | `null` |
 | `rename` | `from`, `to` | `null` |
 | `delete` | `path`, `recursive` | `null` |
-| `upload-begin` | `transferId`, `path`, `size`, `overwrite` | `{ received }` (tamanho do `.partial` existente, para retomar) |
+| `upload-begin` | `transferId`, `path`, `size`, `overwrite`, `restart` | `{ received }` (tamanho do `.partial` existente; `restart = true` apaga o `.partial` e devolve 0) |
 | `upload-end` | `transferId`, `sha256` | `{ sha256, path }` |
-| `download-begin` | `transferId`, `path`, `offset`, `zip` | `{ size }` (`-1` com `zip = true`) |
+| `download-begin` | `transferId`, `path` ou `paths`, `offset`, `zip` | `{ size, sha256 }` do que foi enviado; a resposta so sai depois do ultimo `CHUNK` |
 | `clipboard-files` | `transferIds` | `null`: coloca os arquivos recebidos na area de transferencia da sessao (Windows `CF_HDROP`) |
 
-Codigos de erro do agente: `not-found`, `exists`, `denied`, `invalid-path`, `too-large`, `no-space`, `hash-mismatch`, `busy`, `io`.
+Codigos de erro do agente: `not-found`, `exists`, `denied`, `invalid-path`, `too-large`, `no-space`, `hash-mismatch`, `busy`, `unsupported`, `io`.
 
 ### 7.3 Caminhos
 
@@ -329,20 +330,20 @@ Codigos de erro do agente: `not-found`, `exists`, `denied`, `invalid-path`, `too
 3. A API repassa cada bloco em `CHUNK`s de ate 256 KiB, respeitando o `CREDIT` dado pelo agente (o agente concede ate 4 MiB por vez).
 4. O agente grava em `<destino>.partial`. A API calcula o SHA-256 enquanto repassa.
 5. `POST /complete`: a API manda `upload-end` com o seu SHA-256; o agente confere com o calculado no disco, renomeia o `.partial` para o destino e responde. Se os hashes diferirem, o agente apaga o `.partial` e responde `hash-mismatch`.
-6. Queda no meio: um novo `POST /uploads` com o mesmo `path` e `size` devolve `received` e o envio continua dai.
+6. Queda no meio: um novo `POST /uploads` com o mesmo `path` e `size` na mesma sessao devolve a mesma transferencia e o `received`, e o envio continua dai. A API guarda o SHA-256 parcial na memoria da replica dona; transferencia nova (outra sessao) sempre comeca do zero (`restart = true`), porque a API nao tem o hash do inicio.
 
 ### 7.5 Download (estacao para navegador)
 
-1. `GET /download` faz a API mandar `download-begin` e conceder `CREDIT` conforme escreve a resposta HTTP.
+1. `GET /download` faz a API mandar `stat` (arquivo comum: tamanho e tipo; pasta vira zip), depois `download-begin`, e conceder `CREDIT` (4 MiB no inicio e o que escrever na resposta HTTP). Credito que chega antes do agente registrar a transferencia fica guardado.
 2. O agente le e envia `CHUNK`s; a API repassa ao navegador em streaming, sem gravar em disco.
-3. A API e o agente calculam o SHA-256; o agente envia o seu em `RESPONSE` ao fim; se diferir, a API aborta a resposta HTTP (o navegador marca o download como falho).
+3. A API e o agente calculam o SHA-256; o agente envia o seu na `RESPONSE` do `download-begin`, depois do ultimo bloco; se diferir, a API aborta a resposta HTTP (o navegador marca o download como falho). Erro antes do primeiro bloco vira resposta de erro normal (secao 2.3).
 4. `zip = true` (pastas): o agente gera o zip durante o envio; sem `Range`.
 5. `Range` (arquivo comum): vira `offset` no `download-begin`.
 
 ### 7.6 Arquivos copiados e colados
 
 - **Copiados na estacao**: quando a area de transferencia da sessao passa a ter lista de arquivos (Windows `CF_HDROP`), o `remote-helper` envia `FILES_COPIED` (`0x17`) JSON `{ "paths": [str], "totalBytes": int }`, ate 1000 caminhos. O visualizador mostra "Baixar" e usa `GET /download` (uma pasta ou varios arquivos vao como zip).
-- **Colados no visualizador**: arquivos que o navegador entregar no evento `paste` sao enviados (7.4) para uma pasta temporaria do usuario e, ao fim, a API manda `clipboard-files`; o usuario cola com Ctrl+V no Explorer. So Windows na v1.
+- **Colados no visualizador**: arquivos que o navegador entregar no evento `paste` sao enviados (7.4) para a pasta Downloads do usuario e, ao fim, o visualizador chama `POST /files/clipboard` e a API manda `clipboard-files`; o usuario cola com Ctrl+V no Explorer. So Windows na v1.
 
 ## 8. Politicas, consentimento e permissoes
 
