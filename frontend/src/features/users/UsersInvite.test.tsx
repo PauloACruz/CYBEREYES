@@ -32,7 +32,7 @@ function usersApiMock(items: UserDto[], extra: Parameters<typeof mockFetch>[0] =
 }
 
 function postBody(fetchMock: ReturnType<typeof mockFetch>, path: string): unknown {
-  const call = fetchMock.mock.calls.find(([input, init]) => init?.method === 'POST' && new URL(String(input), 'http://x').pathname === path);
+  const call = fetchMock.mock.calls.find(([input, init]) => init?.method === 'POST' && new URL((typeof input === 'string' ? input : ''), 'http://x').pathname === path);
   return call?.[1]?.body ? JSON.parse(call[1].body as string) : undefined;
 }
 
@@ -121,7 +121,7 @@ describe('convite de usuarios', () => {
     await user.click(await screen.findByRole('menuitem', { name: 'Reenviar convite' }));
 
     expect(await screen.findByText(/Convite reenviado para joao@exemplo.com/)).toBeInTheDocument();
-    expect(fetchMock.mock.calls.some(([input, init]) => init?.method === 'POST' && String(input).includes('/api/users/u-convidado/invite'))).toBe(true);
+    expect(fetchMock.mock.calls.some(([input, init]) => init?.method === 'POST' && (typeof input === 'string' ? input : '').includes('/api/users/u-convidado/invite'))).toBe(true);
   });
 
   it('falha no reenvio mostra o erro do servidor', async () => {

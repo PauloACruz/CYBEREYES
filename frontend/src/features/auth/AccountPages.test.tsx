@@ -6,7 +6,7 @@ import { json, mockFetch, problem, renderApp } from '../../test/utils';
 const UID = '3f2a1c4e-0000-4000-8000-000000000001';
 
 function bodyOf(fetchMock: ReturnType<typeof mockFetch>, method: string, path: string): unknown {
-  const call = fetchMock.mock.calls.find(([input, init]) => init?.method === method && String(input).includes(path));
+  const call = fetchMock.mock.calls.find(([input, init]) => init?.method === method && (typeof input === 'string' ? input : '').includes(path));
   return JSON.parse(call?.[1]?.body as string);
 }
 
