@@ -61,4 +61,5 @@
   - `eyes-tray` e compilado sem CGO junto com a imagem e servido em `/api/agent/download/windows/<arch>?component=tray`;
   - o servico do EYES baixa o app (de novo a cada versao nova do agente) para `%ProgramFiles%\Cybereyes\EYES\eyes-tray.exe`;
   - o servico inicia o app em cada sessao de usuario ativa, com o token do usuario, ate 5 vezes por hora por sessao.
-- App de bandeja no Linux e no macOS: o Wails precisa de CGO (GTK/WebKit e Cocoa) e de compilacao na propria plataforma. A distribuicao automatica fica pendente; o canal local do agente ja atende os dois sistemas.
+- App de bandeja no Linux: distribuido e iniciado pelo EYES a partir da 3.0.3 (ADR-022).
+- App de bandeja no macOS: o Wails precisa de CGO, Cocoa e do SDK da Apple. A distribuicao automatica continua pendente; o canal local do agente ja atende.

@@ -126,7 +126,7 @@ Referencia de arquitetura e decisoes: `.team-context.md`.
 ### Fase 11: Agente proprio EYES
 - Agente reescrito do zero em `agent/` (ADR-020), sem codigo do Tactical, a partir da especificacao `docs/agente/contrato-eyes.md`; contrato `/api/v3` + NATS mantido.
 - Binario unico para Windows, Linux e macOS; instalacao, MeshAgent e servico feitos pelo proprio EYES; binarios compilados junto com a imagem da API; atualizacao remota e automatica.
-- App de bandeja trazido para `agent/tray` como `eyes-tray`.
+- App de bandeja trazido para `agent/tray` como `eyes-tray`, instalado e iniciado pelo EYES no Windows e no Linux (ADR-022), com o andamento do chamado no app; no macOS ainda nao.
 - **Entrega**: em andamento.
 
 ## Servidor (estimativa inicial, validar com teste de carga)

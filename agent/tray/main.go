@@ -4,6 +4,7 @@ package main
 
 import (
 	"embed"
+	"fmt"
 	"io/fs"
 	"log"
 	"os"
@@ -23,6 +24,9 @@ var trayIcon []byte
 //go:embed build/appicon.png
 var appIcon []byte
 
+// version e a versao do EYES que distribuiu o app (-ldflags "-X main.version=<versao>").
+var version = "dev"
+
 // singleInstanceKey cifra a mensagem que a segunda instancia envia a primeira (so para a mesma sessao).
 var singleInstanceKey = [32]byte{
 	0x57, 0x69, 0x6e, 0x43, 0x61, 0x72, 0x65, 0x2d, 0x74, 0x72, 0x61, 0x79, 0x2d, 0x73, 0x69, 0x6e,
@@ -30,6 +34,13 @@ var singleInstanceKey = [32]byte{
 }
 
 func main() {
+	// --version sai antes de iniciar a interface: o agente usa para validar o binario baixado e,
+	// no Linux, para saber se as bibliotecas do sistema (GTK e WebKitGTK) estao instaladas.
+	if slices.Contains(os.Args[1:], "--version") {
+		fmt.Println("eyes-tray", version)
+		return
+	}
+	log.Printf("eyes-tray %s", version)
 	insecure := os.Getenv("EYES_TRAY_INSECURE") == "1"
 	if insecure {
 		log.Println("AVISO: EYES_TRAY_INSECURE=1, certificados TLS nao serao validados (somente para testes)")
@@ -66,8 +77,11 @@ func main() {
 		SingleInstance: &application.SingleInstanceOptions{
 			UniqueID:      "br.com.cybereyes.eyes.tray",
 			EncryptionKey: singleInstanceKey,
-			OnSecondInstanceLaunch: func(application.SecondInstanceData) {
-				showWindow()
+			// O agente reinicia o app com --hidden; so quem abre pelo menu ou atalho ve a janela.
+			OnSecondInstanceLaunch: func(data application.SecondInstanceData) {
+				if !slices.Contains(data.Args, "--hidden") {
+					showWindow()
+				}
 			},
 		},
 		Mac: application.MacOptions{

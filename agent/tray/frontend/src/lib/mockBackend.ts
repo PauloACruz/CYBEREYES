@@ -79,6 +79,37 @@ const tickets: TicketDetail[] = [
     attachments: [],
     messages: [],
   },
+  {
+    id: 40,
+    title: 'Sem acesso à pasta do RH',
+    status: 'waiting_user',
+    priority: 'medium',
+    createdAt: '2026-09-29T09:00:00Z',
+    updatedAt: '2026-09-29T11:00:00Z',
+    assignedToName: 'Carlos Lima',
+    chatEnabled: true,
+    lastMessageAt: '2026-09-29T11:00:00Z',
+    description: 'Aparece "acesso negado" ao abrir a pasta.',
+    attachments: [],
+    messages: [
+      { id: 4, authorType: 'technician', authorName: 'Carlos Lima', body: 'Qual é o caminho exato da pasta?', createdAt: '2026-09-29T11:00:00Z', attachments: [] },
+      { id: 5, authorType: 'system', authorName: 'Sistema', body: 'Carlos Lima alterou o status para Aguardando usuario', createdAt: '2026-09-29T11:00:01Z', attachments: [] },
+    ],
+  },
+  {
+    id: 35,
+    title: 'Trocar o mouse',
+    status: 'closed',
+    priority: 'low',
+    createdAt: '2026-09-10T08:00:00Z',
+    updatedAt: '2026-09-11T08:00:00Z',
+    assignedToName: 'Ana Souza',
+    chatEnabled: false,
+    lastMessageAt: null,
+    description: '',
+    attachments: [],
+    messages: [],
+  },
 ];
 
 function summary(t: TicketDetail): Ticket {

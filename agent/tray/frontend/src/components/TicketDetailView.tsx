@@ -2,11 +2,18 @@ import { useEffect, useState } from 'react';
 import { errorMessage, useBackend } from '../lib/backend';
 import { formatDateTime } from '../lib/format';
 import { markSeen } from '../lib/seen';
-import type { Message, TicketDetail } from '../lib/types';
+import type { Message, TicketDetail, TicketStatus } from '../lib/types';
 import { AttachmentImage } from './AttachmentImage';
 import { ChatThread } from './ChatThread';
-import { Composer } from './Composer';
+import { CHAT_CLOSED_TEXT, CHAT_LOCKED_TEXT, Composer } from './Composer';
 import { StatusBadge } from './StatusBadge';
+import { TicketProgress } from './TicketProgress';
+
+// Dica no campo de mensagem quando o andamento depende do usuario.
+const PLACEHOLDER: Partial<Record<TicketStatus, string>> = {
+  waiting_user: 'O técnico aguarda sua resposta',
+  resolved: 'Se o problema voltou, escreva aqui para reabrir',
+};
 
 interface Props {
   ticketId: number;
@@ -87,17 +94,22 @@ export function TicketDetailView({ ticketId, notice, onBack }: Props) {
           <div className="detail-card">
             <div className="ticket-row-top">
               <StatusBadge status={ticket.status} />
-              <span className="muted small">Aberto em {formatDateTime(ticket.createdAt)}</span>
+              <span className="muted small">Atualizado em {formatDateTime(ticket.updatedAt)}</span>
             </div>
             <h3 className="detail-title">{ticket.title}</h3>
-            <p className="muted small">Técnico: {ticket.assignedToName ?? 'Aguardando técnico'}</p>
+            <TicketProgress ticket={ticket} />
             {ticket.description && <p className="detail-description">{ticket.description}</p>}
             {images.map((a) => (
               <AttachmentImage key={a.id} ticketId={ticket.id} attachment={a} />
             ))}
           </div>
           <ChatThread ticketId={ticket.id} messages={ticket.messages} />
-          <Composer enabled={ticket.chatEnabled} onSend={send} />
+          <Composer
+            enabled={ticket.chatEnabled}
+            onSend={send}
+            lockedText={ticket.status === 'closed' ? CHAT_CLOSED_TEXT : CHAT_LOCKED_TEXT}
+            placeholder={PLACEHOLDER[ticket.status] ?? 'Escreva sua mensagem'}
+          />
         </>
       )}
     </section>
