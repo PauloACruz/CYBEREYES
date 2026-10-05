@@ -960,6 +960,15 @@ export interface RemoteAccessDto {
   files: string;
 }
 
+/** Acesso RDP (Linux com sessao Wayland): link do Web-RDP do MeshCentral e credencial de uso unico. */
+export interface RdpAccessDto {
+  url: string;
+  username: string;
+  password: string;
+  port: number;
+  sessionUser: string | null;
+}
+
 export interface MeshSyncResult {
   lastSync: string | null;
   lastError: string | null;

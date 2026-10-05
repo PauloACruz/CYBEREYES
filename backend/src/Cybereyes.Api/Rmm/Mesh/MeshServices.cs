@@ -136,6 +136,7 @@ public static class MeshEndpoints
     public static void MapMeshEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapGet("/api/agents/{id:int}/remote", RemoteAsync).WithTags("Acesso remoto").RequireAuthorization(Policies.Permission(Permissions.AgentsRemote));
+        app.MapPost("/api/agents/{id:int}/remote/rdp", RdpAsync).WithTags("Acesso remoto").RequireAuthorization(Policies.Permission(Permissions.AgentsRemote));
         app.MapPost("/api/agents/{id:int}/wake", WakeAsync).WithTags("Acesso remoto").RequireAuthorization(Policies.Permission(Permissions.AgentsControl));
         app.MapPost("/api/agents/{id:int}/mesh/recover", RecoverAsync).WithTags("Acesso remoto").RequireAuthorization(Policies.Permission(Permissions.AgentsControl));
         app.MapGet("/api/mesh/status", (MeshClient mesh, MeshState state, Microsoft.Extensions.Options.IOptions<MeshSettings> options) => TypedResults.Ok(new
@@ -204,6 +205,70 @@ public static class MeshEndpoints
         string Link(int view) => $"{mesh.BaseUrl}/?login={token}&gotonode={node}&viewmode={view.ToString(CultureInfo.InvariantCulture)}&hide=31";
         await audit.LogAsync("agent.remote-session", "agent", id.ToString(CultureInfo.InvariantCulture), $"Acesso remoto a {agent.Hostname}", cancellationToken: ct);
         return TypedResults.Ok(new { hostname = agent.Hostname, control = Link(11), terminal = Link(12), files = Link(13) });
+    }
+
+    /// <summary>
+    /// Acesso grafico por RDP em Linux com sessao Wayland (o MeshAgent so captura X11): o EYES ativa o
+    /// compartilhamento RDP do GNOME na sessao do usuario e o tecnico conecta pelo Web-RDP do MeshCentral,
+    /// num tunel do MeshAgent ate a porta local. A senha muda a cada pedido.
+    /// </summary>
+    private static async Task<IResult> RdpAsync(int id, CybereyesDbContext db, MeshClient mesh, Nats.IAgentRpc rpc, IAuditService audit, CancellationToken ct)
+    {
+        if (!mesh.Enabled)
+        {
+            return Problems.Create(StatusCodes.Status503ServiceUnavailable, "MeshCentral nao configurado", "MESH_DISABLED");
+        }
+        var agent = await db.Agents.AsNoTracking().Where(a => a.Id == id).Select(a => new { a.AgentId, a.Hostname, a.MeshNodeId, a.Plat }).FirstOrDefaultAsync(ct);
+        if (agent is null)
+        {
+            return Problems.NotFound("Agente");
+        }
+        if (agent.Plat != "linux")
+        {
+            return Problems.Validation("plat", "O acesso RDP e usado em Linux; nos demais sistemas use a Tela do acesso remoto");
+        }
+        if (string.IsNullOrWhiteSpace(agent.MeshNodeId))
+        {
+            return Problems.Conflict("Este agente ainda nao tem o MeshAgent instalado ou sincronizado");
+        }
+
+        object? reply;
+        try
+        {
+            reply = await rpc.RequestAsync(agent.AgentId, new Dictionary<string, object?> { ["func"] = "rdp_enable" }, TimeSpan.FromSeconds(85), ct);
+        }
+        catch (Nats.AgentRpcTimeoutException)
+        {
+            return Problems.AgentTimeout();
+        }
+        if (reply is string text)
+        {
+            return Problems.Validation("agent", text.StartsWith("error: ", StringComparison.Ordinal) ? text[7..] : text);
+        }
+        if (reply is not IReadOnlyDictionary<string, object?> access || access.GetString("password") is not { Length: > 0 } password)
+        {
+            return Problems.Validation("agent", "Resposta invalida do agente");
+        }
+        var port = (int)(access.GetNumber("port") ?? 3389);
+
+        var cookieReply = await mesh.SendAsync(new System.Text.Json.Nodes.JsonObject
+        {
+            ["action"] = "getcookie", ["nodeid"] = MeshTokens.NodeId(agent.MeshNodeId), ["tcpport"] = port, ["tag"] = "mstsc",
+        }, ct);
+        if (cookieReply["cookie"]?.GetValue<string>() is not { Length: > 0 } cookie)
+        {
+            return Problems.Conflict("O MeshCentral nao liberou o tunel RDP para este dispositivo");
+        }
+        await audit.LogAsync("agent.remote-rdp", "agent", id.ToString(CultureInfo.InvariantCulture),
+            $"Acesso RDP a {agent.Hostname} (sessao de {access.GetString("user")})", cancellationToken: ct);
+        return TypedResults.Ok(new
+        {
+            url = $"{mesh.BaseUrl}/mstsc.html?ws={Uri.EscapeDataString(cookie)}",
+            username = access.GetString("username") ?? "eyes",
+            password,
+            port,
+            sessionUser = access.GetString("user"),
+        });
     }
 
     private static async Task<IResult> WakeAsync(int id, CybereyesDbContext db, MeshClient mesh, IAuditService audit, CancellationToken ct)

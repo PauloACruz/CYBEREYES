@@ -20,6 +20,7 @@ O papel padrao "Tecnico" recebe `agents.remote` em instalacoes novas; em bancos 
 | Metodo | Rota | Permissao | Resposta |
 |---|---|---|---|
 | GET | `/api/agents/{id}/remote` | `agents.remote` | `{ hostname, control, terminal, files }` (URLs para abrir em nova aba) |
+| POST | `/api/agents/{id}/remote/rdp` | `agents.remote` | Linux: `{ url, username, password, port, sessionUser }` (Web-RDP do MeshCentral); 400 em outro sistema ou com a mensagem do agente; 504 `AGENT_TIMEOUT` |
 | POST | `/api/agents/{id}/wake` | `agents.control` | `{ result: "ok" }`; 400 se o MeshCentral recusar |
 | POST | `/api/agents/{id}/mesh/recover` | `agents.control` | 202 (o agente reinstala o MeshAgent); 504 `AGENT_TIMEOUT` |
 | GET | `/api/mesh/status` | `settings.manage` | `{ enabled, url, deviceGroup, groupId, lastSync, lastError, users }` |
@@ -46,3 +47,13 @@ Cada abertura de acesso remoto gera o registro de auditoria `agent.remote-sessio
 | `Mesh__Username` | `cybereyes` | Administrador interno do MeshCentral |
 | `Mesh__TokenKeyFile` | `/mesh/mesh_token` | Arquivo com a chave de token (ou `Mesh__TokenKey` com o valor) |
 | `Mesh__DeviceGroup` | `Cybereyes` | Nome do grupo de dispositivos |
+
+## Tela via RDP em Linux com Wayland
+O MeshAgent so captura a tela de sessoes X11. Em distribuicoes com GNOME recente (por exemplo Ubuntu com GNOME 50), a sessao e sempre Wayland e a "Tela" do MeshCentral abre sem imagem.
+
+Para esses casos, `POST /api/agents/{id}/remote/rdp`:
+1. Pede ao EYES o comando NATS `rdp_enable`. O agente ativa o compartilhamento RDP do GNOME (`grdctl rdp`) na sessao do usuario conectado, com certificado TLS proprio e o usuario `eyes` com senha aleatoria nova a cada pedido. A resposta e `{ port, username, password, user }` ou `"error: <motivo>"` (sem `gnome-remote-desktop`, sem ninguem logado).
+2. Pede ao MeshCentral (`getcookie`, `tag: "mstsc"`) o cookie do tunel do MeshAgent ate `127.0.0.1:<port>` da maquina.
+3. Devolve o link `https://<mesh>/mstsc.html?ws=<cookie>` e a credencial, que o console mostra ao tecnico. Gera auditoria `agent.remote-rdp`.
+
+A sessao compartilhada e a do usuario conectado (o usuario ve o aviso de compartilhamento do GNOME); bloquear a tela encerra a conexao. Nenhuma porta precisa ser aberta na maquina ou no firewall: o trafego passa pelo MeshAgent. `rdp_disable` desliga o compartilhamento.
