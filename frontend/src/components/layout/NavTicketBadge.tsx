@@ -10,8 +10,8 @@ export function NavTicketBadge() {
     <Badge
       size="sm"
       color="orange"
-      variant="filled"
-      circle={count < 10}
+      variant="light"
+      radius="xs"
       aria-label={`${count} ${count === 1 ? 'chamado sem técnico' : 'chamados sem técnico'}`}
     >
       {count > 99 ? '99+' : count}

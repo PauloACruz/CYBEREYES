@@ -33,6 +33,8 @@ export interface NavItem {
   alertCounter?: boolean;
   /** Mostra o contador de chamados abertos sem técnico. */
   ticketCounter?: boolean;
+  /** Itens agrupados sob este no menu, num grupo recolhível. */
+  children?: readonly NavItem[];
 }
 
 export const NAV_ITEMS: readonly NavItem[] = [
@@ -40,22 +42,59 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { label: 'Agentes', to: PATHS.agents, icon: IconDeviceDesktop, permission: PERMISSIONS.agentsView },
   { label: 'Alertas', to: PATHS.alerts, icon: IconAlertTriangle, permission: PERMISSIONS.alertsView, alertCounter: true },
   { label: 'Chamados', to: PATHS.tickets, icon: IconTicket, permission: PERMISSIONS.ticketsView, ticketCounter: true },
-  { label: 'Logs', to: PATHS.logs, icon: IconLogs, permission: PERMISSIONS.logsView },
-  { label: 'Rede SNMP', to: PATHS.snmp, icon: IconRouter, permission: PERMISSIONS.snmpView },
-  { label: 'Inventário', to: PATHS.inventory, icon: IconBox, permission: PERMISSIONS.inventoryView },
-  { label: 'Documentação', to: PATHS.docs, icon: IconBook2, permission: PERMISSIONS.docsView },
   { label: 'Relatórios', to: PATHS.reports, icon: IconReportAnalytics, permission: PERMISSIONS.reportsView },
   { label: 'Políticas', to: PATHS.policies, icon: IconShieldCheckered, permission: PERMISSIONS.agentsView },
-  { label: 'Clientes', to: PATHS.clients, icon: IconBuilding, permission: PERMISSIONS.clientsView },
+  {
+    label: 'Clientes',
+    to: PATHS.clients,
+    icon: IconBuilding,
+    permission: PERMISSIONS.clientsView,
+    children: [
+      { label: 'Implantações', to: PATHS.deployments, icon: IconRocket, permission: PERMISSIONS.agentsInstall },
+      { label: 'Inventário', to: PATHS.inventory, icon: IconBox, permission: PERMISSIONS.inventoryView },
+      { label: 'Rede SNMP', to: PATHS.snmp, icon: IconRouter, permission: PERMISSIONS.snmpView },
+      { label: 'Documentação', to: PATHS.docs, icon: IconBook2, permission: PERMISSIONS.docsView },
+    ],
+  },
   { label: 'Scripts', to: PATHS.scripts, icon: IconCode, permission: PERMISSIONS.scriptsView },
-  { label: 'Implantações', to: PATHS.deployments, icon: IconRocket, permission: PERMISSIONS.agentsInstall },
-  { label: 'Usuários', to: PATHS.users, icon: IconUsers, permission: PERMISSIONS.usersView },
-  { label: 'Papéis', to: PATHS.roles, icon: IconShieldLock, permission: PERMISSIONS.rolesManage },
-  { label: 'Chaves de API', to: PATHS.apiKeys, icon: IconKey, permission: PERMISSIONS.apiKeysManage },
   { label: 'Auditoria', to: PATHS.audit, icon: IconListDetails, permission: PERMISSIONS.auditView },
-  { label: 'Configurações', to: PATHS.settings, icon: IconSettings, permission: PERMISSIONS.settingsManage },
+  {
+    label: 'Configurações',
+    to: PATHS.settings,
+    icon: IconSettings,
+    permission: PERMISSIONS.settingsManage,
+    children: [
+      { label: 'Chaves de API', to: PATHS.apiKeys, icon: IconKey, permission: PERMISSIONS.apiKeysManage },
+      { label: 'Usuários', to: PATHS.users, icon: IconUsers, permission: PERMISSIONS.usersView },
+      { label: 'Papéis', to: PATHS.roles, icon: IconShieldLock, permission: PERMISSIONS.rolesManage },
+      { label: 'Logs', to: PATHS.logs, icon: IconLogs, permission: PERMISSIONS.logsView },
+    ],
+  },
 ];
 
-export function visibleNavItems(me: MeDto | undefined): NavItem[] {
-  return NAV_ITEMS.filter((item) => !item.permission || hasPermission(me, item.permission));
+export interface VisibleNavItem extends Omit<NavItem, 'children'> {
+  /** Falso quando o item so aparece como titulo de um grupo com filhos visiveis. */
+  allowed: boolean;
+  children: VisibleNavItem[];
+}
+
+function canSee(me: MeDto | undefined, item: NavItem): boolean {
+  return !item.permission || hasPermission(me, item.permission);
+}
+
+/** Itens do menu que o usuario pode ver; um grupo aparece se ele ou algum filho for permitido. */
+export function visibleNavItems(me: MeDto | undefined): VisibleNavItem[] {
+  const result: VisibleNavItem[] = [];
+  for (const item of NAV_ITEMS) {
+    const children: VisibleNavItem[] = (item.children ?? [])
+      .filter((child) => canSee(me, child))
+      .map((child) => ({ ...child, allowed: true, children: [] }));
+    const allowed = canSee(me, item);
+    if (allowed || children.length > 0) result.push({ ...item, allowed, children });
+  }
+  return result;
+}
+
+export function isNavActive(pathname: string, to: string): boolean {
+  return to === PATHS.dashboard ? pathname === to : pathname === to || pathname.startsWith(`${to}/`);
 }
