@@ -129,6 +129,13 @@ Referencia de arquitetura e decisoes: `.team-context.md`.
 - App de bandeja trazido para `agent/tray` como `eyes-tray`.
 - **Entrega**: em andamento.
 
+### Fase 12: Acesso remoto proprio (proposta, RFC-001)
+- Substituir o MeshCentral e o MeshAgent por acesso remoto proprio, no mesmo modelo do ADR-020: o EYES captura a tela, recebe teclado e mouse, sincroniza a area de transferencia e transfere arquivos; a API cuida de sessoes, relay, politicas e auditoria; o console ganha o visualizador.
+- Area de transferencia automatica e transferencia de arquivos facilitada (arrastar e soltar sobre a tela, painel de arquivos, copiar e colar arquivos entre as pontas).
+- Etapa 0, imediata: correcoes de seguranca na integracao atual com o MeshCentral (token de login de uso unico e curto, sem `allowFraming`, token fora do log do Nginx).
+- Etapas: especificacao (12.0), provas tecnicas (12.1), fundacao (12.2), tela no Windows (12.3), area de transferencia (12.4), arquivos (12.5), Linux e macOS (12.6), o resto do MeshCentral (12.7), piloto, corte e remocao (12.8).
+- **Entrega**: proposta em `docs/rfcs/RFC-001-acesso-remoto-proprio.md`, aguardando aprovacao.
+
 ## Servidor (estimativa inicial, validar com teste de carga)
 VPS com 4 vCPU, 8 GB de RAM e 160 GB de SSD para 400 estacoes, incluindo MeshCentral e logs. Esta e uma estimativa minha, sem medicao; o volume de logs e o fator que mais pode exigir aumento de disco.
 
