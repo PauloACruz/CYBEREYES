@@ -53,7 +53,7 @@ public sealed class RealAgent : IAsyncDisposable
         {
             using var list = JsonDocument.Parse(await admin.GetStringAsync($"/api/agents?siteId={siteId}"));
             var items = list.RootElement.GetProperty("items");
-            if (items.GetArrayLength() == 1 && items[0].GetProperty("status").GetString() == "online" && items[0].GetProperty("version").GetString() == "3.1.0")
+            if (items.GetArrayLength() == 1 && items[0].GetProperty("status").GetString() == "online" && items[0].GetProperty("version").GetString() == EyesBinary.Version)
             {
                 pk = items[0].GetProperty("id").GetInt32();
             }

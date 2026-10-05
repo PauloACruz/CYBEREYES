@@ -97,6 +97,9 @@ public static class EyesBinary
         return null;
     }
 
+    /// <summary>Versao do EYES compilado nos testes (agent/VERSION).</summary>
+    public static string Version => File.ReadAllText(System.IO.Path.Combine(RepoRoot(), "agent", "VERSION")).Trim();
+
     public static string RepoRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
