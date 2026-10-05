@@ -62,6 +62,39 @@ describe('acesso remoto do agente', () => {
     expect(popup.close).toHaveBeenCalled();
   });
 
+  it('em Linux ativa o RDP, abre o Web-RDP e mostra a credencial', async () => {
+    const rdp = vi.fn(() =>
+      json({ url: 'https://mesh.example.com/mstsc.html?ws=abc', username: 'eyes', password: 'Senha123abc', port: 3389, sessionUser: 'maria' }),
+    );
+    mockFetch({
+      'GET /api/auth/me': () => json(me),
+      'GET /api/agents/1': () => json(makeAgentDetail({ plat: 'linux' })),
+      'POST /api/agents/1/remote/rdp': rdp,
+    });
+    const { popup } = stubWindowOpen();
+    renderApp('/agentes/1');
+
+    await openRemote('Tela via RDP (Wayland)');
+
+    expect(await screen.findByDisplayValue('Senha123abc')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('eyes')).toBeInTheDocument();
+    expect(popup.location.href).toBe('https://mesh.example.com/mstsc.html?ws=abc');
+    expect(rdp).toHaveBeenCalledTimes(1);
+  });
+
+  it('não oferece RDP em agentes Windows', async () => {
+    mockFetch({
+      'GET /api/auth/me': () => json(me),
+      'GET /api/agents/1': () => json(makeAgentDetail({ plat: 'windows' })),
+    });
+    renderApp('/agentes/1');
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Acesso remoto' }));
+
+    expect(await screen.findByRole('menuitem', { name: 'Tela' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Tela via RDP (Wayland)' })).not.toBeInTheDocument();
+  });
+
   it('não mostra o botão sem a permissão agents.remote', async () => {
     mockFetch({
       'GET /api/auth/me': () => json(makeMe({ permissions: ['agents.view'] })),

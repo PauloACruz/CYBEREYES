@@ -50,6 +50,8 @@
     - eventos do Care com tipos inesperados nao travam mais a execucao;
     - `meshreinstall` entrega o MeshAgent da plataforma do agente.
 
+11. **Tela em Linux com Wayland**: o MeshAgent nao captura sessoes Wayland (GNOME 49+ nao tem mais sessao X11). O EYES ativa o RDP nativo do GNOME na sessao do usuario e o console abre o Web-RDP do MeshCentral pelo tunel do MeshAgent (`docs/api/fase4-mesh.md`).
+
 ## Consequencias
 - O produto deixa de depender de codigo e de releases sob a Tactical RMM License. O backend ja era escrito a partir de especificacao (ADR-005). A validacao juridica pendente do ADR-005 fica restrita ao backend.
 - O repositorio `rmmagentwincare` deixa de ser usado. Pode ser arquivado depois que o EYES estiver em producao.
