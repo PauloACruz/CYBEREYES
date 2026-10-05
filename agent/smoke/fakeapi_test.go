@@ -234,6 +234,8 @@ func (f *fakeAPI) route(r request) (int, any) {
 			return 200, map[string]any{"enabled": false, "trap_port": 162, "devices": []any{}}
 		case "meshreinstall":
 			return 400, "Unable to connect to mesh to get group id information"
+		case "update":
+			return 200, map[string]any{"version": "0.0.0", "sha256": "", "auto_update": false}
 		}
 	case len(rest) == 3 && rest[2] == "taskrunner":
 		if r.Method == http.MethodGet {

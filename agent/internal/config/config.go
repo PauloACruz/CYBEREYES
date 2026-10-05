@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -50,7 +51,8 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-// NatsServer devolve o endereco do NATS: wss://<host>/natsws para https e ws://<host>/natsws para http.
+// NatsServer devolve o endereco do NATS: wss://<host>:443/natsws para https e ws://<host>:80/natsws para http.
+// A porta e sempre explicita: o nats.go nao assume 443/80 em URLs de websocket e tentaria a porta 0.
 func (c *Config) NatsServer() string {
 	if c.NatsURL != "" {
 		return c.NatsURL
@@ -59,11 +61,14 @@ func (c *Config) NatsServer() string {
 	if err != nil {
 		return ""
 	}
-	scheme := "wss"
+	scheme, port := "wss", "443"
 	if u.Scheme == "http" {
-		scheme = "ws"
+		scheme, port = "ws", "80"
 	}
-	return scheme + "://" + u.Host + "/natsws"
+	if p := u.Port(); p != "" {
+		port = p
+	}
+	return scheme + "://" + net.JoinHostPort(u.Hostname(), port) + "/natsws"
 }
 
 // Load le a configuracao do caminho padrao.

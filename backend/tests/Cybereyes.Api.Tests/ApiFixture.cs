@@ -29,7 +29,7 @@ public sealed class ApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
 
     /// <summary>Binarios do EYES servidos pela API de teste (versao distribuida: UpdateVersion).</summary>
     public string AgentBinariesDir { get; } = Directory.CreateTempSubdirectory("cybereyes-agents-").FullName;
-    public const string UpdateVersion = "3.0.1";
+    public const string UpdateVersion = "3.99.0";
     public string NatsUrl => $"nats://127.0.0.1:{nats.GetMappedPublicPort(4222)}";
 
     public ApiFixture()
