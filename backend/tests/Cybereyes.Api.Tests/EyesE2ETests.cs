@@ -61,7 +61,7 @@ public sealed class EyesE2ETests(ApiFixture fixture)
         {
             var doc = JsonDocument.Parse(await admin.GetStringAsync($"/api/agents/{pk}"));
             var r = doc.RootElement;
-            if (r.GetProperty("version").GetString() == "3.0.0" && r.GetProperty("operatingSystem").ValueKind == JsonValueKind.String
+            if (r.GetProperty("version").GetString() == "3.0.1" && r.GetProperty("operatingSystem").ValueKind == JsonValueKind.String
                 && r.GetProperty("disks").ValueKind == JsonValueKind.Array && r.GetProperty("status").GetString() == "online")
             {
                 return doc;
@@ -232,7 +232,7 @@ public sealed class EyesE2ETests(ApiFixture fixture)
         }, "fim da execucao do Care", eyes);
         Assert.Contains(careStatus, new[] { "ok", "warning" });
 
-        // atualizacao remota: o servidor distribui a 3.0.1 e o agente troca o binario e volta com a versao nova
+        // atualizacao remota: o servidor distribui a UpdateVersion e o agente troca o binario e volta com a versao nova
         if (EyesBinary.BuildVersion(ApiFixture.UpdateVersion, Path.Combine(fixture.AgentBinariesDir, $"eyes-v{ApiFixture.UpdateVersion}-linux-amd64")) is not null
             && System.Runtime.InteropServices.RuntimeInformation.OSArchitecture == System.Runtime.InteropServices.Architecture.X64)
         {

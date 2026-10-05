@@ -31,6 +31,7 @@ func Register(e *env.Env) error {
 		return update(ctx, e, req)
 	})
 	e.Go("syncmesh", func(ctx context.Context) { syncMeshLoop(ctx, e) })
+	e.Go("updatecheck", func(ctx context.Context) { updateCheckLoop(ctx, e) })
 	return nil
 }
 

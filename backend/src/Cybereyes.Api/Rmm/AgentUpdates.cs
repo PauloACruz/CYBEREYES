@@ -31,6 +31,19 @@ public static partial class AgentUpdates
             .WithTags("Agentes").RequireAuthorization(Policies.Permission(Permissions.AgentsView));
         app.MapPost("/api/agents/{id:int}/update", UpdateOneAsync).WithTags("Agentes").RequireAuthorization(control);
         app.MapPost("/api/agents/update", UpdateManyAsync).WithTags("Agentes").RequireAuthorization(control);
+        // Consulta do proprio agente por REST: atualiza mesmo quando o NATS nao esta funcionando.
+        app.MapGet("/api/v3/{agentId}/update/", CheckForAgentAsync).RequireAuthorization(Policies.Agent).ExcludeFromDescription();
+    }
+
+    private static async Task<IResult> CheckForAgentAsync(System.Security.Claims.ClaimsPrincipal principal, CybereyesDbContext db,
+        IOptions<AgentSettings> options, CancellationToken ct)
+    {
+        var pk = int.Parse(principal.FindFirst(CybereyesClaims.AgentPk)!.Value, CultureInfo.InvariantCulture);
+        var agent = await db.Agents.AsNoTracking().Where(a => a.Id == pk).Select(a => new { a.Plat, a.GoArch }).FirstOrDefaultAsync(ct);
+        var settings = options.Value;
+        var message = agent is null ? null : Message(settings, agent.Plat, agent.GoArch);
+        var sha = message?["payload"] is Dictionary<string, string> payload ? payload["sha256"] : string.Empty;
+        return Results.Json(new Dictionary<string, object> { ["version"] = settings.Version, ["sha256"] = sha, ["auto_update"] = settings.AutoUpdate });
     }
 
     /// <summary>Mensagem NATS de atualizacao para a plataforma, ou nulo se o servidor nao tem o binario.</summary>
