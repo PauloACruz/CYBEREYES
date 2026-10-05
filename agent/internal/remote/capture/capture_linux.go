@@ -9,6 +9,7 @@ import (
 
 	"github.com/jezek/xgb"
 	"github.com/jezek/xgb/randr"
+	"github.com/jezek/xgb/xfixes"
 	"github.com/jezek/xgb/xproto"
 
 	_ "github.com/pauloacruz/cybereyes/agent/internal/remote/x11util"
@@ -22,6 +23,8 @@ type x11 struct {
 	heigh int
 	depth byte
 	randr bool
+	// cursor: XFixes disponivel para desenhar o ponteiro (o GetImage nao inclui o cursor).
+	cursor bool
 }
 
 // Open conecta ao servidor X do DISPLAY atual. Sessoes Wayland sem Xwayland na tela inteira
@@ -39,6 +42,11 @@ func Open() (Screen, error) {
 	s := &x11{conn: conn, root: scr.Root, width: int(scr.WidthInPixels), heigh: int(scr.HeightInPixels), depth: scr.RootDepth}
 	if randr.Init(conn) == nil {
 		s.randr = true
+	}
+	if xfixes.Init(conn) == nil {
+		if _, err := xfixes.QueryVersion(conn, 4, 0).Reply(); err == nil {
+			s.cursor = true
+		}
 	}
 	return s, nil
 }
@@ -90,7 +98,36 @@ func (s *x11) Capture(d Display) (*image.RGBA, error) {
 			return nil, err
 		}
 	}
+	if s.cursor {
+		if c, err := xfixes.GetCursorImage(s.conn).Reply(); err == nil {
+			drawCursor(img, int(c.X)-int(c.Xhot)-d.X, int(c.Y)-int(c.Yhot)-d.Y, int(c.Width), int(c.Height), c.CursorImage)
+		}
+	}
 	return img, nil
+}
+
+// drawCursor mistura o cursor do XFixes (ARGB pre-multiplicado, um uint32 por pixel) na imagem, em (x, y).
+func drawCursor(img *image.RGBA, x, y, w, h int, argb []uint32) {
+	b := img.Bounds()
+	for cy := 0; cy < h; cy++ {
+		for cx := 0; cx < w; cx++ {
+			px, py := x+cx, y+cy
+			i := cy*w + cx
+			if px < b.Min.X || py < b.Min.Y || px >= b.Max.X || py >= b.Max.Y || i >= len(argb) {
+				continue
+			}
+			v := argb[i]
+			a := v >> 24
+			if a == 0 {
+				continue
+			}
+			o := img.PixOffset(px, py)
+			inv := 255 - a
+			img.Pix[o] = uint8((v>>16)&0xff + uint32(img.Pix[o])*inv/255)
+			img.Pix[o+1] = uint8((v>>8)&0xff + uint32(img.Pix[o+1])*inv/255)
+			img.Pix[o+2] = uint8(v&0xff + uint32(img.Pix[o+2])*inv/255)
+		}
+	}
 }
 
 // bgrxToRGBA converte o formato ZPixmap de 32 bits (B, G, R, x) usado em profundidade 24 e 32.

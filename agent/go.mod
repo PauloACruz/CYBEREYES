@@ -4,9 +4,12 @@ go 1.26.4
 
 require (
 	github.com/Microsoft/go-winio v0.6.2
+	github.com/coder/websocket v1.8.15
 	github.com/creack/pty v1.1.24
+	github.com/ebitengine/purego v0.11.1
 	github.com/go-ole/go-ole v1.3.0
 	github.com/gosnmp/gosnmp v1.45.0
+	github.com/jezek/xgb v1.3.1
 	github.com/nats-io/nats-server/v2 v2.15.0
 	github.com/nats-io/nats.go v1.54.0
 	github.com/prometheus-community/pro-bing v0.9.1
@@ -18,10 +21,8 @@ require (
 
 require (
 	github.com/antithesishq/antithesis-sdk-go v0.8.0-default-no-op // indirect
-	github.com/coder/websocket v1.8.15 // indirect
 	github.com/google/go-tpm v0.9.8 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/jezek/xgb v1.3.1 // indirect
 	github.com/klauspost/compress v1.20.0 // indirect
 	github.com/minio/highwayhash v1.0.4 // indirect
 	github.com/nats-io/jwt/v2 v2.8.2 // indirect

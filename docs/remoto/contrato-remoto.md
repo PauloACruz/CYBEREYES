@@ -373,7 +373,7 @@ Texto JSON com o efetivo para aquele agente, nos mesmos nomes: `{ "consent", "co
 - `none`: conecta direto, sem nada na tela do usuario.
 - `notify`: o EYES pede ao `eyes-tray` o aviso "`<technician>` esta acessando este computador", com botao Encerrar, durante toda a sessao.
 - `ask`: o EYES manda `CONSENT { waiting }`, pede a decisao ao `eyes-tray` e manda `accepted`, `denied` ou `timeout`. So depois de `accepted` o `remote-helper` envia imagem.
-- Sem `eyes-tray` disponivel: `notify` vira `none` com registro no log do agente; `ask` recusa com `denied`.
+- Sem `eyes-tray` disponivel: no Linux e no macOS o EYES usa a caixa de dialogo e a notificacao do sistema (`zenity` ou `kdialog` e `notify-send`; `osascript`), sem o botao Encerrar; sem elas (e no Windows sem `eyes-tray`), `notify` vira `none` com registro no log do agente e `ask` recusa com `denied`.
 - Encerrar pelo usuario: o EYES encerra localmente, manda `BYE { "reason": "user" }` e fecha os canais.
 - Canal local com o `eyes-tray` (estende `agent/internal/tray`): nova conexao de eventos, uma linha JSON por mensagem.
   - app para agente, ao abrir: `{"cmd":"subscribe"}`;

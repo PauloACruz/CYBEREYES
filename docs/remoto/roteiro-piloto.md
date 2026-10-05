@@ -73,9 +73,26 @@ Este roteiro valida em maquinas reais o que o CI nao alcanca: Windows (prova S1)
 | 5.8 | Politica com envio ou download desligado | a acao bloqueada responde "A politica nao permite ..." |
 | 5.9 | Tecnico sem `agents.files` | sem botao "Arquivos", sem aba e sem arrastar e soltar |
 
-## 6. Itens das fases seguintes
+## 6. Linux e macOS (fase 12.6)
 
-As fases 12.6 e 12.7 acrescentam aqui os roteiros de Linux, macOS e Wake-on-LAN.
+| # | Passo | Esperado |
+|---|---|---|
+| 6.1 | Linux com GNOME em X11: tela, ponteiro visivel, teclado ABNT2, rolagem | igual ao Windows (itens 1.1 a 1.3) |
+| 6.2 | Linux: copiar e colar texto nos dois sentidos | igual aos itens 4.1 e 4.2 |
+| 6.3 | Linux: politica `ask` com zenity e com kdialog (KDE) | a caixa "Acesso remoto" aparece com Permitir e Recusar e o resultado chega ao visualizador |
+| 6.4 | Linux: politica `notify` | notificacao do sistema "... esta acessando este computador" |
+| 6.5 | Linux com sessao Wayland | o console mostra que o sistema nao e suportado |
+| 6.6 | macOS: primeiro acesso | o macOS pede Gravacao de Tela; depois de liberar, a tela aparece; sem Acessibilidade, a sessao fica so de visualizacao |
+| 6.7 | macOS: liberar Acessibilidade e repetir | mouse, teclado (Command, Option, acentos) e rolagem funcionam |
+| 6.8 | macOS com Retina e monitor externo | os dois monitores aparecem e os cliques caem no ponto certo |
+| 6.9 | macOS: copiar e colar texto nos dois sentidos | igual aos itens 4.1 e 4.2 |
+| 6.10 | macOS: atualizar o EYES e repetir 6.6 | anotar se as permissoes continuam valendo com o binario sem assinatura (D-07) |
+| 6.11 | macOS: versao mais recente disponivel | anotar se a captura por `CGDisplayCreateImage` funciona ou mostra aviso (mudanca registrada em `fase12-6.md`) |
+| 6.12 | macOS: politicas `ask` e `notify` | caixa de dialogo e notificacao do sistema |
+
+## 7. Itens das fases seguintes
+
+A fase 12.7 acrescenta aqui o roteiro de Wake-on-LAN.
 
 ## Registro
 
