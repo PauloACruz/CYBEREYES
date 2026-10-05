@@ -4,6 +4,7 @@ import type {
   CreateResult,
   Message,
   NavigateEvent,
+  RemoteEvent,
   SelfServiceEvent,
   SelfServiceOptions,
   SelfServiceRun,
@@ -52,4 +53,7 @@ export const wailsBackend: Backend = {
     return { ...r, messages: r.messages ?? [] };
   },
   onSelfService: (cb) => on('tray:selfService', (d) => { cb(d as SelfServiceEvent); }),
+  onRemote: (cb) => on('tray:remote', (d) => { cb(d as RemoteEvent); }),
+  remoteAnswer: async (session, accept) => { await call('RemoteAnswer', session, accept); },
+  remoteEnd: async (session) => { await call('RemoteEnd', session); },
 };

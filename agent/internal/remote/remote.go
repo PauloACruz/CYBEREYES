@@ -44,7 +44,7 @@ type Manager struct {
 	e        *env.Env
 	mu       sync.Mutex
 	sessions map[string]context.CancelFunc
-	launch   func(ctx context.Context, t target, p HelperParams, log *slog.Logger) error
+	launch   func(ctx context.Context, t target, p HelperParams, control <-chan Control, log *slog.Logger) error
 	find     func(allowLogin bool) (target, error)
 }
 
@@ -129,14 +129,19 @@ func (m *Manager) start(_ context.Context, req rpc.Request) any {
 	return "ok"
 }
 
-// runDesktop aplica o consentimento e inicia o remote-helper na sessao grafica.
+// runDesktop inicia o remote-helper na sessao grafica e, em paralelo, aplica o aviso ou o pedido de acesso pelo
+// eyes-tray; o resultado e o fim pedido pelo usuario seguem para o remote-helper pelo canal de controle.
 func (m *Manager) runDesktop(ctx context.Context, t target, p HelperParams, technician string) error {
-	stop, err := consent(ctx, m.e, t, p, technician)
-	if err != nil {
-		return err
-	}
-	defer stop()
-	return m.launch(ctx, t, p, m.e.Log.With("sessao_remota", p.SessionID))
+	log := m.e.Log.With("sessao_remota", p.SessionID)
+	control := make(chan Control, 4)
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go func() {
+		stop := consent(ctx, log, t, p, technician, control)
+		<-ctx.Done()
+		stop()
+	}()
+	return m.launch(ctx, t, p, control, log)
 }
 
 func (m *Manager) stop(_ context.Context, req rpc.Request) any {
@@ -181,13 +186,17 @@ func contains(list []string, v string) bool {
 	return false
 }
 
-// runHelperProcess executa o binario atual como "eyes remote-helper" com os parametros pela entrada padrao.
-func runHelperProcess(ctx context.Context, cmd *exec.Cmd, p HelperParams, log func(line string)) error {
+// runHelperProcess executa o binario atual como "eyes remote-helper": os parametros e depois as linhas de controle
+// vao pela entrada padrao, que fica aberta durante a sessao.
+func runHelperProcess(ctx context.Context, cmd *exec.Cmd, p HelperParams, control <-chan Control, log func(line string)) error {
 	data, err := json.Marshal(p)
 	if err != nil {
 		return err
 	}
-	cmd.Stdin = strings.NewReader(string(data))
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		return err
+	}
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		return err
@@ -196,6 +205,23 @@ func runHelperProcess(ctx context.Context, cmd *exec.Cmd, p HelperParams, log fu
 		return err
 	}
 	go forwardLines(stderr, log)
+	go func() {
+		defer stdin.Close()
+		if _, err := stdin.Write(append(data, '\n')); err != nil {
+			return
+		}
+		enc := json.NewEncoder(stdin)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case c := <-control:
+				if enc.Encode(c) != nil {
+					return
+				}
+			}
+		}
+	}()
 	done := make(chan error, 1)
 	go func() { done <- cmd.Wait() }()
 	select {

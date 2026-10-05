@@ -25,6 +25,7 @@ sequenceDiagram
 * Canal local com o agente: Windows `\\.\pipe\eyes-tray`; Linux `/run/eyes-tray.sock`; macOS `/var/run/eyes-tray.sock`. O agente identifica o usuário pelo processo do outro lado do canal.
 * O token é pedido na partida e renovado quando faltar menos de 1 hora para expirar ou quando a API responder 401 (a chamada é repetida uma vez com o token novo).
 * Se o agente não responder, a interface mostra "Serviço EYES indisponível" e tenta de novo a cada 30 s.
+* Acesso remoto: uma segunda conexão com o agente (`{"cmd":"subscribe"}`) recebe os eventos `remote-ask`, `remote-notify` e `remote-ended`. O pedido de acesso aparece numa janela com Permitir, Recusar e contagem regressiva; durante o acesso fica uma faixa "<técnico> está acessando este computador" com o botão Encerrar acesso. A conexão é refeita a cada 5 s quando cai.
 * Tempo real: cliente mínimo do protocolo JSON do SignalR sobre WebSocket direto (sem negociação), com ping a cada 15 s, resposta aos pings do servidor, reconexão com espera crescente de 1 s até 30 s e token renovado.
 * Notificações: mensagem de técnico com a janela fora de foco e mudança de status do chamado (título "EYES", texto com o número do chamado). Clicar na notificação abre o chamado.
 * Bandeja: "Abrir EYES", "Novo chamado" e "Sair". Clicar no ícone mostra a janela. Fechar a janela só esconde. Instância única: abrir de novo só traz a janela para a frente.

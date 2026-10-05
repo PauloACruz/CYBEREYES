@@ -36,6 +36,13 @@ type HelperParams struct {
 	Proxy      string `json:"proxy,omitempty"`
 }
 
+// Control e uma linha JSON do servico para o remote-helper, depois dos parametros: resultado do pedido de acesso
+// ("accepted", "denied" ou "timeout") ou fim pedido pelo usuario no eyes-tray (End = "user").
+type Control struct {
+	Consent string `json:"consent,omitempty"`
+	End     string `json:"end,omitempty"`
+}
+
 // Limites do controle de fluxo (contrato, secao 5.3).
 const (
 	maxInflightFrames = 2
@@ -71,8 +78,8 @@ type inflightFrame struct {
 	sent time.Time
 }
 
-// RunHelper executa uma sessao de tela ate o relay fechar ou ctx terminar.
-func RunHelper(ctx context.Context, p HelperParams, log *slog.Logger) error {
+// RunHelper executa uma sessao de tela ate o relay fechar, ctx terminar ou o servico mandar o fim.
+func RunHelper(ctx context.Context, p HelperParams, control <-chan Control, log *slog.Logger) error {
 	conn, err := dialRelay(ctx, p, "desktop")
 	if err != nil {
 		return err
@@ -83,6 +90,11 @@ func RunHelper(ctx context.Context, p HelperParams, log *slog.Logger) error {
 	}
 	if err := waitPaired(ctx, conn); err != nil {
 		return err
+	}
+	if p.Policy.Consent == "ask" {
+		if ok, err := waitConsent(ctx, conn, control); !ok {
+			return err
+		}
 	}
 
 	screen, err := capture.Open()
@@ -116,15 +128,67 @@ func RunHelper(ctx context.Context, p HelperParams, log *slog.Logger) error {
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	errc := make(chan error, 2)
+	errc := make(chan error, 3)
 	go func() { errc <- s.readLoop(ctx) }()
 	go func() { errc <- s.frameLoop(ctx) }()
+	go func() { errc <- watchEnd(ctx, conn, control) }()
 	err = <-errc
 	cancel()
 	if websocket.CloseStatus(err) != -1 || errors.Is(err, context.Canceled) {
 		return nil
 	}
 	return err
+}
+
+// waitConsent avisa o visualizador que o usuario esta decidindo e espera a resposta que o servico obteve do eyes-tray
+// (contrato, secao 8.3). Sem aceite, manda o BYE com o motivo e devolve false.
+func waitConsent(ctx context.Context, conn *websocket.Conn, control <-chan Control) (bool, error) {
+	if err := sendJSON(ctx, conn, proto.Consent, proto.ConsentBody{State: "waiting"}); err != nil {
+		return false, err
+	}
+	state := "denied"
+	select {
+	case <-ctx.Done():
+		return false, ctx.Err()
+	case c, ok := <-control:
+		if ok && c.Consent != "" {
+			state = c.Consent
+		}
+	}
+	if err := sendJSON(ctx, conn, proto.Consent, proto.ConsentBody{State: state}); err != nil {
+		return false, err
+	}
+	if state == "accepted" {
+		return true, nil
+	}
+	reason := "consent-denied"
+	if state == "timeout" {
+		reason = "consent-timeout"
+	}
+	_ = sendJSON(ctx, conn, proto.Bye, proto.ReasonBody{Reason: reason})
+	_ = conn.Close(websocket.StatusNormalClosure, reason)
+	return false, nil
+}
+
+// watchEnd encerra a sessao quando o usuario pede o fim pelo eyes-tray.
+func watchEnd(ctx context.Context, conn *websocket.Conn, control <-chan Control) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case c, ok := <-control:
+			if !ok {
+				// Sem canal de controle (entrada padrao fechada): segue ate o relay ou o servico encerrar.
+				<-ctx.Done()
+				return ctx.Err()
+			}
+			if c.End != "" {
+				_ = sendJSON(ctx, conn, proto.Bye, proto.ReasonBody{Reason: c.End})
+				_ = conn.Close(websocket.StatusNormalClosure, c.End)
+				return context.Canceled
+			}
+		}
+	}
 }
 
 func dialRelay(ctx context.Context, p HelperParams, channel string) (*websocket.Conn, error) {
@@ -439,14 +503,27 @@ func ParsePolicy(raw string) (Policy, error) {
 	return p, err
 }
 
-// HelperMain e o "eyes remote-helper": le os parametros da entrada padrao e roda a sessao de tela.
+// HelperMain e o "eyes remote-helper": le os parametros da entrada padrao, depois as linhas de controle do servico,
+// e roda a sessao de tela.
 func HelperMain(stdin io.Reader) error {
+	dec := json.NewDecoder(stdin)
 	var p HelperParams
-	if err := json.NewDecoder(io.LimitReader(stdin, 1<<20)).Decode(&p); err != nil {
+	if err := dec.Decode(&p); err != nil {
 		return fmt.Errorf("parametros do remote-helper: %w", err)
 	}
+	control := make(chan Control, 4)
+	go func() {
+		defer close(control)
+		for {
+			var c Control
+			if err := dec.Decode(&c); err != nil {
+				return
+			}
+			control <- c
+		}
+	}()
 	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	return RunHelper(ctx, p, log)
+	return RunHelper(ctx, p, control, log)
 }

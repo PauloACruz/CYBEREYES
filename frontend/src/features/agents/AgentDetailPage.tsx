@@ -39,6 +39,7 @@ import {
   IconTrash,
   IconWorldDownload,
   type Icon,
+  IconScreenShare,
 } from '@tabler/icons-react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
@@ -74,6 +75,7 @@ import { TasksTab } from './monitoring/TasksTab';
 import { UpdatesTab } from './monitoring/UpdatesTab';
 import { AgentTicketsTab } from '../tickets/AgentTicketsTab';
 import { AgentAssetButton } from '../inventory/AgentAssetButton';
+import { RemoteSessionsTable } from '../remote/RemoteSessionsTable';
 import { CareTab } from '../care/CareTab';
 import { CARE_NAME } from '../care/careFormat';
 import { LogsView } from '../logs/LogsView';
@@ -179,6 +181,9 @@ function AgentDetailView({ agent }: { agent: AgentDetail }) {
   }
   if (hasPermission(me, PERMISSIONS.agentsView)) tabs.push({ value: 'care', label: CARE_NAME, icon: IconTool, render: () => <CareTab agent={agent} /> });
   tabs.push({ value: 'historico', label: 'Histórico', icon: IconHistory, render: () => <HistoryTab agent={agent} /> });
+  if (hasPermission(me, PERMISSIONS.agentsView)) {
+    tabs.push({ value: 'acessos', label: 'Acessos remotos', icon: IconScreenShare, render: () => <RemoteSessionsTable agentId={agent.id} /> });
+  }
 
   const requested = searchParams.get('aba');
   const activeTab = tabs.some((t) => t.value === requested) ? (requested ?? 'resumo') : 'resumo';

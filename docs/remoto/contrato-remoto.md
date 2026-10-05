@@ -68,7 +68,7 @@ Mesmo padrao das fases anteriores: cookie com 2FA, camelCase, ProblemDetails com
 | POST | `/api/agents/{id}/remote/sessions` | `agents.remote`; `agents.files` se pedir o canal `files` | 201 `RemoteSessionDto` |
 | GET | `/api/remote/sessions/{sessionId}` | dono da sessao ou `settings.manage` | 200 `RemoteSessionDto` (sem tokens) |
 | DELETE | `/api/remote/sessions/{sessionId}` | dono da sessao ou `settings.manage` | 204 |
-| GET | `/api/remote/sessions?agentId=&userId=&active=&page=` | `agents.view` | 200 lista paginada de `RemoteSessionDto` (sem tokens) |
+| GET | `/api/remote/sessions?agentId=&ticketId=&userId=&active=&page=` | `agents.view` | 200 lista paginada de `RemoteSessionDto` (sem tokens) |
 | GET | `/api/remote/sessions/{sessionId}/files/list?path=` | `agents.files` | 200 `FileEntryDto[]` |
 | GET | `/api/remote/sessions/{sessionId}/files/home` | `agents.files` | 200 `{ desktop, home, downloads, separator }` do usuario conectado |
 | POST | `/api/remote/sessions/{sessionId}/files/mkdir` `{ path }` | `agents.files` | 204 |
@@ -379,6 +379,7 @@ Texto JSON com o efetivo para aquele agente, nos mesmos nomes: `{ "consent", "co
   - agente para app: `{"event":"remote-notify","session":"<id>","technician":"<nome>"}`, `{"event":"remote-ask","session":"<id>","technician":"<nome>","timeout":60}`, `{"event":"remote-ended","session":"<id>"}`;
   - app para agente: `{"cmd":"remote-answer","session":"<id>","accept":true}` e `{"cmd":"remote-end","session":"<id>"}`.
   - O agente so aceita resposta de conexao cujo usuario (identificado pelo processo do outro lado, como no token do app) e o da sessao acessada.
+- Servico e remote-helper: o servico inicia o remote-helper logo no `remote_start` e aplica a politica em paralelo. Os parametros e, depois deles, as linhas de controle vao pela entrada padrao do remote-helper, uma linha JSON por mensagem: `{"consent":"accepted"|"denied"|"timeout"}` e `{"end":"user"}`. Com `ask`, o remote-helper manda `CONSENT { waiting }` assim que o visualizador emparelha e espera a linha de consentimento; sem aceite manda `CONSENT` com o resultado, `BYE` com `consent-denied` ou `consent-timeout` e fecha. Com `{"end":"user"}` manda `BYE { "reason": "user" }` e fecha.
 
 ### 8.4 Permissoes
 

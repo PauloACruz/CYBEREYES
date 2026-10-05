@@ -71,3 +71,11 @@ func (t *Tracker) ReleaseAll() {
 		_ = t.Injector.Mouse(area, x, y, 0)
 	}
 }
+
+// normalize converte um ponto da area de trabalho virtual do Windows (origem vx, vy e tamanho vw, vh) para a escala
+// de 0 a 65535 do MOUSEEVENTF_VIRTUALDESK.
+func normalize(x, y, vx, vy, vw, vh int) (int32, int32) {
+	nx := int32((x - vx) * 65535 / max(1, vw-1))
+	ny := int32((y - vy) * 65535 / max(1, vh-1))
+	return nx, ny
+}

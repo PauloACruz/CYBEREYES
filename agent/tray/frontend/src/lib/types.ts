@@ -98,6 +98,14 @@ export interface SelfServiceEvent {
 export type Unsubscribe = () => void;
 
 /** Contrato entre a interface e o processo Go (ou o simulador usado no desenvolvimento). */
+/** Evento do acesso remoto vindo do agente (aviso, pedido de aceite ou fim). */
+export interface RemoteEvent {
+  event: 'remote-notify' | 'remote-ask' | 'remote-ended';
+  session: string;
+  technician?: string;
+  timeout?: number;
+}
+
 export interface Backend {
   session(): Promise<SessionInfo>;
   listTickets(): Promise<Ticket[]>;
@@ -114,4 +122,7 @@ export interface Backend {
   runSelfService(module: string, key: string): Promise<SelfServiceStart>;
   selfServiceRun(runId: string): Promise<SelfServiceRun>;
   onSelfService(cb: (e: SelfServiceEvent) => void): Unsubscribe;
+  onRemote(cb: (e: RemoteEvent) => void): Unsubscribe;
+  remoteAnswer(session: string, accept: boolean): Promise<void>;
+  remoteEnd(session: string): Promise<void>;
 }

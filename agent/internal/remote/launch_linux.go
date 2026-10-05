@@ -95,14 +95,14 @@ func procOwner(dir string) (int, string) {
 }
 
 // launchHelper roda o remote-helper como root com o DISPLAY e o XAUTHORITY da sessao do usuario.
-func launchHelper(ctx context.Context, t target, p HelperParams, log *slog.Logger) error {
+func launchHelper(ctx context.Context, t target, p HelperParams, control <-chan Control, log *slog.Logger) error {
 	exe, err := Executable()
 	if err != nil {
 		return err
 	}
 	cmd := exec.Command(exe, "remote-helper")
 	cmd.Env = append(filterEnv(os.Environ(), "DISPLAY", "XAUTHORITY", "WAYLAND_DISPLAY", "XDG_SESSION_TYPE"), t.Env...)
-	return runHelperProcess(ctx, cmd, p, func(line string) { log.Info("remote-helper", "linha", line) })
+	return runHelperProcess(ctx, cmd, p, control, func(line string) { log.Info("remote-helper", "linha", line) })
 }
 
 func filterEnv(in []string, drop ...string) []string {

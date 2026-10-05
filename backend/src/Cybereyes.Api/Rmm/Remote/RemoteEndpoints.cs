@@ -248,12 +248,16 @@ public static class RemoteEndpoints
         return TypedResults.NoContent();
     }
 
-    private static async Task<IResult> ListAsync(int? agentId, Guid? userId, bool? active, int? page, CybereyesDbContext db, CancellationToken ct)
+    private static async Task<IResult> ListAsync(int? agentId, int? ticketId, Guid? userId, bool? active, int? page, CybereyesDbContext db, CancellationToken ct)
     {
         var query = db.RemoteSessions.AsNoTracking();
         if (agentId is { } a)
         {
             query = query.Where(s => s.AgentId == a);
+        }
+        if (ticketId is { } t)
+        {
+            query = query.Where(s => s.TicketId == t);
         }
         if (userId is { } u)
         {
