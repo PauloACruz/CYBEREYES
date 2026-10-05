@@ -11,7 +11,7 @@ namespace Cybereyes.Api.Tests;
 [Collection(ApiCollection.Name)]
 public sealed partial class AgentTests(ApiFixture fixture)
 {
-    private static readonly string AgentVersion = "2.11.0";
+    private static readonly string AgentVersion = "3.0.0";
 
     private async Task<(HttpClient Admin, int ClientId, int SiteId)> NewSiteAsync(string name)
     {

@@ -5,7 +5,11 @@ namespace Cybereyes.Api.Rmm;
 
 public sealed record InstallParameters(string ApiUrl, int ClientId, int SiteId, string Token, string AgentType, bool Mesh = false);
 
-/// <summary>Scripts de instalacao do agente para Linux, macOS e Windows.</summary>
+/// <summary>
+/// Scripts de instalacao do EYES para Linux, macOS e Windows. O proprio EYES registra o agente,
+/// instala o MeshAgent (pelo /api/v3/meshexe/) e cria o servico do sistema; os scripts so
+/// escolhem a arquitetura, baixam o binario e chamam "eyes install".
+/// </summary>
 public static class InstallScripts
 {
     public const string AutoType = "auto";
@@ -14,17 +18,13 @@ public static class InstallScripts
     /// Script Linux generico (sem segredos). Parametros por linha de comando. Com --agent-type auto (padrao),
     /// cadastra como estacao (workstation) quando ha ambiente grafico e como servidor quando so ha terminal.
     /// </summary>
-    public static string Linux(string apiUrl, InstallParameters? embedded = null, string? meshBaseUrl = null, string? meshGroupId = null)
+    public static string Linux(string apiUrl, InstallParameters? embedded = null)
     {
         var defaults = embedded is null
-            ? "CLIENT_ID=\"\"\nSITE_ID=\"\"\nTOKEN=\"\"\nAGENT_TYPE=\"auto\""
+            ? "CLIENT_ID=\"\"\nSITE_ID=\"\"\nTOKEN=\"\"\nAGENT_TYPE=\"auto\"\nNOMESH=0"
             : string.Create(CultureInfo.InvariantCulture,
-                $"CLIENT_ID=\"{embedded.ClientId}\"\nSITE_ID=\"{embedded.SiteId}\"\nTOKEN=\"{embedded.Token}\"\nAGENT_TYPE=\"{embedded.AgentType}\"");
-        var mesh = meshBaseUrl is null || meshGroupId is null
-            ? "MESH_URL=\"\""
-            : $"MESH_URL='{meshBaseUrl}/meshagents?id={meshGroupId}&installflags=2&meshinstall='";
+                $"CLIENT_ID=\"{embedded.ClientId}\"\nSITE_ID=\"{embedded.SiteId}\"\nTOKEN=\"{embedded.Token}\"\nAGENT_TYPE=\"{embedded.AgentType}\"\nNOMESH={(embedded.Mesh ? 0 : 1)}");
         return LinuxTemplate.Replace("__API_URL__", apiUrl, StringComparison.Ordinal)
-            .Replace("__MESH__", mesh, StringComparison.Ordinal)
             .Replace("__DEFAULTS__", defaults, StringComparison.Ordinal)
             .ReplaceLineEndings("\n");
     }
@@ -38,40 +38,54 @@ public static class InstallScripts
         {
             sb.Append(CultureInfo.InvariantCulture, $" --agent-type {p.AgentType}");
         }
+        if (!p.Mesh)
+        {
+            sb.Append(" --nomesh");
+        }
         return sb.ToString();
     }
 
-    public static string MacCommand(InstallParameters p, string goarch) => string.Create(CultureInfo.InvariantCulture,
-        $"curl -fsSL -o /tmp/cybereyes-agent '{p.ApiUrl}/api/agent/download/darwin/{goarch}' && chmod +x /tmp/cybereyes-agent && sudo /tmp/cybereyes-agent -m install -api {p.ApiUrl} -client-id {p.ClientId} -site-id {p.SiteId} -agent-type {Concrete(p.AgentType)} -auth {p.Token}{(p.Mesh ? string.Empty : " -nomesh")}");
+    /// <summary>Comando de uma linha para macOS. Sem goarch, detecta a arquitetura pelo uname.</summary>
+    public static string MacCommand(InstallParameters p, string? goarch = null)
+    {
+        var arch = goarch ?? "$(uname -m | sed 's/x86_64/amd64/')";
+        return string.Create(CultureInfo.InvariantCulture,
+            $"curl -fsSL -o /tmp/eyes \"{p.ApiUrl}/api/agent/download/darwin/{arch}\" && chmod +x /tmp/eyes && sudo /tmp/eyes install --api {p.ApiUrl} --client-id {p.ClientId} --site-id {p.SiteId} --agent-type {Concrete(p.AgentType)} --auth {p.Token}{(p.Mesh ? string.Empty : " --nomesh")} && rm -f /tmp/eyes");
+    }
 
-    public static string Windows(InstallParameters p, string goarch) => string.Create(CultureInfo.InvariantCulture, $$"""
-        $ErrorActionPreference = 'Stop'
-        $setup = Join-Path $env:TEMP 'cybereyes-agent-setup.exe'
-        Invoke-WebRequest -UseBasicParsing -Uri '{{p.ApiUrl}}/api/agent/download/windows/{{goarch}}' -OutFile $setup
-        Start-Process -FilePath $setup -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES' -Wait
-        Start-Sleep -Seconds 5
-        & (Join-Path $env:ProgramFiles 'TacticalAgent\tacticalrmm.exe') -m install --api {{p.ApiUrl}} --client-id {{p.ClientId}} --site-id {{p.SiteId}} --agent-type {{Concrete(p.AgentType)}} --auth {{p.Token}}{{(p.Mesh ? string.Empty : " -nomesh")}}
-        Remove-Item $setup -Force
-        """).ReplaceLineEndings("\r\n");
+    /// <summary>Script PowerShell para Windows. Sem goarch, detecta amd64, arm64 ou 386.</summary>
+    public static string Windows(InstallParameters p, string? goarch = null)
+    {
+        var arch = goarch is null
+            ? "$arch = if ($env:PROCESSOR_ARCHITEW6432 -eq 'ARM64' -or $env:PROCESSOR_ARCHITECTURE -eq 'ARM64') { 'arm64' } elseif ([Environment]::Is64BitOperatingSystem) { 'amd64' } else { '386' }"
+            : $"$arch = '{goarch}'";
+        return string.Create(CultureInfo.InvariantCulture, $$"""
+            $ErrorActionPreference = 'Stop'
+            $ProgressPreference = 'SilentlyContinue'
+            [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+            {{arch}}
+            $eyes = Join-Path $env:TEMP ('eyes-setup-' + [guid]::NewGuid().ToString('N') + '.exe')
+            Invoke-WebRequest -UseBasicParsing -Uri ('{{p.ApiUrl}}/api/agent/download/windows/' + $arch) -OutFile $eyes
+            try {
+                & $eyes install --api {{p.ApiUrl}} --client-id {{p.ClientId}} --site-id {{p.SiteId}} --agent-type {{Concrete(p.AgentType)}} --auth {{p.Token}}{{(p.Mesh ? string.Empty : " --nomesh")}}
+                if ($LASTEXITCODE -ne 0) { throw "Falha na instalacao do EYES (codigo $LASTEXITCODE)" }
+            } finally {
+                Remove-Item $eyes -Force -ErrorAction SilentlyContinue
+            }
+            """).ReplaceLineEndings("\r\n");
+    }
 
     private static string Concrete(string agentType) => agentType == AutoType ? Core.Rmm.MonitoringType.Workstation : agentType;
 
     private const string LinuxTemplate = """
         #!/usr/bin/env bash
-        # Instalador do agente Cybereyes para Linux.
-        # Uso: curl -fsSL <servidor>/api/install/linux.sh | sudo bash -s -- --client-id N --site-id N --auth TOKEN [--agent-type auto|server|workstation] [--insecure]
+        # Instalador do EYES (agente Cybereyes) para Linux.
+        # Uso: curl -fsSL <servidor>/api/install/linux.sh | sudo bash -s -- --client-id N --site-id N --auth TOKEN [--agent-type auto|server|workstation] [--nomesh] [--insecure]
         set -euo pipefail
 
         API_URL="__API_URL__"
         __DEFAULTS__
-        __MESH__
         INSECURE=0
-        NOMESH=0
-
-        AGENT_DIR="/opt/tacticalagent"
-        AGENT_BIN="${AGENT_DIR}/tacticalagent"
-        SERVICE_NAME="tacticalagent.service"
-        SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}"
 
         fail() { echo "ERRO: $*" >&2; exit 1; }
 
@@ -90,22 +104,24 @@ public static class InstallScripts
 
         [ "$(id -u)" -eq 0 ] || fail "execute como root (sudo)"
         [ -n "$CLIENT_ID" ] && [ -n "$SITE_ID" ] && [ -n "$TOKEN" ] || fail "informe --client-id, --site-id e --auth"
-        command -v systemctl >/dev/null 2>&1 || fail "systemd e necessario"
+        command -v curl >/dev/null 2>&1 || fail "curl e necessario"
 
         case "$(uname -m)" in
             x86_64 | amd64) ARCH="amd64" ;;
             aarch64 | arm64) ARCH="arm64" ;;
-            armv6l | armv7l) ARCH="arm" ;;
+            armv6l | armv7l | armhf) ARCH="arm" ;;
             i386 | i686) ARCH="386" ;;
             *) fail "arquitetura nao suportada: $(uname -m)" ;;
         esac
 
         # Ambiente grafico: gerenciador de login ativo ou sessoes graficas instaladas.
         has_gui() {
-            systemctl is-enabled display-manager.service >/dev/null 2>&1 && return 0
-            for dm in gdm gdm3 lightdm sddm lxdm xdm slim greetd; do
-                systemctl is-enabled "${dm}.service" >/dev/null 2>&1 && return 0
-            done
+            if command -v systemctl >/dev/null 2>&1; then
+                systemctl is-enabled display-manager.service >/dev/null 2>&1 && return 0
+                for dm in gdm gdm3 lightdm sddm lxdm xdm slim greetd; do
+                    systemctl is-enabled "${dm}.service" >/dev/null 2>&1 && return 0
+                done
+            fi
             compgen -G "/usr/share/xsessions/*.desktop" >/dev/null && return 0
             compgen -G "/usr/share/wayland-sessions/*.desktop" >/dev/null && return 0
             return 1
@@ -121,60 +137,17 @@ public static class InstallScripts
         esac
 
         CURL_OPTS="-fsSL"
-        INSTALL_FLAGS=()
-        if [ "$INSECURE" -eq 1 ]; then CURL_OPTS="-fsSLk"; INSTALL_FLAGS+=(-insecure); fi
+        FLAGS=()
+        if [ "$INSECURE" -eq 1 ]; then CURL_OPTS="-fsSLk"; FLAGS+=(--insecure); fi
+        if [ "$NOMESH" -eq 1 ]; then FLAGS+=(--nomesh); fi
 
-        if systemctl list-unit-files "${SERVICE_NAME}" >/dev/null 2>&1; then
-            systemctl stop "${SERVICE_NAME}" >/dev/null 2>&1 || true
-        fi
+        TMP="$(mktemp -d)"
+        trap 'rm -rf "$TMP"' EXIT
+        echo "Baixando o EYES (${ARCH})..."
+        curl ${CURL_OPTS} -o "${TMP}/eyes" "${API_URL}/api/agent/download/linux/${ARCH}" || fail "falha no download do EYES"
+        chmod 0755 "${TMP}/eyes"
 
-        if [ -n "$MESH_URL" ] && [ "$NOMESH" -eq 0 ]; then
-            case "$ARCH" in
-                amd64) MESH_IDENT=6 ;;
-                386) MESH_IDENT=5 ;;
-                arm64) MESH_IDENT=26 ;;
-                arm) MESH_IDENT=25 ;;
-            esac
-            echo "Instalando o MeshAgent (acesso remoto)..."
-            MESH_TMP="$(mktemp -d)"
-            curl ${CURL_OPTS} -o "${MESH_TMP}/meshagent" "${MESH_URL}${MESH_IDENT}" || fail "falha no download do MeshAgent"
-            chmod +x "${MESH_TMP}/meshagent"
-            mkdir -p /opt/tacticalmesh
-            env XAUTHORITY=foo DISPLAY=bar "${MESH_TMP}/meshagent" -install --installPath=/opt/tacticalmesh || fail "falha ao instalar o MeshAgent"
-            rm -rf "${MESH_TMP}"
-        fi
-
-        mkdir -p "${AGENT_DIR}/bin"
-        echo "Baixando o agente (${ARCH})..."
-        curl ${CURL_OPTS} -o "${AGENT_BIN}.download" "${API_URL}/api/agent/download/linux/${ARCH}" || fail "falha no download do agente"
-        mv -f "${AGENT_BIN}.download" "${AGENT_BIN}"
-        chmod 0755 "${AGENT_BIN}"
-
-        echo "Registrando o agente..."
-        "${AGENT_BIN}" -m install -api "${API_URL}" -client-id "${CLIENT_ID}" -site-id "${SITE_ID}" \
-            -agent-type "${AGENT_TYPE}" -auth "${TOKEN}" -nomesh "${INSTALL_FLAGS[@]}"
-
-        cat > "${SERVICE_FILE}" <<UNIT
-        [Unit]
-        Description=Cybereyes Agent
-        After=network-online.target
-        Wants=network-online.target
-
-        [Service]
-        Type=simple
-        ExecStart=${AGENT_BIN} -m svc
-        User=root
-        Group=root
-        Restart=always
-        RestartSec=5s
-        KillMode=process
-
-        [Install]
-        WantedBy=multi-user.target
-        UNIT
-
-        systemctl daemon-reload
-        systemctl enable --now "${SERVICE_NAME}"
-        echo "Agente instalado como ${AGENT_TYPE}."
+        "${TMP}/eyes" install --api "${API_URL}" --client-id "${CLIENT_ID}" --site-id "${SITE_ID}" \
+            --agent-type "${AGENT_TYPE}" --auth "${TOKEN}" ${FLAGS[@]+"${FLAGS[@]}"}
         """;
 }

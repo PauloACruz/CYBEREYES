@@ -76,7 +76,10 @@ services:
   migrate:
     <<: *hardening
     image: ${REGISTRY:-ghcr.io/pauloacruz}/cybereyes-api:${VERSION:-latest}
-    build: ../../backend
+    build:
+      context: ../../backend
+      additional_contexts:
+        agent: ../../agent
     command: ["--migrate-only"]
     read_only: true
     tmpfs: [/tmp]
@@ -95,7 +98,10 @@ services:
   api:
     <<: [*restart, *hardening]
     image: ${REGISTRY:-ghcr.io/pauloacruz}/cybereyes-api:${VERSION:-latest}
-    build: ../../backend
+    build:
+      context: ../../backend
+      additional_contexts:
+        agent: ../../agent
     deploy:
       replicas: ${API_REPLICAS:-2}
     read_only: true
@@ -112,7 +118,7 @@ services:
       Nats__Password: ${NATS_API_PASSWORD}
       Nats__AuthFile: /etc/nats/auth/users.conf
       Agent__BinariesPath: /agents
-      Agent__LatestVersion: ${AGENT_VERSION:-2.11.0}
+      Agent__LatestVersion: ${AGENT_VERSION:-}
       Mesh__Url: https://${MESH_HOST}
       Mesh__InternalUrl: http://meshcentral:4443
       Mesh__Username: ${MESH_USER:-cybereyes}

@@ -1,6 +1,6 @@
 # Cybereyes
 
-Plataforma unificada de RMM e chamados: backend C# (.NET 10), frontend React, agente Go (repositorio `rmmagentwincare`) e MeshCentral para acesso remoto pelo navegador.
+Plataforma unificada de RMM e chamados: backend C# (.NET 10), frontend React, agente EYES em Go (`agent/`, ver ADR-020) e MeshCentral para acesso remoto pelo navegador.
 
 Contexto, decisoes e padroes: [`.team-context.md`](.team-context.md). Plano por fases: [`docs/PLANO.md`](docs/PLANO.md).
 

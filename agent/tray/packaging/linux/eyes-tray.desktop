@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=EYES
+Comment=Atendimento EYES: abra chamados e converse com o técnico
+Exec=/usr/bin/eyes-tray --hidden
+Icon=eyes-tray
+Terminal=false
+Categories=Utility;
+X-GNOME-Autostart-enabled=true
+NoDisplay=false

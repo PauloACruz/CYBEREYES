@@ -55,13 +55,13 @@ docker compose exec -T postgres psql -U cybereyes -d cybereyes -Atc \
 2. Mude `MESHCENTRAL_VERSION` no `.env` e `docker compose up -d meshcentral` (a imagem `cybereyes-meshcentral:<versao>` precisa existir no registro ou ser construida com `docker compose build meshcentral`).
 3. Reverter: versao anterior no `.env` e, se o MeshCentral alterou o banco interno, restaurar o `mesh_data` com `restore.sh` (que tambem restaura o PostgreSQL do mesmo conjunto).
 
-## Versao do agente
-- A API distribui a versao em `AGENT_VERSION` (`Agent:LatestVersion`): o download em `/api/agent/download/{plat}/{arch}` busca `infra/docker/agents/tacticalagent-v<versao>-<plat>-<arch>[.exe]` e, se o arquivo nao existir, redireciona para os releases do `rmmagentwincare` no GitHub (`.../releases/download/v<versao>/...`). O instalador tambem recusa versoes menores que `AGENT_VERSION`.
-- Estado atual (ver ADR-016 e ADR-017): o agente 2.12.0 (modulos do Cybereyes Care e Health Check) e o 2.13.0 (logs e coletor SNMP) estao prontos, mas as tags `v2.12.0` e `v2.13.0` ainda precisam ser criadas no GitHub do `rmmagentwincare`. Ate la `AGENT_VERSION` fica em `2.11.0`.
-- Depois de publicar a tag e confirmar que os arquivos do release existem:
+## Versao do agente (EYES)
+- O EYES e compilado junto com a imagem da API a partir de `agent/` (`agent/VERSION`, ver ADR-020). Atualizar a API para um commit com versao nova do EYES ja passa a distribuir a versao nova; `AGENT_VERSION` vazio no `.env` usa a versao embutida.
+- O download em `/api/agent/download/{plat}/{arch}` procura `eyes-v<versao>-<plat>-<arch>[.exe]` primeiro em `infra/docker/agents` (montado em `/agents`) e depois nos binarios embutidos. Sem binario, responde 404; nao ha mais redirecionamento para o GitHub.
+- Agentes instalados (3.x) sao atualizados sozinhos a cada 30 minutos quando estao online com versao menor (`Agent__AutoUpdate=false` desliga). Tambem da para atualizar pelo console: "Atualizar EYES" no menu Acoes do agente ou "Atualizar agentes" na lista. O agente confere o SHA-256 do binario, troca o executavel e reinicia o servico.
+- Conferir a versao distribuida:
   ```bash
-  curl -fsIL https://github.com/PauloACruz/rmmagentwincare/releases/download/v2.13.0/tacticalagent-v2.13.0-windows-amd64.exe | head -1
+  curl -fsS https://CYBEREYES_HOST/api/agent/download/linux/amd64 -o /tmp/eyes && chmod +x /tmp/eyes && /tmp/eyes version
   ```
-  mude `AGENT_VERSION=2.13.0` no `.env` e `docker compose up -d api`.
-- `AGENT_VERSION` vale para instalacoes novas. Nao encontrei no backend um comando de atualizacao remota dos agentes ja instalados; para atualiza-los, rode de novo o comando da implantacao do site (ver `migracao-400-estacoes.md`), que reinstala por cima (procedimento recomendado, ainda nao testado). Funcoes que exigem 2.12.0 ou 2.13.0 avisam no console quando o agente e mais antigo.
-- Reversao do agente: volte `AGENT_VERSION` e reinstale nas maquinas afetadas.
+- O registro de agentes novos exige `Agent:MinimumVersion` (padrao 3.0.0), independente da versao distribuida.
+- Reversao do agente: suba a imagem anterior da API (ou coloque o binario anterior em `infra/docker/agents` e defina `AGENT_VERSION` com a versao dele) e use "Atualizar agentes"; o agente aceita trocar para qualquer versao que o servidor distribua.

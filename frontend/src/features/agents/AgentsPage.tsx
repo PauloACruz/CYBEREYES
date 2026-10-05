@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Anchor, Badge, Button, Group, Pagination, Paper, Select, Table, Text, TextInput, Tooltip } from '@mantine/core';
 import { useDebouncedCallback, useDisclosure } from '@mantine/hooks';
-import { IconDownload, IconRefreshAlert, IconSearch } from '@tabler/icons-react';
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { IconCloudDownload, IconDownload, IconRefreshAlert, IconSearch } from '@tabler/icons-react';
+import { keepPreviousData, useMutation, useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router';
+import { agentActionsApi } from '../../api/agentActions';
 import { agentsApi } from '../../api/agents';
 import { queryKeys } from '../../api/queryKeys';
 import { PERMISSIONS, type AgentStatus, type ListAgentsParams } from '../../api/types';
@@ -12,6 +13,7 @@ import { hasPermission } from '../../auth/permissions';
 import { useMe } from '../../auth/useMe';
 import { PageHeader } from '../../components/PageHeader';
 import { EmptyRow, LoadError, LoadingRows } from '../../components/TableStates';
+import { confirmAction, notifySuccess } from '../../lib/feedback';
 import { totalPages } from '../../lib/format';
 import { useClients } from '../clients/useClients';
 import { AgentStatusBadge, OperatingSystem, RelativeTime } from './agentDisplay';
@@ -34,6 +36,19 @@ function toId(value: string | null): number | undefined {
 export function AgentsPage() {
   const { data: me } = useMe();
   const canInstall = hasPermission(me, PERMISSIONS.agentsInstall);
+  const canControl = hasPermission(me, PERMISSIONS.agentsControl);
+  const updateAll = useMutation({
+    mutationFn: () => agentActionsApi.updateAgents(),
+    onSuccess: (r) =>
+      notifySuccess(r.sent === 0 ? `Todos os agentes online já estão na versão ${r.version}.` : `Atualização para o EYES ${r.version} enviada a ${r.sent} agente(s).`),
+  });
+  const confirmUpdateAll = () =>
+    confirmAction({
+      title: 'Atualizar agentes',
+      message: 'Enviar a atualização do EYES para todos os agentes online com versão anterior à distribuída pelo servidor? Cada serviço reinicia sozinho.',
+      confirmLabel: 'Atualizar',
+      onConfirm: () => updateAll.mutate(),
+    });
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [installOpened, installModal] = useDisclosure(false);
@@ -90,11 +105,18 @@ export function AgentsPage() {
         title="Agentes"
         description="Estações e servidores monitorados."
         actions={
-          canInstall && (
-            <Button leftSection={<IconDownload size={16} />} onClick={installModal.open}>
-              Instalar agente
-            </Button>
-          )
+          <Group gap="sm">
+            {canControl && (
+              <Button variant="light" leftSection={<IconCloudDownload size={16} />} loading={updateAll.isPending} onClick={confirmUpdateAll}>
+                Atualizar agentes
+              </Button>
+            )}
+            {canInstall && (
+              <Button leftSection={<IconDownload size={16} />} onClick={installModal.open}>
+                Instalar agente
+              </Button>
+            )}
+          </Group>
         }
       />
       <Group mb="md" gap="sm" align="flex-end" wrap="wrap">

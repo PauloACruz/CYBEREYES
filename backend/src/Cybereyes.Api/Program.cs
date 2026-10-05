@@ -105,6 +105,8 @@ builder.Services.AddSingleton(sp => new Cybereyes.Api.Rmm.Actions.TerminalSessio
 builder.Services.AddSingleton<NatsAuthWriter>();
 builder.Services.AddSingleton<NatsAuthSync>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<NatsAuthSync>());
+builder.Services.AddSingleton<Cybereyes.Api.Rmm.AgentAutoUpdater>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<Cybereyes.Api.Rmm.AgentAutoUpdater>());
 builder.Services.AddSingleton<AgentStatusMonitor>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<AgentStatusMonitor>());
 var nats = builder.Configuration.GetSection(NatsSettings.Section).Get<NatsSettings>() ?? new NatsSettings();
@@ -177,6 +179,7 @@ app.MapAuditEndpoints();
 app.MapClientEndpoints();
 app.MapAgentEndpoints();
 app.MapInstallerEndpoints();
+app.MapAgentUpdateEndpoints();
 app.MapAgentProtocolEndpoints();
 Cybereyes.Api.Rmm.Actions.CommandEndpoints.MapCommandEndpoints(app);
 Cybereyes.Api.Rmm.Actions.SystemEndpoints.MapSystemEndpoints(app);

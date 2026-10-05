@@ -50,8 +50,14 @@ public static class AgentProtocolEndpoints
         agent.MapGet("/{agentId}/meshreinstall/", async (ClaimsPrincipal p, CybereyesDbContext db, Mesh.MeshClient mesh, Mesh.MeshState state, IHttpClientFactory http, CancellationToken ct) =>
         {
             var pk = AgentPk(p);
-            var arch = await db.Agents.Where(a => a.Id == pk).Select(a => a.GoArch).FirstOrDefaultAsync(ct);
-            return await Mesh.MeshEndpoints.DownloadAsync(mesh, state, http, "windows", arch == "amd64" ? "amd64" : "386", ct);
+            var agent = await db.Agents.Where(a => a.Id == pk).Select(a => new { a.Plat, a.GoArch }).FirstOrDefaultAsync(ct);
+            var plat = agent?.Plat ?? "windows";
+            var arch = agent?.GoArch ?? "amd64";
+            if (plat == "windows" && arch != "amd64")
+            {
+                arch = "386";
+            }
+            return await Mesh.MeshEndpoints.DownloadAsync(mesh, state, http, plat, arch, ct);
         });
         app.MapPatch("/api/v4/{agentId}/{pk:long}/chocoresult/", Monitoring.MonitoringProtocol.ChocoResultAsync).RequireAuthorization(Policies.Agent).ExcludeFromDescription();
     }
@@ -65,7 +71,7 @@ public static class AgentProtocolEndpoints
             return Error("Invalid data");
         }
 
-        var latest = settings.Value.LatestVersion;
+        var latest = settings.Value.MinimumVersion;
         if (Version.TryParse(version, out var parsed) && Version.TryParse(latest, out var expected) && parsed < expected)
         {
             return Error($"Old installer detected (version {version} ). Latest version is {latest} Please generate a new installer from the RMM");

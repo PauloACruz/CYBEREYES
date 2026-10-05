@@ -41,8 +41,8 @@ public static class InstallerEndpoints
         deployments.MapPost("/", CreateDeploymentAsync);
         deployments.MapDelete("/{id:int}", DeleteDeploymentAsync);
 
-        app.MapGet("/api/install/linux.sh", (HttpContext ctx, IConfiguration config, Mesh.MeshClient mesh, Mesh.MeshState state) =>
-            Results.Text(InstallScripts.Linux(PublicUrl(ctx, config), null, MeshUrl(mesh, state), state.GroupId), "text/x-shellscript")).AllowAnonymous().ExcludeFromDescription();
+        app.MapGet("/api/install/linux.sh", (HttpContext ctx, IConfiguration config) =>
+            Results.Text(InstallScripts.Linux(PublicUrl(ctx, config)), "text/x-shellscript")).AllowAnonymous().ExcludeFromDescription();
         app.MapGet("/api/deploy/{uid:guid}/{plat}", DeployScriptAsync).AllowAnonymous().ExcludeFromDescription();
         app.MapGet("/api/agent/download/{plat}/{goarch}", Download).AllowAnonymous().ExcludeFromDescription();
     }
@@ -67,12 +67,11 @@ public static class InstallerEndpoints
         await db.SaveChangesAsync(ct);
 
         var parameters = new InstallParameters(PublicUrl(ctx, config), site.ClientId, site.Id, token, request.AgentType, MeshUrl(mesh, state) is not null);
-        var goarch = request.GoArch ?? (request.Plat == "darwin" ? "arm64" : "amd64");
         var command = request.Plat switch
         {
             "linux" => InstallScripts.LinuxCommand(parameters),
-            "darwin" => InstallScripts.MacCommand(parameters, goarch),
-            _ => InstallScripts.Windows(parameters, goarch),
+            "darwin" => InstallScripts.MacCommand(parameters, request.GoArch),
+            _ => InstallScripts.Windows(parameters, request.GoArch),
         };
 
         await audit.LogAsync("agent.installer-created", "site", site.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
@@ -157,14 +156,14 @@ public static class InstallerEndpoints
             MeshUrl(mesh, state) is not null);
         return plat switch
         {
-            "linux" => Results.Text(InstallScripts.Linux(parameters.ApiUrl, parameters, MeshUrl(mesh, state), state.GroupId), "text/x-shellscript"),
-            "darwin" => Results.Text("#!/usr/bin/env bash\nset -euo pipefail\n" + InstallScripts.MacCommand(parameters, "arm64") + "\n", "text/x-shellscript"),
-            "windows" => Results.Text(InstallScripts.Windows(parameters, deployment.GoArch), "text/plain"),
+            "linux" => Results.Text(InstallScripts.Linux(parameters.ApiUrl, parameters), "text/x-shellscript"),
+            "darwin" => Results.Text("#!/usr/bin/env bash\nset -euo pipefail\n" + InstallScripts.MacCommand(parameters) + "\n", "text/x-shellscript"),
+            "windows" => Results.Text(InstallScripts.Windows(parameters), "text/plain"),
             _ => Results.NotFound(),
         };
     }
 
-    private static IResult Download(string plat, string goarch, IOptions<AgentSettings> options)
+    private static IResult Download(string plat, string goarch, string? component, IOptions<AgentSettings> options)
     {
         if (plat is not ("linux" or "windows" or "darwin") || goarch is not ("amd64" or "386" or "arm64" or "arm"))
         {
@@ -172,16 +171,21 @@ public static class InstallerEndpoints
         }
 
         var settings = options.Value;
-        var fileName = settings.FileName(plat, goarch);
-        if (settings.BinariesPath is { Length: > 0 } dir)
+        if (component == "tray")
         {
-            var path = Path.Combine(dir, fileName);
-            if (File.Exists(path))
-            {
-                return Results.File(path, "application/octet-stream", fileName);
-            }
+            return settings.FindBinary(plat, goarch, "eyes-tray") is { } tray
+                ? Results.File(tray, "application/octet-stream", Path.GetFileName(tray))
+                : Results.Json($"App de bandeja {settings.Version} indisponivel para {plat}/{goarch}", statusCode: StatusCodes.Status404NotFound);
         }
-        return Results.Redirect($"{settings.DownloadBaseUrl.TrimEnd('/')}/v{settings.LatestVersion}/{fileName}");
+        if (settings.FindBinary(plat, goarch) is { } path)
+        {
+            return Results.File(path, "application/octet-stream", Path.GetFileName(path));
+        }
+        if (settings.DownloadBaseUrl is { Length: > 0 } baseUrl)
+        {
+            return Results.Redirect($"{baseUrl.TrimEnd('/')}/v{settings.Version}/{settings.FileName(plat, goarch)}");
+        }
+        return Results.Json($"EYES {settings.Version} indisponivel para {plat}/{goarch} neste servidor", statusCode: StatusCodes.Status404NotFound);
     }
 
     private static Dictionary<string, string> DeploymentCommands(string url, Guid uid) => new()

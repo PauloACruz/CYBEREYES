@@ -26,6 +26,10 @@ public sealed class ApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
     private readonly PostgreSqlContainer postgres = new PostgreSqlBuilder("postgres:17-alpine").Build();
     private readonly IContainer nats;
     public string NatsAuthDir { get; } = Directory.CreateTempSubdirectory("cybereyes-nats-").FullName;
+
+    /// <summary>Binarios do EYES servidos pela API de teste (versao distribuida: UpdateVersion).</summary>
+    public string AgentBinariesDir { get; } = Directory.CreateTempSubdirectory("cybereyes-agents-").FullName;
+    public const string UpdateVersion = "3.0.1";
     public string NatsUrl => $"nats://127.0.0.1:{nats.GetMappedPublicPort(4222)}";
 
     public ApiFixture()
@@ -84,6 +88,9 @@ public sealed class ApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseSetting("Nats:AuthFile", Path.Combine(NatsAuthDir, "users.conf"));
         builder.UseSetting("App:PublicUrl", "https://rmm.exemplo.com");
         builder.UseSetting("Vault:Key", VaultKey);
+        builder.UseSetting("Agent:BinariesPath", AgentBinariesDir);
+        builder.UseSetting("Agent:LatestVersion", UpdateVersion);
+        builder.UseSetting("Agent:AutoUpdate", "false");
         builder.ConfigureTestServices(services =>
         {
             services.RemoveAll<INotificationSender>();

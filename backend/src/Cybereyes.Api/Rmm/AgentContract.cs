@@ -1,8 +1,8 @@
 namespace Cybereyes.Api.Rmm;
 
 /// <summary>
-/// Nomes fixados pelo agente Go e pelo app de bandeja (repositorio externo rmmagentwincare).
-/// Nao renomear junto com o produto: o agente 2.12.0+ depende destes valores (ver ADR-019).
+/// Nomes do contrato com o agente EYES (agent/ neste repositorio, ver ADR-020).
+/// Trocar um valor exige trocar o agente junto: mantidos desde o agente 2.12.0 (ver ADR-019).
 /// </summary>
 public static class AgentContract
 {

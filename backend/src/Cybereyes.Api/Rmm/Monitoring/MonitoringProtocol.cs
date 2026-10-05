@@ -214,8 +214,8 @@ public static class MonitoringProtocol
             result = new TaskResult { AgentId = agentPk, TaskId = pk };
             db.TaskResults.Add(result);
         }
-        result.Stdout = body.TryGetProperty("stdout", out var o) ? o.GetString() : null;
-        result.Stderr = body.TryGetProperty("stderr", out var e) ? e.GetString() : null;
+        result.Stdout = body.TryGetProperty("stdout", out var o) ? AgentJson.AsText(o) : null;
+        result.Stderr = body.TryGetProperty("stderr", out var e) ? AgentJson.AsText(e) : null;
         result.Retcode = body.TryGetProperty("retcode", out var r) && r.TryGetInt64(out var rc) ? rc : 1;
         result.ExecutionTime = body.TryGetProperty("execution_time", out var t) && t.TryGetDouble(out var et) ? et : 0;
         result.LastRun = time.GetUtcNow();
@@ -261,8 +261,8 @@ public static class MonitoringProtocol
 
     public static async Task<IResult> WinUpdatesPostAsync(JsonElement body, ClaimsPrincipal principal, CybereyesDbContext db, CancellationToken ct)
     {
-        if (body.ValueKind != JsonValueKind.Object || !body.TryGetProperty("wua_updates", out var list) || list.ValueKind != JsonValueKind.Array ||
-            list.GetArrayLength() == 0)
+        // Lista vazia e valida: a maquina nao tem mais atualizacoes pendentes e as antigas sao removidas.
+        if (body.ValueKind != JsonValueKind.Object || !body.TryGetProperty("wua_updates", out var list) || list.ValueKind != JsonValueKind.Array)
         {
             return Results.Json("Empty payload", statusCode: StatusCodes.Status400BadRequest);
         }
@@ -396,4 +396,5 @@ public static class PatchPolicies
         }
         return new PatchPolicy();
     }
+
 }
