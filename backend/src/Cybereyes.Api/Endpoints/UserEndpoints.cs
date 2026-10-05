@@ -2,7 +2,9 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Cybereyes.Api.Infrastructure;
+using Cybereyes.Api.Rmm;
 using Cybereyes.Api.Rmm.Mesh;
+using Cybereyes.Api.Rmm.Monitoring;
 using Cybereyes.Core.Audit;
 using Cybereyes.Core.Identity;
 using Cybereyes.Core.Persistence;
@@ -23,6 +25,7 @@ public static class UserEndpoints
         group.MapPost("/", CreateAsync).RequireAuthorization(manage).RequestsMeshSync();
         group.MapPut("/{id:guid}", UpdateAsync).RequireAuthorization(manage).RequestsMeshSync();
         group.MapPost("/{id:guid}/reset-password", ResetPasswordAsync).RequireAuthorization(manage);
+        group.MapPost("/{id:guid}/invite", ResendInviteAsync).RequireAuthorization(manage);
         group.MapPost("/{id:guid}/reset-2fa", ResetTwoFactorAsync).RequireAuthorization(manage);
         group.MapDelete("/{id:guid}", DeleteAsync).RequireAuthorization(manage).RequestsMeshSync();
     }
@@ -56,9 +59,23 @@ public static class UserEndpoints
         return TypedResults.Ok(ToDto(user, await LoadRolesAsync(db, [id], ct)) with { SsoLogins = sso, HasPassword = user.PasswordHash is not null });
     }
 
-    private static async Task<IResult> CreateAsync(CreateUserRequest request, CybereyesDbContext db, UserManager<AppUser> userManager,
-        IAuditService audit, CancellationToken ct)
+    private static async Task<IResult> CreateAsync(CreateUserRequest request, HttpContext ctx, IConfiguration config, CybereyesDbContext db,
+        UserManager<AppUser> userManager, AccountEmails emails, IAuditService audit, CancellationToken ct)
     {
+        var password = string.IsNullOrEmpty(request.Password) ? null : request.Password;
+        if (password is null && !request.SendInvite)
+        {
+            return Problems.Validation("password", "Informe a senha inicial ou envie um convite por e-mail");
+        }
+        if (password is not null && request.SendInvite)
+        {
+            return Problems.Validation("password", "Com convite, a senha e definida pelo proprio usuario");
+        }
+        if (request.SendInvite && !AccountEmails.SmtpConfigured(await SettingsStore.GetAsync(db, ct)))
+        {
+            return Problems.Validation("sendInvite", "Configure o SMTP (Configuracoes > E-mail) antes de enviar convites");
+        }
+
         var roleNames = await ResolveRoleNamesAsync(db, request.RoleIds, ct);
         if (roleNames is null)
         {
@@ -72,7 +89,7 @@ public static class UserEndpoints
             FullName = request.FullName.Trim(),
             IsActive = request.IsActive,
         };
-        var result = await userManager.CreateAsync(user, request.Password);
+        var result = password is null ? await userManager.CreateAsync(user) : await userManager.CreateAsync(user, password);
         if (!result.Succeeded)
         {
             return Problems.FromIdentity(result);
@@ -83,8 +100,51 @@ public static class UserEndpoints
         }
 
         await audit.LogAsync("user.created", "user", user.Id.ToString(), $"Usuario {user.UserName} criado", cancellationToken: ct);
-        return TypedResults.Created($"/api/users/{user.Id}", ToDto(user, await LoadRolesAsync(db, [user.Id], ct)));
+
+        // O usuario fica criado mesmo se o e-mail falhar: o console avisa e o convite pode ser reenviado.
+        var inviteError = request.SendInvite ? await TrySendInviteAsync(user, InstallerEndpoints.PublicUrl(ctx, config), emails, audit, ct) : null;
+        return TypedResults.Created($"/api/users/{user.Id}", ToDto(user, await LoadRolesAsync(db, [user.Id], ct)) with { InviteError = inviteError });
     }
+
+    private static async Task<IResult> ResendInviteAsync(Guid id, HttpContext ctx, IConfiguration config, UserManager<AppUser> userManager,
+        AccountEmails emails, IAuditService audit, CancellationToken ct)
+    {
+        var user = await userManager.FindByIdAsync(id.ToString());
+        if (user is null)
+        {
+            return Problems.NotFound("Usuario");
+        }
+        if (!IsInvitePending(user))
+        {
+            return Problems.Conflict("O usuario ja definiu a senha ou ja acessou o console; use Redefinir senha");
+        }
+        if (!user.IsActive)
+        {
+            return Problems.Conflict("Ative o usuario antes de reenviar o convite");
+        }
+
+        var error = await TrySendInviteAsync(user, InstallerEndpoints.PublicUrl(ctx, config), emails, audit, ct);
+        return error is null ? TypedResults.NoContent() : Problems.BadRequest($"Falha ao enviar o convite: {error}");
+    }
+
+    private static async Task<string?> TrySendInviteAsync(AppUser user, string publicUrl, AccountEmails emails, IAuditService audit, CancellationToken ct)
+    {
+        try
+        {
+            await emails.SendInviteAsync(user, publicUrl, ct);
+            await audit.LogAsync("user.invited", "user", user.Id.ToString(), $"Convite enviado para {user.Email}", cancellationToken: ct);
+            return null;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            var message = ex.Message.Length <= 300 ? ex.Message : ex.Message[..300];
+            await audit.LogAsync("user.invite-failed", "user", user.Id.ToString(), $"Falha ao enviar o convite: {message}", cancellationToken: ct);
+            return message;
+        }
+    }
+
+    /// <summary>Criado por convite e ainda sem senha nem acesso (usuarios so de SSO ja tem LastLoginAt).</summary>
+    private static bool IsInvitePending(AppUser user) => user.PasswordHash is null && user.LastLoginAt is null;
 
     private static async Task<IResult> UpdateAsync(Guid id, UpdateUserRequest request, ClaimsPrincipal principal, CybereyesDbContext db,
         UserManager<AppUser> userManager, IAuditService audit, CancellationToken ct)
@@ -219,5 +279,8 @@ public static class UserEndpoints
 
     private static UserDto ToDto(AppUser user, ILookup<Guid, RoleRef> roles) =>
         new(user.Id, user.UserName ?? string.Empty, user.Email, user.FullName, user.IsActive, user.TwoFactorEnabled,
-            roles[user.Id].OrderBy(r => r.Name, StringComparer.Ordinal).ToList(), user.LastLoginAt, user.CreatedAt);
+            roles[user.Id].OrderBy(r => r.Name, StringComparer.Ordinal).ToList(), user.LastLoginAt, user.CreatedAt)
+        {
+            InvitePending = IsInvitePending(user),
+        };
 }

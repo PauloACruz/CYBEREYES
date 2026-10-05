@@ -4,6 +4,7 @@ import { useDebouncedValue } from '@mantine/hooks';
 import {
   IconDots,
   IconKey,
+  IconMailForward,
   IconPencil,
   IconPlus,
   IconSearch,
@@ -50,6 +51,10 @@ export function UsersPage() {
       notifySuccess(`${user.username} precisará configurar a verificação em duas etapas no próximo acesso.`);
       await invalidate();
     },
+  });
+  const resendInvite = useMutation({
+    mutationFn: (user: UserDto) => usersApi.resendInvite(user.id),
+    onSuccess: (_, user) => notifySuccess(`Convite reenviado para ${user.email}. O link anterior deixou de valer.`),
   });
   const remove = useMutation({
     mutationFn: (user: UserDto) => usersApi.remove(user.id),
@@ -128,7 +133,12 @@ export function UsersPage() {
                       <Badge color={user.isActive ? 'teal' : 'gray'} variant="dot" size="sm">
                         {user.isActive ? 'Ativo' : 'Inativo'}
                       </Badge>
-                      {!user.twoFactorEnabled && (
+                      {user.invitePending && (
+                        <Badge color="blue" variant="light" size="sm">
+                          Convite pendente
+                        </Badge>
+                      )}
+                      {!user.twoFactorEnabled && !user.invitePending && (
                         <Badge color="yellow" variant="light" size="sm">
                           Sem 2FA
                         </Badge>
@@ -158,6 +168,15 @@ export function UsersPage() {
                           <Menu.Item leftSection={<IconPencil size={16} />} onClick={() => setFormState({ opened: true, user })}>
                             Editar
                           </Menu.Item>
+                          {user.invitePending && (
+                            <Menu.Item
+                              leftSection={<IconMailForward size={16} />}
+                              disabled={!user.isActive}
+                              onClick={() => resendInvite.mutate(user)}
+                            >
+                              Reenviar convite
+                            </Menu.Item>
+                          )}
                           <Menu.Item leftSection={<IconKey size={16} />} onClick={() => setResetPasswordUser(user)}>
                             Redefinir senha
                           </Menu.Item>

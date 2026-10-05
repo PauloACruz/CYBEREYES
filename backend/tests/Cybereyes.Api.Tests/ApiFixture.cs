@@ -163,6 +163,7 @@ public sealed class RecordingSender : INotificationSender
     public List<(string Url, string Payload)> Webhooks { get; } = [];
     public List<(IReadOnlyList<string> To, string Subject)> Emails { get; } = [];
     public List<(IReadOnlyList<string> To, string Subject, IReadOnlyList<EmailAttachment> Attachments)> EmailsWithAttachments { get; } = [];
+    public List<(IReadOnlyList<string> To, string Subject, string Body)> EmailBodies { get; } = [];
 
     public Task SendEmailAsync(CoreSettings settings, IReadOnlyList<string> recipients, string subject, string body,
         IReadOnlyList<EmailAttachment> attachments, CancellationToken ct)
@@ -171,6 +172,7 @@ public sealed class RecordingSender : INotificationSender
         {
             Emails.Add((recipients, subject));
             EmailsWithAttachments.Add((recipients, subject, attachments));
+            EmailBodies.Add((recipients, subject, body));
         }
         return Task.CompletedTask;
     }
@@ -180,6 +182,7 @@ public sealed class RecordingSender : INotificationSender
         lock (Emails)
         {
             Emails.Add((recipients, subject));
+            EmailBodies.Add((recipients, subject, body));
         }
         return Task.CompletedTask;
     }

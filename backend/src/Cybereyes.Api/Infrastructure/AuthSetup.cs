@@ -28,7 +28,11 @@ public static class AuthSetup
                 o.User.RequireUniqueEmail = true;
             })
             .AddEntityFrameworkStores<CybereyesDbContext>()
-            .AddDefaultTokenProviders();
+            .AddDefaultTokenProviders()
+            .AddTokenProvider<InviteTokenProvider>(InviteTokenProviderOptions.ProviderName);
+        // Provedor padrao: redefinicao de senha por e-mail (o link vale 2 h); o convite usa o provedor proprio (72 h).
+        services.Configure<DataProtectionTokenProviderOptions>(o => o.TokenLifespan = AccountEmails.ResetLifespan);
+        services.AddScoped<AccountEmails>();
 
         var secureCookies = configuration.GetValue("Auth:SecureCookies", true)
             ? CookieSecurePolicy.Always

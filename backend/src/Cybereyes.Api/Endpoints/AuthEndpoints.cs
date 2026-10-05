@@ -23,6 +23,7 @@ public static class AuthEndpoints
         group.MapPost("/logout", LogoutAsync).RequireAuthorization(Policies.Partial);
         group.MapGet("/me", MeAsync).RequireAuthorization(Policies.Partial);
         group.MapPost("/password", ChangePasswordAsync).RequireAuthorization();
+        group.MapAccountEndpoints();
     }
 
     private static async Task<IResult> LoginAsync(LoginRequest request, UserManager<AppUser> userManager,
