@@ -1,7 +1,8 @@
-# ADR-016: Decisoes tecnicas da fase 7 (WinCare no agente, Health Check e autoatendimento)
+# ADR-016: Decisoes tecnicas da fase 7 (Cybereyes Care no agente, Health Check e autoatendimento)
 
 - **Status**: Aprovado
 - **Data**: 2026-10-01
+- **Nota**: o modulo aparecia no console com o nome da suite de origem ate a renomeacao do produto; desde o ADR-019 ele se chama Cybereyes Care. Os nomes definidos pelo agente citados abaixo sao contrato e nao mudaram.
 
 ## Decisoes
 1. **Catalogo como fonte unica no agente** (`agent/wincare/catalog.json`, embutido): o console sempre pede o catalogo a propria maquina, entao cada agente mostra exatamente o que a versao instalada executa. O servidor nao guarda copia.

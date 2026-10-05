@@ -20,7 +20,7 @@ export function BrandMark({ size = 32 }: BrandMarkProps) {
         lh={1.25}
         style={{ letterSpacing: '0.18em' }}
       >
-        WinCare
+        Cybereyes
         <Text component="span" display="block" fz={9} c="dimmed" ff="heading" style={{ letterSpacing: '0.16em' }}>
           Console do técnico
         </Text>

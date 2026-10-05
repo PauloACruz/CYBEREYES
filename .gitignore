@@ -15,3 +15,6 @@ infra/docker/certs/*
 infra/docker/agents/*
 !infra/docker/agents/.gitkeep
 infra/docker/backups/
+
+# credenciais locais de implantacao
+servidor

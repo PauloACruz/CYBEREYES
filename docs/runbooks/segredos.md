@@ -22,7 +22,7 @@ Depois de qualquer rotacao, confira:
 ```bash
 cd infra/docker
 docker compose ps
-curl -fsS https://WINCARE_HOST/health
+curl -fsS https://CYBEREYES_HOST/health
 docker compose logs --since 2m api | grep -E '"LogLevel":"(Error|Critical)"'
 ```
 
@@ -33,7 +33,7 @@ O `POSTGRES_PASSWORD` do `.env` so e lido pela imagem quando o volume e criado; 
 ```bash
 cd infra/docker
 NOVA=$(openssl rand -hex 24)
-docker compose exec -T postgres psql -U wincare -d postgres -c "ALTER USER wincare PASSWORD '$NOVA'"
+docker compose exec -T postgres psql -U cybereyes -d postgres -c "ALTER USER cybereyes PASSWORD '$NOVA'"
 sed -i "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=$NOVA/" .env
 docker compose up -d
 ```
@@ -50,7 +50,7 @@ docker compose exec -T redis redis-cli client list | grep -c SE.Redis   # conexo
 O Redis guarda so o backplane do SignalR: os navegadores reconectam sozinhos.
 
 ## Senha NATS da API (NATS_API_PASSWORD)
-Testado em projeto de teste (2026-10-01): a API nova grava o arquivo de usuarios na partida, o NATS recarrega (`Reloaded: authorization users`) e as duas replicas reconectam em poucos segundos. Durante a troca aparecem alguns `authentication error - User "wincare-api"` no log do NATS; sao esperados.
+Testado em projeto de teste (2026-10-01): a API nova grava o arquivo de usuarios na partida, o NATS recarrega (`Reloaded: authorization users`) e as duas replicas reconectam em poucos segundos. Durante a troca aparecem alguns `authentication error - User "cybereyes-api"` no log do NATS; sao esperados.
 ```bash
 cd infra/docker
 sed -i "s/^NATS_API_PASSWORD=.*/NATS_API_PASSWORD=$(openssl rand -hex 24)/" .env
@@ -69,7 +69,7 @@ Se houver suspeita de vazamento do banco (dump sem cifragem exposto, por exemplo
 - logins SSO em andamento falham (basta tentar de novo).
 
 ```bash
-docker compose exec -T postgres psql -U wincare -d wincare -c 'DELETE FROM data_protection_keys'
+docker compose exec -T postgres psql -U cybereyes -d cybereyes -c 'DELETE FROM data_protection_keys'
 docker compose restart api
 ```
 Faca um backup antes. Os segredos do cofre (`VAULT_KEY`) nao dependem dessas chaves.

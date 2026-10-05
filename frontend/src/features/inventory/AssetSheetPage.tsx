@@ -55,7 +55,7 @@ import { AssetFormModal } from './AssetFormModal';
 import { AssetStatusBadge, AssetTypeLabel, IpKindBadge } from './AssetBadges';
 import { ASSET_TYPE_INFO, makeModel } from './inventoryFormat';
 import { ResponsibleCard } from './ResponsibleCard';
-import { HealthCard } from '../wincare/HealthCard';
+import { HealthCard } from '../care/HealthCard';
 import { AssetSnmpCard } from '../snmp/AssetSnmpCard';
 import { Field, Missing, SheetCard } from './sheetDisplay';
 import './print.css';

@@ -8,7 +8,7 @@ const PROVIDER: OidcProviderDto = {
   id: 3,
   name: 'Microsoft Entra ID',
   authority: 'https://login.microsoftonline.com/tenant/v2.0',
-  clientId: 'wincare-console',
+  clientId: 'cybereyes-console',
   scopes: 'openid profile email',
   usernameClaim: 'preferred_username',
   linkByEmail: true,

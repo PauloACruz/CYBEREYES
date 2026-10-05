@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Cybereyes.Api/Cybereyes.Api.csproj" />
+    <Project Path="src/Cybereyes.Core/Cybereyes.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Cybereyes.Api.Tests/Cybereyes.Api.Tests.csproj" />
+  </Folder>
+</Solution>

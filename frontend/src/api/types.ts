@@ -565,7 +565,7 @@ export const PERMISSIONS = {
   docsManage: 'docs.manage',
   credentialsReveal: 'credentials.reveal',
   credentialsManage: 'credentials.manage',
-  wincareRun: 'wincare.run',
+  careRun: 'care.run',
   logsView: 'logs.view',
   snmpView: 'snmp.view',
   snmpManage: 'snmp.manage',
@@ -1512,21 +1512,21 @@ export interface SaveDocPageRequest {
   body: string;
 }
 
-// WinCare no agente, Health Check e autoatendimento (docs/api/fase7-agente.md)
+// Cybereyes Care no agente, Health Check e autoatendimento (docs/api/fase7-agente.md)
 
-export type WinCareParamType = 'string' | 'bool' | 'number' | 'select';
-export type WinCareParamValue = string | number | boolean;
+export type CareParamType = 'string' | 'bool' | 'number' | 'select';
+export type CareParamValue = string | number | boolean;
 
-export interface WinCareParam {
+export interface CareParam {
   name: string;
   label: string;
-  type: WinCareParamType;
+  type: CareParamType;
   options?: string[];
-  default?: WinCareParamValue;
+  default?: CareParamValue;
   required: boolean;
 }
 
-export interface WinCareTask {
+export interface CareTask {
   key: string;
   label: string;
   group: string;
@@ -1536,88 +1536,88 @@ export interface WinCareTask {
   selfService: boolean;
   reboot: boolean;
   dangerous: boolean;
-  params: WinCareParam[];
+  params: CareParam[];
 }
 
-export interface WinCareModule {
+export interface CareModule {
   key: string;
   label: string;
   description: string;
   platforms: AgentPlat[];
-  tasks: WinCareTask[];
+  tasks: CareTask[];
 }
 
-export interface WinCareCatalog {
+export interface CareCatalog {
   version: string;
-  modules: WinCareModule[];
+  modules: CareModule[];
 }
 
-export type WinCareRunStatus = 'running' | 'ok' | 'warning' | 'error' | 'cancelled' | 'timeout';
-export type WinCareTaskStatus = 'running' | 'ok' | 'warning' | 'error' | 'skipped';
-export type WinCareLogLevel = 'INFO' | 'WARN' | 'ERROR' | 'SUCCESS';
+export type CareRunStatus = 'running' | 'ok' | 'warning' | 'error' | 'cancelled' | 'timeout';
+export type CareTaskStatus = 'running' | 'ok' | 'warning' | 'error' | 'skipped';
+export type CareLogLevel = 'INFO' | 'WARN' | 'ERROR' | 'SUCCESS';
 
-interface WinCareEventBase {
+interface CareEventBase {
   seq: number;
   time: string;
 }
 
-export interface WinCareLogEvent extends WinCareEventBase {
+export interface CareLogEvent extends CareEventBase {
   type: 'log';
-  level: WinCareLogLevel;
+  level: CareLogLevel;
   message: string;
 }
 
-export interface WinCareProgressEvent extends WinCareEventBase {
+export interface CareProgressEvent extends CareEventBase {
   type: 'progress';
   value: number;
   message?: string;
 }
 
-export interface WinCareTaskEvent extends WinCareEventBase {
+export interface CareTaskEvent extends CareEventBase {
   type: 'task';
   key: string;
-  status: WinCareTaskStatus;
+  status: CareTaskStatus;
   message?: string;
 }
 
-export interface WinCareResultEvent extends WinCareEventBase {
+export interface CareResultEvent extends CareEventBase {
   type: 'result';
   data: unknown;
 }
 
-export interface WinCareDoneEvent extends WinCareEventBase {
+export interface CareDoneEvent extends CareEventBase {
   type: 'done';
-  status: Exclude<WinCareRunStatus, 'running'>;
+  status: Exclude<CareRunStatus, 'running'>;
   durationMs: number;
   rebootRequired: boolean;
 }
 
-export type WinCareEvent = WinCareLogEvent | WinCareProgressEvent | WinCareTaskEvent | WinCareResultEvent | WinCareDoneEvent;
+export type CareEvent = CareLogEvent | CareProgressEvent | CareTaskEvent | CareResultEvent | CareDoneEvent;
 
-export interface WinCareRunDto {
+export interface CareRunDto {
   id: number;
   runId: string;
   agentId: number;
   hostname: string;
   module: string;
   tasks: string[];
-  params: Record<string, WinCareParamValue>;
-  status: WinCareRunStatus;
+  params: Record<string, CareParamValue>;
+  status: CareRunStatus;
   progress: number;
   startedAt: string;
   finishedAt: string | null;
   requestedBy: string;
   source: 'console' | 'tray';
   rebootRequired: boolean;
-  taskStatus: Record<string, WinCareTaskStatus>;
-  /** Presente somente em GET /api/wincare/runs/{runId}, ordenados por seq. */
-  events?: WinCareEvent[];
+  taskStatus: Record<string, CareTaskStatus>;
+  /** Presente somente em GET /api/care/runs/{runId}, ordenados por seq. */
+  events?: CareEvent[];
 }
 
-export interface StartWinCareRunRequest {
+export interface StartCareRunRequest {
   module: string;
   tasks: string[];
-  params?: Record<string, WinCareParamValue>;
+  params?: Record<string, CareParamValue>;
 }
 
 export type HealthGrade = 'otimo' | 'bom' | 'atencao' | 'critico';

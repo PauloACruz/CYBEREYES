@@ -1,1 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="#1c7ed6"/><path d="M7 10l4 13 5-9 5 9 4-13" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Cybereyes">
+  <rect width="64" height="64" rx="14" fill="#0B1E33"/>
+  <path d="M15 32 A19.5 19.5 0 0 1 49 32 A19.5 19.5 0 0 1 15 32 Z" fill="none" stroke="#22D3EE" stroke-width="3.4" stroke-linejoin="round"/>
+  <path d="M5 32 H15 M49 32 H59" stroke="#22D3EE" stroke-width="3.4" stroke-linecap="round"/>
+  <circle cx="32" cy="32" r="8.0" fill="#06B6D4"/>
+  <circle cx="32" cy="32" r="3.4" fill="#0B1E33"/>
+  <circle cx="34.4" cy="29.3" r="1.5" fill="#E0FBFF"/>
+</svg>

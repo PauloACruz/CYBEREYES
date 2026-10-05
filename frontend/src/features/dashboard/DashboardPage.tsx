@@ -25,7 +25,7 @@ export function DashboardPage() {
     <>
       <Title order={2}>Olá, {firstName}!</Title>
       <Text c="dimmed" mt={4} mb="xl">
-        Bem-vindo ao WinCare.
+        Bem-vindo ao Cybereyes.
       </Text>
       {hasPermission(me, PERMISSIONS.agentsView) && <AgentStats />}
       {hasPermission(me, PERMISSIONS.alertsView) && <AlertStats />}

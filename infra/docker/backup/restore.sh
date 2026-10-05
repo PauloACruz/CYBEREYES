@@ -1,11 +1,11 @@
 #!/bin/sh
-# Restaura um conjunto de backup do WinCare (gerado por backup.sh) em um stack Docker Compose.
+# Restaura um conjunto de backup do Cybereyes (gerado por backup.sh) em um stack Docker Compose.
 #
 # Uso (no servidor, a partir de qualquer pasta):
 #   infra/docker/backup/restore.sh [opcoes] --yes <pasta-do-conjunto>
 #
 # Opcoes:
-#   -p, --project NOME   projeto do Compose (padrao: wincare)
+#   -p, --project NOME   projeto do Compose (padrao: cybereyes)
 #   --env-file ARQUIVO   .env do stack (padrao: infra/docker/.env)
 #   --no-mesh            nao restaura os volumes do MeshCentral
 #   --no-start           nao sobe o stack ao final
@@ -18,14 +18,14 @@ set -eu
 
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 COMPOSE_DIR=$(dirname "$SCRIPT_DIR")
-PROJECT=wincare
+PROJECT=cybereyes
 ENV_FILE="$COMPOSE_DIR/.env"
 RESTORE_MESH=1
 START=1
 CONFIRMED=0
 SET_DIR=
-DB_NAME=wincare
-DB_USER=wincare
+DB_NAME=cybereyes
+DB_USER=cybereyes
 HELPER_IMAGE="${HELPER_IMAGE:-postgres:17-alpine}"
 # Usuario "node" da imagem do MeshCentral: dono da raiz dos volumes, mesmo que o arquivo venha de um volume nunca usado.
 MESH_UID=1000
@@ -47,7 +47,7 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-[ -n "$SET_DIR" ] || fail "informe a pasta do conjunto de backup (ex.: backups/wincare-20261001-023000)"
+[ -n "$SET_DIR" ] || fail "informe a pasta do conjunto de backup (ex.: backups/cybereyes-20261001-023000)"
 SET_DIR=$(cd "$SET_DIR" 2>/dev/null && pwd) || fail "pasta nao encontrada: $SET_DIR"
 [ -f "$SET_DIR/SHA256SUMS" ] || fail "$SET_DIR nao parece um conjunto do backup.sh (falta SHA256SUMS)"
 [ -f "$ENV_FILE" ] || fail "arquivo de ambiente nao encontrado: $ENV_FILE"

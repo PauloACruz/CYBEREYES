@@ -186,7 +186,7 @@ function SnmpDeviceView({ device }: { device: SnmpDeviceDetail }) {
               deviceId={device.id}
               title="Tempo de resposta"
               formatValue={(v) => `${rttFormat.format(v)} ms`}
-              series={[{ metric: 'rtt', label: 'Tempo de resposta', color: 'var(--wc-chart-1)' }]}
+              series={[{ metric: 'rtt', label: 'Tempo de resposta', color: 'var(--ce-chart-1)' }]}
             />
           </Paper>
         </Grid.Col>

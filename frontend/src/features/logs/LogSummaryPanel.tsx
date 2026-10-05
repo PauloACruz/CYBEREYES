@@ -141,7 +141,7 @@ export function LogSummaryPanel({ summary, from, to, loading, onPickSource }: Lo
                           borderRadius: 2,
                           marginTop: 2,
                           width: `${Math.max((s.count / topMax) * 100, 2)}%`,
-                          background: 'var(--wc-chart-1)',
+                          background: 'var(--ce-chart-1)',
                         }}
                       />
                     </UnstyledButton>

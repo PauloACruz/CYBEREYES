@@ -117,8 +117,8 @@ export function InterfacesTab({ device, canManage }: { device: SnmpDeviceDetail;
             title={`Tráfego de ${interfaceLabel(current)}`}
             formatValue={(v) => formatBitsPerSecond(v)}
             series={[
-              { metric: `if:${current.index}:in`, label: 'Entrada', color: 'var(--wc-chart-1)' },
-              { metric: `if:${current.index}:out`, label: 'Saída', color: 'var(--wc-chart-2)' },
+              { metric: `if:${current.index}:in`, label: 'Entrada', color: 'var(--ce-chart-1)' },
+              { metric: `if:${current.index}:out`, label: 'Saída', color: 'var(--ce-chart-2)' },
             ]}
           />
         </Paper>

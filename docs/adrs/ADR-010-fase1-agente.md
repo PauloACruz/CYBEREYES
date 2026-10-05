@@ -8,7 +8,7 @@
 2. **IDs inteiros** para clientes, sites e agentes, porque o agente envia `site` como numero e recebe `pk` inteiro.
 3. **Tokens guardados como hash**: SHA-256 para autenticar o REST e bcrypt para a senha no NATS (o NATS aceita senhas bcrypt). O token em texto puro so existe na resposta do registro, dentro do agente.
 4. **Usuarios do NATS em arquivo gerado pelo backend** (`/etc/nats/auth/users.conf`, volume compartilhado). O container do NATS observa o arquivo e recarrega a configuracao (`SIGHUP`) sem derrubar conexoes. Escrita atomica e somente quando o conteudo muda.
-5. **Check-in em grupo de fila** (`wincare-api`): com varias replicas da API, cada mensagem e processada uma unica vez.
+5. **Check-in em grupo de fila** (`cybereyes-api`): com varias replicas da API, cada mensagem e processada uma unica vez.
 6. **Status gravado no banco**: um servico verifica a cada 30 s e grava `online`, `offline` ou `overdue` com atualizacao condicional; so a replica que efetivamente muda o registro avisa o console (sem avisos duplicados).
 7. **Tempo real com SignalR somente por WebSockets** e backplane Redis, sem necessidade de sessao fixa no Nginx.
 8. **Instalacao Linux por linha de comando com deteccao do ambiente**: o script considera estacao (workstation) quando existe gerenciador de login grafico habilitado ou sessoes X11/Wayland instaladas, e servidor quando ha somente terminal. O alvo `graphical.target` nao e usado sozinho porque varias instalacoes de servidor o trazem como padrao.

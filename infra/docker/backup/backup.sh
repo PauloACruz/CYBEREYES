@@ -1,5 +1,5 @@
 #!/bin/sh
-# Backup do WinCare: PostgreSQL (pg_dump -Fc), volumes do MeshCentral e, opcionalmente, o .env.
+# Backup do Cybereyes: PostgreSQL (pg_dump -Fc), volumes do MeshCentral e, opcionalmente, o .env.
 #
 # Uso (dentro do conteiner "backup", que ja tem as variaveis e os volumes montados):
 #   backup.sh            executa um backup agora
@@ -19,7 +19,7 @@ BACKUP_DIR="${BACKUP_DIR:-/backups}"
 BACKUP_KEEP_DAYS="${BACKUP_KEEP_DAYS:-14}"
 BACKUP_TIME="${BACKUP_TIME:-02:30}"
 BACKUP_INCLUDE_ENV="${BACKUP_INCLUDE_ENV:-false}"
-BACKUP_PREFIX="${BACKUP_PREFIX:-wincare}"
+BACKUP_PREFIX="${BACKUP_PREFIX:-cybereyes}"
 BACKUP_PASSPHRASE="${BACKUP_PASSPHRASE:-}"
 MESH_DATA_DIR="${MESH_DATA_DIR:-/volumes/mesh_data}"
 MESH_FILES_DIR="${MESH_FILES_DIR:-/volumes/mesh_files}"

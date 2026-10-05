@@ -14,10 +14,10 @@ export interface LogLevelInfo extends DisplayInfo {
 }
 
 export const LOG_LEVEL_INFO: Record<LogLevel, LogLevelInfo> = {
-  critical: { label: 'Crítico', color: 'red', variant: 'filled', icon: IconFlame, chartColor: 'var(--wc-log-critical)' },
-  error: { label: 'Erro', color: 'red', variant: 'light', icon: IconCircleX, chartColor: 'var(--wc-log-error)' },
-  warning: { label: 'Aviso', color: 'orange', variant: 'light', icon: IconAlertTriangle, chartColor: 'var(--wc-log-warning)' },
-  info: { label: 'Informação', color: 'blue', variant: 'light', icon: IconInfoCircle, chartColor: 'var(--wc-log-info)' },
+  critical: { label: 'Crítico', color: 'red', variant: 'filled', icon: IconFlame, chartColor: 'var(--ce-log-critical)' },
+  error: { label: 'Erro', color: 'red', variant: 'light', icon: IconCircleX, chartColor: 'var(--ce-log-error)' },
+  warning: { label: 'Aviso', color: 'orange', variant: 'light', icon: IconAlertTriangle, chartColor: 'var(--ce-log-warning)' },
+  info: { label: 'Informação', color: 'blue', variant: 'light', icon: IconInfoCircle, chartColor: 'var(--ce-log-info)' },
 };
 
 export const LOG_LEVEL_OPTIONS = LOG_LEVELS.map((value) => ({ value, label: LOG_LEVEL_INFO[value].label }));

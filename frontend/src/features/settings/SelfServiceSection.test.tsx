@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SelfServiceSettings } from '../../api/types';
-import { makeAgent, makeWinCareCatalog } from '../../test/fixtures';
+import { makeAgent, makeCareCatalog } from '../../test/fixtures';
 import { json, makeMe, mockFetch, renderApp } from '../../test/utils';
 
 describe('autoatendimento nas configurações', () => {
@@ -13,15 +13,15 @@ describe('autoatendimento nas configurações', () => {
     let agentQuery: string | null = null;
     mockFetch({
       'GET /api/auth/me': () => json(makeMe({ permissions: ['settings.manage'] })),
-      'GET /api/wincare/self-service': () => json({ enabled: false, tasks: ['winget.upgrade_all'] }),
+      'GET /api/care/self-service': () => json({ enabled: false, tasks: ['winget.upgrade_all'] }),
       'GET /api/sso/providers': () => json([]),
       'GET /api/sso/settings': () => json({ disablePasswordLogin: false }),
       'GET /api/agents': (_init, url) => {
         agentQuery = url.searchParams.get('status');
         return json({ items: [makeAgent()], total: 1, page: 1, pageSize: 50 });
       },
-      'GET /api/agents/1/wincare/catalog': () => json(makeWinCareCatalog()),
-      'PUT /api/wincare/self-service': (init) => {
+      'GET /api/agents/1/care/catalog': () => json(makeCareCatalog()),
+      'PUT /api/care/self-service': (init) => {
         saved = JSON.parse(typeof init?.body === 'string' ? init.body : '{}') as SelfServiceSettings;
         return json(saved);
       },

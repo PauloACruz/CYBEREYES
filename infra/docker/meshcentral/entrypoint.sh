@@ -24,7 +24,7 @@ cat > "$DATA/config.json" <<JSON
   },
   "domains": {
     "": {
-      "title": "WinCare",
+      "title": "Cybereyes",
       "newAccounts": false,
       "certUrl": "https://${MESH_HOST}:443"
     }
@@ -33,14 +33,14 @@ cat > "$DATA/config.json" <<JSON
 JSON
 
 SHARED=/opt/meshcentral/shared
-MESH_USER="${MESH_USER:-wincare}"
+MESH_USER="${MESH_USER:-cybereyes}"
 mkdir -p "$SHARED"
 
-if [ ! -f "$DATA/.wincare-admin" ]; then
+if [ ! -f "$DATA/.cybereyes-admin" ]; then
   pass="$(head -c 48 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 40)"
-  node node_modules/meshcentral --createaccount "$MESH_USER" --pass "$pass" --email "${MESH_EMAIL:-wincare@localhost}"
+  node node_modules/meshcentral --createaccount "$MESH_USER" --pass "$pass" --email "${MESH_EMAIL:-cybereyes@localhost}"
   node node_modules/meshcentral --adminaccount "$MESH_USER"
-  touch "$DATA/.wincare-admin"
+  touch "$DATA/.cybereyes-admin"
 fi
 
 if [ ! -s "$SHARED/mesh_token" ]; then

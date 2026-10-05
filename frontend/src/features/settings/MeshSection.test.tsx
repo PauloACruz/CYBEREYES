@@ -15,7 +15,7 @@ describe('seção de acesso remoto nas configurações', () => {
         json({
           enabled: true,
           url: 'https://mesh.example.com',
-          deviceGroup: 'WinCare',
+          deviceGroup: 'Cybereyes',
           groupId: 'mesh//abc',
           lastSync: '2026-10-01T12:00:00Z',
           lastError: 'Falha ao conectar no MeshCentral',
@@ -32,7 +32,7 @@ describe('seção de acesso remoto nas configurações', () => {
     const section = await screen.findByRole('region', { name: 'Acesso remoto (MeshCentral)' });
     expect(await within(section).findByText('https://mesh.example.com')).toBeInTheDocument();
     expect(within(section).getByText('Habilitado')).toBeInTheDocument();
-    expect(within(section).getByText('WinCare')).toBeInTheDocument();
+    expect(within(section).getByText('Cybereyes')).toBeInTheDocument();
     expect(within(section).getByText('3')).toBeInTheDocument();
     expect(within(section).getByText(formatDateTime('2026-10-01T12:00:00Z'))).toBeInTheDocument();
     expect(within(section).getByText('Falha ao conectar no MeshCentral')).toBeInTheDocument();

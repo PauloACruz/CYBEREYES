@@ -12,7 +12,7 @@ Fontes: levantamento do codigo do agente (`rmmagentwincare/agent`, `shared/types
 | Token do agente | 40 caracteres hexadecimais, gerado no registro | REST: `Authorization: Token <token>`; NATS: senha |
 | Token de instalacao | 64 caracteres hexadecimais, com validade | REST nas rotas `installer`, `newagent`, `meshexe` |
 
-Decisoes do WinCare:
+Decisoes do Cybereyes:
 - O token do agente e guardado como hash SHA-256 (busca no REST) e como hash bcrypt (configuracao de usuarios do NATS, que aceita senha bcrypt). O texto puro so existe na resposta do registro.
 - O token de instalacao e guardado como hash SHA-256. Chaves de API com a permissao `agents.install` tambem podem registrar agentes (`X-API-KEY`), como no Tactical.
 - O agente e sempre identificado pelo token. O `agent_id` da URL e ignorado, como no Tactical.

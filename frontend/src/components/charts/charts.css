@@ -3,19 +3,19 @@
  * Series 1 e 2: entrada e saida de trafego. Niveis de log: critico, erro, aviso, informacao (empilhados nessa ordem).
  */
 :root {
-  --wc-chart-1: #2a78d6;
-  --wc-chart-2: #eb6834;
-  --wc-log-critical: #9b1c1c;
-  --wc-log-error: #e3541f;
-  --wc-log-warning: #e0a100;
-  --wc-log-info: #2a78d6;
+  --ce-chart-1: #2a78d6;
+  --ce-chart-2: #eb6834;
+  --ce-log-critical: #9b1c1c;
+  --ce-log-error: #e3541f;
+  --ce-log-warning: #e0a100;
+  --ce-log-info: #2a78d6;
 }
 
 [data-mantine-color-scheme='dark'] {
-  --wc-chart-1: #3987e5;
-  --wc-chart-2: #d95926;
-  --wc-log-critical: #f34465;
-  --wc-log-error: #a45032;
-  --wc-log-warning: #ac8b26;
-  --wc-log-info: #3987e5;
+  --ce-chart-1: #3987e5;
+  --ce-chart-2: #d95926;
+  --ce-log-critical: #f34465;
+  --ce-log-error: #a45032;
+  --ce-log-warning: #ac8b26;
+  --ce-log-info: #3987e5;
 }

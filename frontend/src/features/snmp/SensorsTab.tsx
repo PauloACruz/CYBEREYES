@@ -159,7 +159,7 @@ export function SensorsTab({ device, canManage }: { device: SnmpDeviceDetail; ca
             deviceId={device.id}
             title={`Leituras de ${current.name}`}
             formatValue={(v) => formatSensorValue(v, current.unit)}
-            series={[{ metric: `sensor:${current.id}`, label: current.name, color: 'var(--wc-chart-1)' }]}
+            series={[{ metric: `sensor:${current.id}`, label: current.name, color: 'var(--ce-chart-1)' }]}
             thresholds={sensorThresholds(current)}
           />
         </Paper>

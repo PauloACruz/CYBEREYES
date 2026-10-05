@@ -18,4 +18,4 @@ Testado com o agente Go real em Linux: checks de CPU, memoria, disco, ping e scr
 
 ## Limites conhecidos
 - Checks de servico, Event Log, Windows Update e Chocolatey seguem o contrato do agente Windows, mas nao foram testados com agente Windows real.
-- Instalacao de software no Linux e macOS nao existe (o agente so suporta Chocolatey no Windows); winget entra com a fusao do WinCare (fase 7).
+- Instalacao de software no Linux e macOS nao existe (o agente so suporta Chocolatey no Windows); winget entra com a fusao do WinCare Pro (fase 7).

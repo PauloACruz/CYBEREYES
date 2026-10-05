@@ -1,4 +1,4 @@
-name: wincare
+name: cybereyes
 
 x-restart: &restart
   restart: unless-stopped
@@ -33,12 +33,12 @@ services:
       - /etc/nginx/certs
       - /etc/nginx/selfsigned
     mem_limit: 256m
-    image: ${REGISTRY:-ghcr.io/pauloacruz}/wincare-nginx:${VERSION:-latest}
+    image: ${REGISTRY:-ghcr.io/pauloacruz}/cybereyes-nginx:${VERSION:-latest}
     ports:
       - "80:80"
       - "443:443"
     environment:
-      WINCARE_HOST: ${WINCARE_HOST}
+      CYBEREYES_HOST: ${CYBEREYES_HOST:?defina CYBEREYES_HOST no .env}
       MESH_HOST: ${MESH_HOST}
     volumes:
       - letsencrypt:/etc/letsencrypt:ro
@@ -61,7 +61,7 @@ services:
     mem_limit: 256m
     entrypoint: ["/bin/sh", "/run.sh"]
     environment:
-      WINCARE_HOST: ${WINCARE_HOST}
+      CYBEREYES_HOST: ${CYBEREYES_HOST}
       MESH_HOST: ${MESH_HOST}
       ACME_EMAIL: ${ACME_EMAIL}
     volumes:
@@ -75,14 +75,14 @@ services:
 
   migrate:
     <<: *hardening
-    image: ${REGISTRY:-ghcr.io/pauloacruz}/wincare-api:${VERSION:-latest}
+    image: ${REGISTRY:-ghcr.io/pauloacruz}/cybereyes-api:${VERSION:-latest}
     build: ../../backend
     command: ["--migrate-only"]
     read_only: true
     tmpfs: [/tmp]
     mem_limit: 512m
     environment:
-      ConnectionStrings__Default: Host=postgres;Database=wincare;Username=wincare;Password=${POSTGRES_PASSWORD};GSS Encryption Mode=Disable
+      ConnectionStrings__Default: Host=postgres;Database=cybereyes;Username=cybereyes;Password=${POSTGRES_PASSWORD};GSS Encryption Mode=Disable
       Seed__AdminUsername: ${ADMIN_USERNAME}
       Seed__AdminPassword: ${ADMIN_PASSWORD}
       Seed__AdminEmail: ${ADMIN_EMAIL}
@@ -94,7 +94,7 @@ services:
 
   api:
     <<: [*restart, *hardening]
-    image: ${REGISTRY:-ghcr.io/pauloacruz}/wincare-api:${VERSION:-latest}
+    image: ${REGISTRY:-ghcr.io/pauloacruz}/cybereyes-api:${VERSION:-latest}
     build: ../../backend
     deploy:
       replicas: ${API_REPLICAS:-2}
@@ -102,11 +102,11 @@ services:
     tmpfs: [/tmp]
     mem_limit: 1g
     environment:
-      ConnectionStrings__Default: Host=postgres;Database=wincare;Username=wincare;Password=${POSTGRES_PASSWORD};GSS Encryption Mode=Disable
+      ConnectionStrings__Default: Host=postgres;Database=cybereyes;Username=cybereyes;Password=${POSTGRES_PASSWORD};GSS Encryption Mode=Disable
       Proxy__TrustAll: "true"
       Database__MigrateOnStartup: "false"
       ConnectionStrings__Redis: redis:6379,password=${REDIS_PASSWORD}
-      App__PublicUrl: https://${WINCARE_HOST}
+      App__PublicUrl: https://${CYBEREYES_HOST}
       Nats__Url: nats://nats:4222
       Nats__User: ${NATS_API_USER}
       Nats__Password: ${NATS_API_PASSWORD}
@@ -115,9 +115,9 @@ services:
       Agent__LatestVersion: ${AGENT_VERSION:-2.11.0}
       Mesh__Url: https://${MESH_HOST}
       Mesh__InternalUrl: http://meshcentral:4443
-      Mesh__Username: ${MESH_USER:-wincare}
+      Mesh__Username: ${MESH_USER:-cybereyes}
       Mesh__TokenKeyFile: /mesh/mesh_token
-      Mesh__DeviceGroup: ${MESH_DEVICE_GROUP:-WinCare}
+      Mesh__DeviceGroup: ${MESH_DEVICE_GROUP:-Cybereyes}
       Vault__Key: ${VAULT_KEY:-}
     volumes:
       - nats_auth:/etc/nats/auth
@@ -134,7 +134,7 @@ services:
 
   web:
     <<: [*restart, *hardening]
-    image: ${REGISTRY:-ghcr.io/pauloacruz}/wincare-web:${VERSION:-latest}
+    image: ${REGISTRY:-ghcr.io/pauloacruz}/cybereyes-web:${VERSION:-latest}
     build: ../../frontend
     cap_add: [CHOWN, SETUID, SETGID]
     read_only: true
@@ -156,11 +156,11 @@ services:
       - /var/run/postgresql:uid=70,gid=70
     mem_limit: 1536m
     environment:
-      POSTGRES_DB: wincare
-      POSTGRES_USER: wincare
+      POSTGRES_DB: cybereyes
+      POSTGRES_USER: cybereyes
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U wincare -d wincare"]
+      test: ["CMD-SHELL", "pg_isready -U cybereyes -d cybereyes"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -213,11 +213,11 @@ services:
       context: ./meshcentral
       args:
         MESHCENTRAL_VERSION: ${MESHCENTRAL_VERSION:-1.2.5}
-    image: ${REGISTRY:-ghcr.io/pauloacruz}/wincare-meshcentral:${MESHCENTRAL_VERSION:-1.2.5}
+    image: ${REGISTRY:-ghcr.io/pauloacruz}/cybereyes-meshcentral:${MESHCENTRAL_VERSION:-1.2.5}
     environment:
       MESH_HOST: ${MESH_HOST}
       PROXY_IP: 172.30.0.10
-      MESH_USER: ${MESH_USER:-wincare}
+      MESH_USER: ${MESH_USER:-cybereyes}
       MESH_EMAIL: ${ADMIN_EMAIL}
     volumes:
       - mesh_data:/opt/meshcentral/meshcentral-data
@@ -230,7 +230,7 @@ services:
   backup:
     <<: [*restart, *hardening]
     build: ./backup
-    image: ${REGISTRY:-ghcr.io/pauloacruz}/wincare-backup:${VERSION:-latest}
+    image: ${REGISTRY:-ghcr.io/pauloacruz}/cybereyes-backup:${VERSION:-latest}
     # Root com DAC_READ_SEARCH apenas para ler os arquivos do MeshCentral (uid 1000) nos volumes somente leitura.
     cap_add: [DAC_READ_SEARCH]
     read_only: true
@@ -239,8 +239,8 @@ services:
     environment:
       TZ: ${TZ:-America/Sao_Paulo}
       PGHOST: postgres
-      PGUSER: wincare
-      PGDATABASE: wincare
+      PGUSER: cybereyes
+      PGDATABASE: cybereyes
       PGPASSWORD: ${POSTGRES_PASSWORD}
       BACKUP_TIME: ${BACKUP_TIME:-02:30}
       BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}

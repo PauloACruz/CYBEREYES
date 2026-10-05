@@ -11,8 +11,8 @@ Wake-on-LAN e recuperacao do MeshAgent usam `agents.control`. Status e sincroniz
 O papel padrao "Tecnico" recebe `agents.remote` em instalacoes novas; em bancos existentes, adicione a permissao pela tela de papeis.
 
 ## Como funciona
-- O container do MeshCentral cria na primeira partida um administrador interno (`MESH_USER`, padrao `wincare`) e gera a chave de token de login (160 caracteres hexadecimais) em um volume compartilhado, lido pela API.
-- A API mantem no MeshCentral um grupo de dispositivos (`MESH_DEVICE_GROUP`, padrao `WinCare`) e um usuario `wc-<usuario>` para cada usuario ativo com `agents.remote` (ou superusuario), com direitos de controle remoto, terminal e arquivos nesse grupo. Quem perde a permissao tem o usuario removido do MeshCentral. A sincronizacao roda na partida, a cada 4 minutos e logo apos alteracoes em usuarios ou papeis.
+- O container do MeshCentral cria na primeira partida um administrador interno (`MESH_USER`, padrao `cybereyes`) e gera a chave de token de login (160 caracteres hexadecimais) em um volume compartilhado, lido pela API.
+- A API mantem no MeshCentral um grupo de dispositivos (`MESH_DEVICE_GROUP`, padrao `Cybereyes`) e um usuario `ce-<usuario>` para cada usuario ativo com `agents.remote` (ou superusuario), com direitos de controle remoto, terminal e arquivos nesse grupo. Quem perde a permissao tem o usuario removido do MeshCentral. A sincronizacao roda na partida, a cada 4 minutos e logo apos alteracoes em usuarios ou papeis.
 - O acesso remoto abre o MeshCentral em nova aba com um token de login de uso imediato (sem segundo login), ja na maquina e na aba pedida, sem os menus do MeshCentral.
 - O MeshAgent e instalado junto com o agente: Linux pelo script `linux.sh` (em `/opt/tacticalmesh`, use `--nomesh` para pular); Windows e macOS pelo proprio agente, que baixa o MeshAgent em `/api/v3/meshexe/`. O agente informa o `meshNodeId` periodicamente (`/api/v3/syncmesh/`).
 
@@ -43,6 +43,6 @@ Cada abertura de acesso remoto gera o registro de auditoria `agent.remote-sessio
 |---|---|---|
 | `Mesh__Url` | `https://mesh.suaempresa.com.br` | Endereco publico (links do navegador e download do MeshAgent no Linux) |
 | `Mesh__InternalUrl` | `http://meshcentral:4443` | Endereco interno usado pela API (websocket de controle e download) |
-| `Mesh__Username` | `wincare` | Administrador interno do MeshCentral |
+| `Mesh__Username` | `cybereyes` | Administrador interno do MeshCentral |
 | `Mesh__TokenKeyFile` | `/mesh/mesh_token` | Arquivo com a chave de token (ou `Mesh__TokenKey` com o valor) |
-| `Mesh__DeviceGroup` | `WinCare` | Nome do grupo de dispositivos |
+| `Mesh__DeviceGroup` | `Cybereyes` | Nome do grupo de dispositivos |

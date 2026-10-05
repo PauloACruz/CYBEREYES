@@ -1,4 +1,4 @@
-# Plano de Implementacao - WinCare Platform
+# Plano de Implementacao - Cybereyes
 
 Referencia de arquitetura e decisoes: `.team-context.md`.
 
@@ -26,7 +26,7 @@ Referencia de arquitetura e decisoes: `.team-context.md`.
 - 17 endpoints REST em `apiv3` (checkin, checkrunner, taskrunner, software, winupdates, config, newagent, meshexe, entre outros).
 - 50 comandos RPC via NATS: ping, sysinfo, procs, killproc, rawcmd, runscript, runscriptfull, eventlog, registro (8 operacoes), servicos (4), tarefas agendadas (3), softwarelist, Windows Update (2), Chocolatey (2), terminal (4), shutdown, reboot, recover, mesh, agentupdate, uninstall, entre outros.
 
-### WinCare Pro (fundido no agente Go)
+### WinCare Pro (fundido no agente Go; no console: Cybereyes Care)
 1. Manutencao Windows (SFC, DISM, limpeza, reset de rede, reparo de boot, servicos)
 2. Windows Update (PSWindowsUpdate, drivers)
 3. Bug Fixer (WMI, Store, .NET, GPO, permissoes, cache de icones)
@@ -93,7 +93,7 @@ Referencia de arquitetura e decisoes: `.team-context.md`.
 - **Entrega**: ficha de cada maquina com responsavel, hardware, software e documentacao.
 
 ### Fase 7: Evolucao do agente Go
-- Fusao do WinCare: os 9 modulos viram comandos nativos do agente (`wincare_run`), com scripts PowerShell embutidos via `go:embed`, parametros, progresso em tempo real e resultado estruturado.
+- Fusao do WinCare Pro (no console: Cybereyes Care): os 9 modulos viram comandos nativos do agente (`wincare_run`), com scripts PowerShell embutidos via `go:embed`, parametros, progresso em tempo real e resultado estruturado.
 - Health Check reescrito em Go para Windows, Linux e macOS.
 - Acoes de autoatendimento opcionais no app de bandeja (por exemplo, limpar temporarios), liberadas pelo tecnico por politica.
 - Paridade Linux e macOS nos comandos que fazem sentido.
@@ -112,6 +112,16 @@ Referencia de arquitetura e decisoes: `.team-context.md`.
   - Feito: cabecalhos de seguranca e limite de corpo de 30 MB no Nginx; `no-new-privileges`, `cap_drop: ALL`, raiz somente leitura, usuario nao root e `mem_limit` nos conteineres; rotacao dos logs dos conteineres; Redis com senha; verificacao de pacotes vulneraveis (NuGet e npm) no CI; servico `backup` diario com `backup.sh`/`restore.sh`, restauracao testada em projeto separado; runbooks em `docs/runbooks/`.
   - Pendente: ensaio completo de restauracao em VPS nova (medir o RTO real), copia automatica do backup para fora da VPS, ferramenta de recifragem do cofre para trocar a `VAULT_KEY`, CSP validada no navegador.
 - Migracao gradual das 400 estacoes (piloto com 10, depois por site). Plano em `docs/runbooks/migracao-400-estacoes.md`; nada executado ainda.
+
+### Fase 10: Renomeacao para Cybereyes e identidade visual (branding)
+- Renomeacao do produto para Cybereyes (concluida; tabela de/para, excecoes e impacto em `docs/adrs/ADR-019-renomeacao-cybereyes.md`):
+  - backend `Cybereyes.Api` e `Cybereyes.Core`, frontend `cybereyes-frontend`, titulo e simbolo da Cybereyes no console (favicon);
+  - modulo de manutencao com nome fixo "Cybereyes Care": rotas `/api/agents/{id}/care/*` e `/api/care/*`, permissao `care.run`, eventos `careEvent` e `careRunChanged`, tabelas `care_runs` e `care_run_events` (migration `Fase10RenomeiaCare`, que preserva os dados e troca a permissao ja gravada nos papeis);
+  - infra: projeto Compose `cybereyes`, imagens `cybereyes-*`, variavel `CYBEREYES_HOST`, banco e usuario `cybereyes`, usuario e grupo de fila do NATS `cybereyes-api`, administrador e grupo de dispositivos do MeshCentral `cybereyes` e `Cybereyes`, usuarios dos tecnicos no MeshCentral com prefixo `ce-`;
+  - mantidos de proposito: o contrato com o agente e o app de bandeja (comandos `wincare_*`, prefixo `wc-` do `run_id`, repositorio `rmmagentwincare`), os identificadores criptograficos do Data Protection e os registros historicos (migrations aplicadas, testes ja executados).
+- Identidade visual (em andamento): nome, logotipo e cores configuraveis pelo console (white-label), aplicados ao console e a tela de login, aos e-mails, aos PDFs dos relatorios, ao emissor do TOTP e ao MeshCentral. Projetada do zero, sem consultar a pasta `ee` do Tactical (ADR-005).
+- Fora desta fase: o nome que o app de bandeja e os textos locais do agente exibem nas estacoes, que so muda com um release novo do agente (ver ADR-019).
+- **Entrega**: renomeacao concluida; identidade visual configuravel em andamento.
 
 ## Servidor (estimativa inicial, validar com teste de carga)
 VPS com 4 vCPU, 8 GB de RAM e 160 GB de SSD para 400 estacoes, incluindo MeshCentral e logs. Esta e uma estimativa minha, sem medicao; o volume de logs e o fator que mais pode exigir aumento de disco.

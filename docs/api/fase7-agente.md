@@ -1,4 +1,4 @@
-# Contrato - Fase 7 (WinCare no agente, Health Check e autoatendimento)
+# Contrato - Fase 7 (Cybereyes Care no agente, Health Check e autoatendimento)
 
 Mesmo padrao das fases anteriores. O contrato da fase 1 continua valido: o agente novo apenas acrescenta comandos.
 
@@ -10,18 +10,18 @@ sequenceDiagram
     participant S as API
     participant N as NATS
     participant A as Agente
-    C->>S: POST /api/agents/{id}/wincare/runs {module, tasks, params}
+    C->>S: POST /api/agents/{id}/care/runs {module, tasks, params}
     S->>N: request <agent_id> {func: wincare_run, payload: {run_id, module, tasks, params}}
     N->>A: wincare_run
     A-->>S: "started" (ou "error: ...")
     S-->>C: 202 {runId}
     loop durante a execucao
         A->>N: publish <agent_id>.cmdoutput.<run_id> (evento JSON)
-        N->>S: grupo de fila "wincare-api"
-        S->>C: SignalR wincareEvent(runId, evento)
+        N->>S: grupo de fila "cybereyes-api"
+        S->>C: SignalR careEvent(runId, evento)
     end
     A->>N: evento {type: done}
-    S->>C: SignalR wincareRunChanged(run)
+    S->>C: SignalR careRunChanged(run)
 ```
 
 ## 2. Catalogo (fonte unica: agente)
@@ -61,6 +61,8 @@ O modulo 07 (Health Check) vira o comando `wincare_health`, escrito em Go para o
 
 Uma execucao por vez em cada agente. A execucao roda como SYSTEM/root, com tempo limite por modulo (padrao 2 h; `windows_update` 4 h).
 
+Os nomes das `func` e o prefixo `wc-` do `run_id` sao fixados pelo agente (repositorio `rmmagentwincare`) e nao mudaram com a renomeacao para Cybereyes: o agente 2.12.0 ou superior so atende esses nomes e recusa outro formato de `run_id` (ver ADR-019). No servidor eles ficam centralizados em `AgentContract`.
+
 ### Eventos publicados em `<agent_id>.cmdoutput.<run_id>` (string JSON em msgpack)
 Todos tem `seq` (1, 2, 3...) e `time` (RFC 3339).
 - `{ type: "log", level: "INFO"|"WARN"|"ERROR"|"SUCCESS", message }`
@@ -78,28 +80,30 @@ Itens: CPU (carga media), memoria, discos (espaco livre por volume), tempo ligad
 
 ## 4. API do console
 
-Permissao nova: `wincare.run` (executar e cancelar modulos WinCare). Leitura usa `agents.view`.
+Permissao nova: `care.run` (executar e cancelar modulos do Cybereyes Care). Leitura usa `agents.view`.
 
 | Metodo | Rota | Permissao | Corpo / resposta |
 |---|---|---|---|
-| GET | `/api/agents/{id}/wincare/catalog` | `agents.view` | catalogo do agente; 504 `AGENT_TIMEOUT` |
-| POST | `/api/agents/{id}/wincare/runs` | `wincare.run` | `{ module, tasks: string[], params?: {} }` -> 202 `WinCareRunDto`; 409 `AGENT_BUSY` com execucao em andamento; 400 com a mensagem do agente |
-| GET | `/api/agents/{id}/wincare/runs?page=&pageSize=` | `agents.view` | `Paged<WinCareRunDto>` |
-| GET | `/api/wincare/runs/{runId}` | `agents.view` | `WinCareRunDto` com `events` (ordenados por `seq`) |
-| POST | `/api/wincare/runs/{runId}/cancel` | `wincare.run` | 202 |
+| GET | `/api/agents/{id}/care/catalog` | `agents.view` | catalogo do agente; 504 `AGENT_TIMEOUT` |
+| POST | `/api/agents/{id}/care/runs` | `care.run` | `{ module, tasks: string[], params?: {} }` -> 202 `CareRunDto` (`Location: /api/care/runs/{runId}`); 409 `AGENT_BUSY` com execucao em andamento; 400 com a mensagem do agente |
+| GET | `/api/agents/{id}/care/runs?page=&pageSize=` | `agents.view` | `Paged<CareRunDto>` |
+| GET | `/api/care/runs/{runId}` | `agents.view` | `CareRunDto` com `events` (ordenados por `seq`) |
+| POST | `/api/care/runs/{runId}/cancel` | `care.run` | 202 |
 | GET | `/api/agents/{id}/health` | `agents.view` | ultimo `HealthReport` guardado ou 404 |
 | POST | `/api/agents/{id}/health` | `agents.view` | coleta agora, guarda e devolve o `HealthReport` |
-| GET/PUT | `/api/wincare/self-service` | `settings.manage` (GET tambem `agents.view`) | `{ enabled, tasks: string[] }` (`"modulo.tarefa"`) |
+| GET/PUT | `/api/care/self-service` | `settings.manage` (GET tambem `agents.view`) | `{ enabled, tasks: string[] }` (`"modulo.tarefa"`) |
 
-`WinCareRunDto`: `{ id, runId, agentId, hostname, module, tasks, params, status: "running"|"ok"|"warning"|"error"|"cancelled"|"timeout", progress, startedAt, finishedAt, requestedBy, source: "console"|"tray", rebootRequired, taskStatus: { [key]: status } }`
+`CareRunDto`: `{ id, runId, agentId, hostname, module, tasks, params, status: "running"|"ok"|"warning"|"error"|"cancelled"|"timeout", progress, startedAt, finishedAt, requestedBy, source: "console"|"tray", rebootRequired, taskStatus: { [key]: status } }`
 
-Tempo real (hub `/hubs/console`): `JoinWinCareRun(runId)` / `LeaveWinCareRun(runId)`; eventos `wincareEvent(runId, evento)` para quem entrou e `wincareRunChanged(WinCareRunDto)` para todos.
+Tempo real (hub `/hubs/console`): `JoinCareRun(runId)` / `LeaveCareRun(runId)` (grupo `care:{runId}`); eventos `careEvent(runId, evento)` para quem entrou e `careRunChanged(CareRunDto)` para todos.
+
+Auditoria: `agent.care-run` e `agent.care-cancel` (no agente) e `care.self-service` (configuracao do autoatendimento). Execucoes pelo app de bandeja gravam `agent.self-service`.
 
 Health Check periodico: o servidor coleta a cada 6 horas de cada agente online (distribuido no intervalo) e guarda o ultimo relatorio. A ficha do ativo e o detalhe do agente mostram nota e itens.
 
 ## 5. Autoatendimento no app de bandeja
 
-Liberado pelo tecnico em `/api/wincare/self-service`: so tarefas com `selfService: true` no catalogo e presentes na lista `tasks`.
+Liberado pelo tecnico em `/api/care/self-service`: so tarefas com `selfService: true` no catalogo e presentes na lista `tasks`.
 
 | Metodo | Rota (`Authorization: Tray`) | Resposta |
 |---|---|---|

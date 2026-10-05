@@ -15,7 +15,7 @@ function ssoOptions(passwordLoginEnabled: boolean) {
         passwordLoginEnabled,
       }),
     'GET /api/auth/me': () => problem(401, 'UNAUTHENTICATED', 'Sessão expirada'),
-    'GET /api/auth/2fa/setup': () => json({ sharedKey: 'JBSWY3DPEHPK3PXP', otpauthUri: 'otpauth://totp/WinCare:tecnico?secret=JBSWY3DPEHPK3PXP' }),
+    'GET /api/auth/2fa/setup': () => json({ sharedKey: 'JBSWY3DPEHPK3PXP', otpauthUri: 'otpauth://totp/Cybereyes:tecnico?secret=JBSWY3DPEHPK3PXP' }),
   });
 }
 
@@ -71,7 +71,7 @@ describe('login com SSO', () => {
     mockFetch({
       'GET /api/auth/sso/providers': () => json({ providers: [], passwordLoginEnabled: true }),
       'GET /api/auth/me': () => json(makeMe({ twoFactorEnabled: false, mfaSatisfied: false })),
-      'GET /api/auth/2fa/setup': () => json({ sharedKey: 'JBSWY3DPEHPK3PXP', otpauthUri: 'otpauth://totp/WinCare:tecnico?secret=JBSWY3DPEHPK3PXP' }),
+      'GET /api/auth/2fa/setup': () => json({ sharedKey: 'JBSWY3DPEHPK3PXP', otpauthUri: 'otpauth://totp/Cybereyes:tecnico?secret=JBSWY3DPEHPK3PXP' }),
     });
     const second = renderApp('/login?sso=setup');
     expect(await screen.findByRole('heading', { name: 'Configurar verificação em duas etapas' })).toBeInTheDocument();

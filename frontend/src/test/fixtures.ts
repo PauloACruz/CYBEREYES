@@ -3,13 +3,13 @@ import type {
   AgentListItem,
   AssetListItem,
   AssetSheet,
+  CareCatalog,
+  CareRunDto,
   ClientDto,
   PersonListItem,
   TicketDetail,
   TicketListItem,
   TicketMessageDto,
-  WinCareCatalog,
-  WinCareRunDto,
 } from '../api/types';
 
 export function makeAgent(overrides: Partial<AgentListItem> = {}): AgentListItem {
@@ -202,7 +202,7 @@ export function makePerson(overrides: Partial<PersonListItem> = {}): PersonListI
   };
 }
 
-export function makeWinCareCatalog(): WinCareCatalog {
+export function makeCareCatalog(): CareCatalog {
   return {
     version: '2.12.0',
     modules: [
@@ -242,7 +242,7 @@ export function makeWinCareCatalog(): WinCareCatalog {
   };
 }
 
-export function makeWinCareRun(overrides: Partial<WinCareRunDto> = {}): WinCareRunDto {
+export function makeCareRun(overrides: Partial<CareRunDto> = {}): CareRunDto {
   return {
     id: 1,
     runId: 'wc-0123456789abcdef0123456789abcdef',

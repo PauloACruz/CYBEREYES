@@ -16,7 +16,7 @@ function loginReturning(status: LoginStatus, me = makeMe()) {
     'POST /api/auth/login': () => json({ status }),
     'GET /api/auth/me': () => json(me),
     'GET /api/auth/2fa/setup': () =>
-      json({ sharedKey: 'JBSWY3DPEHPK3PXP', otpauthUri: 'otpauth://totp/WinCare:tecnico?secret=JBSWY3DPEHPK3PXP&issuer=WinCare' }),
+      json({ sharedKey: 'JBSWY3DPEHPK3PXP', otpauthUri: 'otpauth://totp/Cybereyes:tecnico?secret=JBSWY3DPEHPK3PXP&issuer=Cybereyes' }),
   });
 }
 

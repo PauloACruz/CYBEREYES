@@ -6,11 +6,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { agentsApi } from '../../api/agents';
 import { ApiError } from '../../api/client';
 import { queryKeys } from '../../api/queryKeys';
-import type { SelfServiceSettings, WinCareCatalog } from '../../api/types';
-import { wincareApi } from '../../api/wincare';
+import type { CareCatalog, SelfServiceSettings } from '../../api/types';
+import { careApi } from '../../api/care';
 import { LoadError } from '../../components/TableStates';
 import { notifySuccess } from '../../lib/feedback';
-import { AGENT_NO_RESPONSE } from '../wincare/wincareFormat';
+import { AGENT_NO_RESPONSE, CARE_NAME } from '../care/careFormat';
 
 interface TaskOption {
   value: string;
@@ -18,7 +18,7 @@ interface TaskOption {
   description?: string;
 }
 
-function selfServiceOptions(catalog: WinCareCatalog): { module: string; tasks: TaskOption[] }[] {
+function selfServiceOptions(catalog: CareCatalog): { module: string; tasks: TaskOption[] }[] {
   return catalog.modules
     .map((m) => ({
       module: m.label,
@@ -70,16 +70,16 @@ function SelfServiceForm({ initial }: { initial: SelfServiceSettings }) {
   const [agentId, setAgentId] = useState<string | null>(null);
   const catalogAgent = agentId ? Number(agentId) : 0;
   const catalog = useQuery({
-    queryKey: queryKeys.wincareCatalog(catalogAgent),
-    queryFn: () => wincareApi.catalog(catalogAgent, { silent: true }),
+    queryKey: queryKeys.careCatalog(catalogAgent),
+    queryFn: () => careApi.catalog(catalogAgent, { silent: true }),
     enabled: catalogAgent > 0,
     staleTime: 5 * 60_000,
   });
 
   const save = useMutation({
-    mutationFn: () => wincareApi.saveSelfService({ enabled, tasks: [...tasks].sort() }),
+    mutationFn: () => careApi.saveSelfService({ enabled, tasks: [...tasks].sort() }),
     onSuccess: (saved) => {
-      queryClient.setQueryData(queryKeys.wincareSelfService, saved);
+      queryClient.setQueryData(queryKeys.careSelfService, saved);
       notifySuccess('Configuração de autoatendimento salva.');
     },
   });
@@ -156,7 +156,7 @@ function SelfServiceForm({ initial }: { initial: SelfServiceSettings }) {
 }
 
 export function SelfServiceSection() {
-  const settings = useQuery({ queryKey: queryKeys.wincareSelfService, queryFn: wincareApi.selfService });
+  const settings = useQuery({ queryKey: queryKeys.careSelfService, queryFn: careApi.selfService });
   return (
     <section aria-labelledby="self-service-title">
       <div>
@@ -164,7 +164,7 @@ export function SelfServiceSection() {
           Autoatendimento no app do usuário
         </Title>
         <Text size="sm" c="dimmed" mb="xs">
-          Tarefas do WinCare que o próprio usuário pode executar pelo app da bandeja. Somente tarefas marcadas como seguras no catálogo podem ser liberadas.
+          Tarefas do {CARE_NAME} que o próprio usuário pode executar pelo app da bandeja. Somente tarefas marcadas como seguras no catálogo podem ser liberadas.
         </Text>
       </div>
       {settings.isError && <LoadError error={settings.error} onRetry={() => void settings.refetch()} />}

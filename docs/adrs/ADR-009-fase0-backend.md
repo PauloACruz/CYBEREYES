@@ -4,7 +4,7 @@
 - **Data**: 2026-10-01
 
 ## Decisoes
-1. **Projeto `WinCare.Core` em vez de `WinCare.Shared`**: "Shared" e palavra reservada em VB e o analisador (CA1716) bloqueia o build com avisos tratados como erro.
+1. **Projeto `Cybereyes.Core` em vez de `Cybereyes.Shared`**: "Shared" e palavra reservada em VB e o analisador (CA1716) bloqueia o build com avisos tratados como erro.
 2. **Sessao por cookie no console**: cookie HttpOnly, Secure e SameSite=Strict, emitido pelo ASP.NET Core Identity. Evita guardar token no navegador. SameSite=Strict bloqueia o envio do cookie em requisicoes vindas de outros sites, que e a protecao contra CSRF adotada nesta fase.
 3. **2FA obrigatorio**: politica padrao e de fallback exigem a claim `amr=mfa` (ou autenticacao por chave de API). Sem 2FA, o usuario so acessa configuracao de 2FA, `me` e `logout`.
 4. **Permissoes lidas do banco a cada requisicao** (`IClaimsTransformation`): mudanca de papel vale na hora, sem novo login. Custo de uma consulta por requisicao, aceitavel para a escala atual.

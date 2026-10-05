@@ -6,7 +6,7 @@ Para restaurar um servidor perdido, siga este runbook ate o passo 5 e depois `ba
 - VPS com 4 vCPU, 8 GB de RAM e 160 GB de SSD para 400 estacoes (estimativa do `docs/PLANO.md`, sem teste de carga).
 - Ubuntu Server 24.04 LTS (ou outra distribuicao com Docker Engine e o plugin `docker compose` v2).
 - Dois nomes DNS do tipo A apontando para o IP da VPS:
-  - `WINCARE_HOST` (console, API e conexao dos agentes), por exemplo `rmm.suaempresa.com.br`;
+  - `CYBEREYES_HOST` (console, API e conexao dos agentes), por exemplo `rmm.suaempresa.com.br`;
   - `MESH_HOST` (MeshCentral), por exemplo `mesh.suaempresa.com.br`.
 - Saida para a internet liberada (imagens, Let's Encrypt, releases do agente no GitHub, SMTP).
 
@@ -18,7 +18,7 @@ docker compose version
 ```
 
 ## 2. Firewall
-Somente SSH, HTTP e HTTPS. Os agentes falam com o NATS por WebSocket seguro em `wss://WINCARE_HOST:443/natsws` (o Nginx encaminha para o NATS), entao **nao existe porta separada do NATS para liberar**: a 4222 nao e publicada no host.
+Somente SSH, HTTP e HTTPS. Os agentes falam com o NATS por WebSocket seguro em `wss://CYBEREYES_HOST:443/natsws` (o Nginx encaminha para o NATS), entao **nao existe porta separada do NATS para liberar**: a 4222 nao e publicada no host.
 ```bash
 sudo ufw default deny incoming
 sudo ufw default allow outgoing
@@ -37,8 +37,8 @@ docker compose ps --format '{{.Name}} {{.Ports}}' | grep 0.0.0.0   # so o nginx 
 
 ## 3. Codigo e `.env`
 ```bash
-git clone <repositorio> wincare-platform
-cd wincare-platform/infra/docker
+git clone <repositorio> cybereyes
+cd cybereyes/infra/docker
 cp .env.example .env
 chmod 600 .env
 ```
@@ -52,7 +52,7 @@ echo "VAULT_KEY=$(openssl rand -base64 32)"
 echo "BACKUP_PASSPHRASE=$(openssl rand -base64 32)"
 echo "ADMIN_PASSWORD=$(openssl rand -base64 18)"
 ```
-Preencha no `.env`: `WINCARE_HOST`, `MESH_HOST`, `ACME_EMAIL`, `ADMIN_USERNAME`, `ADMIN_EMAIL`, os valores acima, `REGISTRY`, `VERSION`, `AGENT_VERSION` e o bloco de backup (`TZ`, `BACKUP_TIME`, `BACKUP_KEEP_DAYS`).
+Preencha no `.env`: `CYBEREYES_HOST`, `MESH_HOST`, `ACME_EMAIL`, `ADMIN_USERNAME`, `ADMIN_EMAIL`, os valores acima, `REGISTRY`, `VERSION`, `AGENT_VERSION` e o bloco de backup (`TZ`, `BACKUP_TIME`, `BACKUP_KEEP_DAYS`).
 
 Guarde uma copia do `.env` no cofre de senhas da equipe **antes** da primeira subida. `VAULT_KEY` e `BACKUP_PASSPHRASE` nao podem ser recuperadas se forem perdidas (ver `segredos.md`).
 
@@ -63,7 +63,7 @@ docker compose config -q && echo ok
 
 ## 4. Certificado
 - **Let's Encrypt (padrao)**: `COMPOSE_PROFILES=letsencrypt` no `.env`. O Nginx sobe com certificado autoassinado temporario, o Certbot emite os dois certificados pelo desafio HTTP (porta 80) e o Nginx recarrega sozinho em ate 5 minutos. A renovacao roda a cada hora.
-- **Certificado proprio**: coloque `fullchain.pem` e `privkey.pem` em `certs/<WINCARE_HOST>/` e `certs/<MESH_HOST>/` e retire `letsencrypt` de `COMPOSE_PROFILES`.
+- **Certificado proprio**: coloque `fullchain.pem` e `privkey.pem` em `certs/<CYBEREYES_HOST>/` e `certs/<MESH_HOST>/` e retire `letsencrypt` de `COMPOSE_PROFILES`.
 
 ## 5. Primeira subida
 ```bash
@@ -71,19 +71,19 @@ docker compose pull --ignore-pull-failures
 docker compose up -d
 docker compose ps
 ```
-Imagens que nao existirem no registro sao construidas a partir do repositorio (o CI publica `wincare-api`, `wincare-web`, `wincare-backup` e `wincare-meshcentral`; o `wincare-nginx` e construido na VPS).
+Imagens que nao existirem no registro sao construidas a partir do repositorio (o CI publica `cybereyes-api`, `cybereyes-web`, `cybereyes-backup` e `cybereyes-meshcentral`; o `cybereyes-nginx` e construido na VPS).
 
 O servico `migrate` aplica as migracoes e cria o administrador (`ADMIN_USERNAME`/`ADMIN_PASSWORD`) e termina com `Exited (0)`. Os demais devem ficar `Up` ou `healthy` (o `nats`, o `meshcentral` e o `backup` nao tem healthcheck).
 
 ```bash
-curl -fsS https://WINCARE_HOST/health          # {"status":"Healthy"}
-curl -sI https://WINCARE_HOST/ | grep -i -E 'strict-transport|content-security|x-frame'
+curl -fsS https://CYBEREYES_HOST/health          # {"status":"Healthy"}
+curl -sI https://CYBEREYES_HOST/ | grep -i -E 'strict-transport|content-security|x-frame'
 docker compose logs --tail 20 certbot          # emissao do certificado
 docker compose logs --tail 5 backup            # "proximo backup: ..."
 ```
 
 ## 6. Primeiro login
-1. Abra `https://WINCARE_HOST` e entre com `ADMIN_USERNAME` e `ADMIN_PASSWORD`.
+1. Abra `https://CYBEREYES_HOST` e entre com `ADMIN_USERNAME` e `ADMIN_PASSWORD`.
 2. O console exige configurar a verificacao em duas etapas (Google Authenticator, Microsoft Authenticator ou similar). Leia o QR code e confirme o codigo.
 3. Troque a senha do administrador pelo console. `ADMIN_PASSWORD` so e usado pelo `migrate` quando o banco ainda nao tem nenhum usuario; depois disso mudar o valor no `.env` nao altera senha nenhuma.
 4. Configure SMTP e o teste de e-mail em Configuracoes; crie cliente e site; gere uma implantacao e instale um agente de teste.

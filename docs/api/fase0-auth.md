@@ -4,7 +4,7 @@ Base: `/api`. JSON em camelCase. Datas em ISO 8601 UTC.
 
 ## Autenticacao
 
-- **Console (navegador)**: cookie `wincare.auth` (HttpOnly, Secure, SameSite=Strict), emitido pelo backend. O frontend chama a API na mesma origem com `credentials: "same-origin"`.
+- **Console (navegador)**: cookie `cybereyes.auth` (HttpOnly, Secure, SameSite=Strict), emitido pelo backend. O frontend chama a API na mesma origem com `credentials: "same-origin"`.
 - **Integracoes**: cabecalho `X-API-KEY: <chave>`.
 - **2FA obrigatorio**: apos a senha, o usuario so acessa a API completa depois de validar o codigo TOTP. Sem 2FA configurado, so os endpoints de configuracao de 2FA, `GET /api/auth/me` e `POST /api/auth/logout` respondem.
 

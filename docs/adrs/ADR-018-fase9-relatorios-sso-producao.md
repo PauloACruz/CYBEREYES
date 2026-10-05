@@ -27,7 +27,7 @@
 4. **Redis com senha** (`REDIS_PASSWORD`, so variavel de ambiente, sem mudar codigo). Senhas geradas em hex porque entram em strings de conexao.
 5. **Somente 80 e 443 publicados**: os agentes usam NATS por WebSocket em `wss://host/natsws` (porta 443). O runbook avisa que o Docker contorna regras do ufw.
 6. **Dependencias vulneraveis no CI**: `dotnet list package --vulnerable --include-transitive` com analise da saida (o comando sempre sai com 0) e `npm audit --omit=dev --audit-level=high`.
-7. **Backup**: imagem propria `wincare-backup` (postgres:17-alpine nao traz openssl), servico sempre ativo (sem perfil, para o backup nao ficar desligado por esquecimento), conjunto por diretorio com `SHA256SUMS`, manifesto, validacao por `pg_restore --list` e retencao; cifragem opcional `openssl enc -aes-256-cbc -pbkdf2 -iter 200000`; o `.env` so entra no backup se houver senha de cifragem.
+7. **Backup**: imagem propria `cybereyes-backup` (postgres:17-alpine nao traz openssl), servico sempre ativo (sem perfil, para o backup nao ficar desligado por esquecimento), conjunto por diretorio com `SHA256SUMS`, manifesto, validacao por `pg_restore --list` e retencao; cifragem opcional `openssl enc -aes-256-cbc -pbkdf2 -iter 200000`; o `.env` so entra no backup se houver senha de cifragem.
 8. **Restauracao** (`restore.sh`, no host): valida tudo antes de parar servicos, recria o banco, espera o Postgres por TCP, ajusta o dono dos volumes do MeshCentral e apaga o `mesh_token` para o MeshCentral regravar a chave correspondente aos dados restaurados.
 9. **Migracao das 400 estacoes** por ondas (piloto de 10, depois por site), com o servidor do Tactical ligado ate 30 dias depois da ultima onda (`docs/runbooks/migracao-400-estacoes.md`).
 
@@ -53,6 +53,6 @@
 - Chaves do Data Protection ficam sem cifragem dentro do dump do banco.
 - Nao existe ferramenta para trocar a `VAULT_KEY` (recifrar segredos do cofre).
 - Ensaio completo de RTO em VPS nova nao foi feito; a restauracao em si leva segundos no volume atual.
-- O plano de migracao nao foi executado; a substituicao do agente do Tactical pelo do WinCare na mesma maquina e deducao a validar no piloto.
-- O CI nao publica a imagem `wincare-nginx` (pre-existente); ela e construida na VPS.
+- O plano de migracao nao foi executado; a substituicao do agente do Tactical pelo do Cybereyes na mesma maquina e deducao a validar no piloto.
+- O CI nao publica a imagem `cybereyes-nginx` (pre-existente); ela e construida na VPS.
 - `npm audit` aponta 2 vulnerabilidades baixas no dompurify trazido pelo monaco-editor.

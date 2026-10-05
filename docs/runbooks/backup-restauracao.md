@@ -11,7 +11,7 @@ Meta (ver `.team-context.md`): RPO < 24 h, RTO < 2 h.
 | `.env` (opcional, desligado por padrao) | copia, so com cifragem ligada | `env` |
 | Lista do dump, versao e data | gerados | `postgres.list`, `manifest.txt`, `SHA256SUMS` |
 
-Com o projeto Compose padrao (`name: wincare`), os volumes reais sao `wincare_postgres_data`, `wincare_mesh_data` e `wincare_mesh_files`.
+Com o projeto Compose padrao (`name: cybereyes`), os volumes reais sao `cybereyes_postgres_data`, `cybereyes_mesh_data` e `cybereyes_mesh_files`.
 
 Fora do backup, de proposito:
 - `mesh_shared`: guarda so a chave de token que o MeshCentral regrava a partir do `mesh_data`.
@@ -36,7 +36,7 @@ Variaveis no `.env`:
 | `BACKUP_PASSPHRASE` | vazia | se definida, cifra `postgres.dump`, os `.tar.gz` e o `env` com `openssl enc -aes-256-cbc -pbkdf2 -iter 200000` |
 | `BACKUP_INCLUDE_ENV` | `false` | `true` copia o `.env` (recusado sem `BACKUP_PASSPHRASE`) |
 
-Cada execucao cria `backups/wincare-AAAAMMDD-HHMMSS/` (primeiro como `.partial`; so ganha o nome final se tudo deu certo). O script:
+Cada execucao cria `backups/cybereyes-AAAAMMDD-HHMMSS/` (primeiro como `.partial`; so ganha o nome final se tudo deu certo). O script:
 1. roda `pg_dump -Fc` e valida o arquivo com `pg_restore --list` (falha se nao houver dados de nenhuma tabela);
 2. arquiva os volumes do MeshCentral (avisa e segue se um volume nao estiver montado);
 3. cifra, se `BACKUP_PASSPHRASE` existir;
@@ -67,26 +67,26 @@ O script roda no host, usa `docker compose` e precisa de `sha256sum` e, para con
 ```bash
 cd infra/docker
 # sem --yes so mostra o que sera sobrescrito e sai com codigo 2
-backup/restore.sh backups/wincare-20261001-023000
+backup/restore.sh backups/cybereyes-20261001-023000
 # conjunto cifrado: a senha vem do ambiente
-BACKUP_PASSPHRASE='...' backup/restore.sh --yes backups/wincare-20261001-023000
+BACKUP_PASSPHRASE='...' backup/restore.sh --yes backups/cybereyes-20261001-023000
 ```
 
-Opcoes: `-p/--project` (padrao `wincare`), `--env-file` (padrao `infra/docker/.env`), `--no-mesh`, `--no-start`. Arquivos extras do Compose podem ir em `COMPOSE_FILE`.
+Opcoes: `-p/--project` (padrao `cybereyes`), `--env-file` (padrao `infra/docker/.env`), `--no-mesh`, `--no-start`. Arquivos extras do Compose podem ir em `COMPOSE_FILE`.
 
 Ordem do que o script faz:
 1. confere `SHA256SUMS`;
 2. decifra (se preciso) em uma pasta temporaria e valida o dump com `pg_restore --list` e os `.tar.gz` com `gzip -t`. Senha errada ou arquivo ruim param aqui, **antes** de tocar no stack;
 3. para `api`, `nginx`, `meshcentral` e `backup`;
 4. sobe o `postgres` e espera ele responder por TCP (no primeiro boot o servidor temporario do initdb so responde pelo socket);
-5. apaga e recria o banco `wincare` (`DROP DATABASE ... WITH (FORCE)`) e roda `pg_restore --no-owner --exit-on-error`;
+5. apaga e recria o banco `cybereyes` (`DROP DATABASE ... WITH (FORCE)`) e roda `pg_restore --no-owner --exit-on-error`;
 6. esvazia e restaura `mesh_data` e `mesh_files` (criando os volumes com os rotulos do Compose se ainda nao existirem), deixa a raiz dos volumes com o dono `1000` (usuario `node` da imagem do MeshCentral) e apaga `mesh_shared/mesh_token` para o MeshCentral regravar a chave que corresponde ao `mesh_data` restaurado;
 7. sobe o stack (`docker compose up -d`), a menos que `--no-start` seja usado.
 
 A copia do `.env` dentro do conjunto **nao** e aplicada. Para recupera-la:
 ```bash
 BACKUP_PASSPHRASE='...' openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 \
-  -pass env:BACKUP_PASSPHRASE -in backups/wincare-AAAAMMDD-HHMMSS/env.enc -out .env.restaurado
+  -pass env:BACKUP_PASSPHRASE -in backups/cybereyes-AAAAMMDD-HHMMSS/env.enc -out .env.restaurado
 ```
 
 ### Restauracao em VPS nova (RTO)
@@ -95,11 +95,11 @@ BACKUP_PASSPHRASE='...' openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 \
 3. Copie o conjunto de backup para `infra/docker/backups/`.
 4. `docker compose pull` (ou `build`) para ter as imagens.
 5. `backup/restore.sh --yes backups/<conjunto>` (com `BACKUP_PASSPHRASE` se cifrado).
-6. Valide: `docker compose ps` (todos `healthy` ou `Up`), `curl -fsS https://WINCARE_HOST/health`, login no console, um agente ficando online.
+6. Valide: `docker compose ps` (todos `healthy` ou `Up`), `curl -fsS https://CYBEREYES_HOST/health`, login no console, um agente ficando online.
 7. Se o IP mudou, ajuste o DNS. Os agentes reconectam sozinhos quando o nome volta a apontar para a VPS.
 
 ## Teste real (2026-10-01)
-Executado neste ambiente de desenvolvimento, contra o stack `wincare` em uso (um agente real conectado), restaurando em projetos Compose separados (`wincare-restore` e `wincare-restore2`) sem portas publicadas e removidos ao final.
+Executado neste ambiente de desenvolvimento, antes da renomeacao para Cybereyes (por isso os nomes de projeto antigos), contra o stack `wincare` em uso (um agente real conectado), restaurando em projetos Compose separados (`wincare-restore` e `wincare-restore2`) sem portas publicadas e removidos ao final.
 
 | Etapa | Resultado |
 |---|---|

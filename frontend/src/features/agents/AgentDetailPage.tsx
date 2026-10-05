@@ -76,7 +76,8 @@ import { TasksTab } from './monitoring/TasksTab';
 import { UpdatesTab } from './monitoring/UpdatesTab';
 import { AgentTicketsTab } from '../tickets/AgentTicketsTab';
 import { AgentAssetButton } from '../inventory/AgentAssetButton';
-import { WinCareTab } from '../wincare/WinCareTab';
+import { CareTab } from '../care/CareTab';
+import { CARE_NAME } from '../care/careFormat';
 import { LogsView } from '../logs/LogsView';
 import { SnmpCollectorCard } from '../snmp/SnmpCollectorCard';
 
@@ -177,7 +178,7 @@ function AgentDetailView({ agent }: { agent: AgentDetail }) {
       },
     );
   }
-  if (hasPermission(me, PERMISSIONS.agentsView)) tabs.push({ value: 'wincare', label: 'WinCare', icon: IconTool, render: () => <WinCareTab agent={agent} /> });
+  if (hasPermission(me, PERMISSIONS.agentsView)) tabs.push({ value: 'care', label: CARE_NAME, icon: IconTool, render: () => <CareTab agent={agent} /> });
   tabs.push({ value: 'historico', label: 'Histórico', icon: IconHistory, render: () => <HistoryTab agent={agent} /> });
 
   const requested = searchParams.get('aba');

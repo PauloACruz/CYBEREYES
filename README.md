@@ -1,4 +1,4 @@
-# WinCare Platform
+# Cybereyes
 
 Plataforma unificada de RMM e chamados: backend C# (.NET 10), frontend React, agente Go (repositorio `rmmagentwincare`) e MeshCentral para acesso remoto pelo navegador.
 
@@ -8,7 +8,7 @@ Contexto, decisoes e padroes: [`.team-context.md`](.team-context.md). Plano por 
 
 | Pasta | Conteudo |
 |---|---|
-| `backend/` | API ASP.NET Core (`WinCare.Api`), dominio e persistencia (`WinCare.Core`), testes |
+| `backend/` | API ASP.NET Core (`Cybereyes.Api`), dominio e persistencia (`Cybereyes.Core`), testes |
 | `frontend/` | Console do tecnico em React + TypeScript |
 | `infra/docker/` | Docker Compose da VPS: Nginx (balanceador e TLS), Certbot, PostgreSQL, Redis, NATS, MeshCentral, API e frontend |
 | `docs/` | Contratos de API, ADRs, runbooks |
@@ -19,11 +19,11 @@ Requisitos: .NET SDK 10, Node 22, Docker.
 
 ```bash
 # banco de dados
-docker run -d --name wincare-pg -e POSTGRES_DB=wincare -e POSTGRES_USER=wincare \
-  -e POSTGRES_PASSWORD=wincare_dev -p 5432:5432 postgres:17-alpine
+docker run -d --name cybereyes-pg -e POSTGRES_DB=cybereyes -e POSTGRES_USER=cybereyes \
+  -e POSTGRES_PASSWORD=cybereyes_dev -p 5432:5432 postgres:17-alpine
 
 # backend em http://localhost:5080 (cria o usuario admin / admin-dev-password)
-cd backend && dotnet run --project src/WinCare.Api
+cd backend && dotnet run --project src/Cybereyes.Api
 
 # frontend em http://localhost:5173 (proxy de /api para o backend)
 cd frontend && npm install && npm run dev
@@ -40,7 +40,7 @@ cd frontend && npm run lint && npm run typecheck && npm test
 
 ## Producao (VPS com Docker)
 
-1. Aponte dois nomes DNS para a VPS: um para o console (`WINCARE_HOST`) e outro para o MeshCentral (`MESH_HOST`).
+1. Aponte dois nomes DNS para a VPS: um para o console (`CYBEREYES_HOST`) e outro para o MeshCentral (`MESH_HOST`).
 2. Libere as portas 80 e 443.
 3. `cd infra/docker && cp .env.example .env` e preencha as senhas.
 4. `docker compose up -d`
