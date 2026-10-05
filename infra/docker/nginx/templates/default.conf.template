@@ -71,7 +71,7 @@ server {
     proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
 
-    # Acesso remoto (ADR-022): relay WebSocket e transferencia de arquivos em streaming. Os cabecalhos
+    # Acesso remoto (ADR-023): relay WebSocket e transferencia de arquivos em streaming. Os cabecalhos
     # X-Remote-* sao internos (encaminhamento entre replicas da API) e nunca podem vir de fora.
     location /api/remote/ {
         proxy_pass http://cybereyes_api;

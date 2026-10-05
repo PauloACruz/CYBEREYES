@@ -91,7 +91,7 @@ docker compose logs --tail 50 certbot
 - Se nenhum certificado existir, o Nginx usa um autoassinado de 30 dias: os agentes nao aceitam, o que derruba todos de uma vez.
 
 ## Acesso remoto nao conecta
-Sintoma: a janela do acesso remoto (`/acesso-remoto/:agentId`) nao mostra a tela, fica conectando ou fecha logo; ou a aba "Arquivos" nao abre. Desde a fase 12.8 o acesso remoto e do proprio EYES e da API (ADR-022); nao ha mais MeshCentral nem `MESH_HOST` para conferir.
+Sintoma: a janela do acesso remoto (`/acesso-remoto/:agentId`) nao mostra a tela, fica conectando ou fecha logo; ou a aba "Arquivos" nao abre. Desde a fase 12.8 o acesso remoto e do proprio EYES e da API (ADR-023); nao ha mais MeshCentral nem `MESH_HOST` para conferir.
 
 1. Leia o erro que o console mostra (`code` do contrato, `docs/remoto/contrato-remoto.md`, secao 2): `AGENT_OFFLINE` (agente desconectado do NATS, ver "NATS fora e agentes offline em massa"), `REMOTE_UNSUPPORTED` (EYES abaixo de 3.1.0 ou sistema sem suporte na v1, como Linux com Wayland), `SESSION_LIMIT`, `NO_INTERACTIVE_SESSION` (sem usuario conectado e a politica nao permite a tela de login), `REMOTE_DISABLED` (`Remote:Enabled` desligado na API), `AGENT_TIMEOUT` ou 403 (sem permissao ou recurso desligado pela politica).
 2. Agente online e versao: confira no console que o agente esta `online` e com EYES 3.1.0 ou mais novo; atualize pelo menu Acoes ("Atualizar EYES") se preciso.

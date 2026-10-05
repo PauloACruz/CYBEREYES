@@ -27,12 +27,12 @@
    - nao ha mais redirecionamento para o GitHub: sem binario, a rota responde 404 com mensagem clara.
 7. **Instalacao feita pelo proprio EYES** (`eyes install --api ... --site-id ... --auth ...`):
    - copia o binario;
-   - instala o MeshAgent via `/api/v3/meshexe/` nas tres plataformas (substituido na fase 12.8, ver ADR-022): o EYES nao instala mais o MeshAgent;
+   - instala o MeshAgent via `/api/v3/meshexe/` nas tres plataformas (substituido na fase 12.8, ver ADR-023): o EYES nao instala mais o MeshAgent;
    - registra o agente;
    - cria o servico: Windows SCM com reinicio automatico, systemd ou OpenRC no Linux, launchd no macOS.
    - Os scripts do servidor so detectam a arquitetura e baixam o binario. Sem Inno Setup, sem dependencia de systemd no script.
    - Reinstalar sobre uma instalacao existente do mesmo servidor **mantem a identidade** do agente (nao cria duplicata).
-   - **MeshAgent sempre junto**, como no Tactical (substituido na fase 12.8, ver ADR-022): este item e os dois seguintes nao valem mais; o EYES nao instala, nao sincroniza nem reinstala o MeshAgent, e `--nomesh` e aceito sem efeito:
+   - **MeshAgent sempre junto**, como no Tactical (substituido na fase 12.8, ver ADR-023): este item e os dois seguintes nao valem mais; o EYES nao instala, nao sincroniza nem reinstala o MeshAgent, e `--nomesh` e aceito sem efeito:
      - o EYES baixa o MeshAgent da plataforma e arquitetura (`/api/v3/meshexe/`), ja vinculado ao grupo do Cybereyes;
      - instala com `-fullinstall` no Windows, `-install --installPath=/opt/cybereyes-mesh` no Linux e `-install` no macOS;
      - informa o node id (`meshagent -nodeid --no-embedded=1`, 96 hex) no registro e no `syncmesh`.
@@ -48,7 +48,9 @@
     - `PATCH taskrunner` aceita `stdout`/`stderr` nao texto;
     - Health Check aceita `score` fracionario;
     - eventos do Care com tipos inesperados nao travam mais a execucao;
-    - `meshreinstall` entrega o MeshAgent da plataforma do agente (substituido na fase 12.8, ver ADR-022): a rota foi removida.
+    - `meshreinstall` entrega o MeshAgent da plataforma do agente (substituido na fase 12.8, ver ADR-023): a rota foi removida.
+
+11. **Tela em Linux com Wayland**: o MeshAgent nao captura sessoes Wayland (GNOME 49+ nao tem mais sessao X11). O EYES ativa o RDP nativo do GNOME na sessao do usuario e o console abre o Web-RDP do MeshCentral pelo tunel do MeshAgent (`docs/api/fase4-mesh.md`).
 
 ## Consequencias
 - O produto deixa de depender de codigo e de releases sob a Tactical RMM License. O backend ja era escrito a partir de especificacao (ADR-005). A validacao juridica pendente do ADR-005 fica restrita ao backend.
@@ -59,4 +61,5 @@
   - `eyes-tray` e compilado sem CGO junto com a imagem e servido em `/api/agent/download/windows/<arch>?component=tray`;
   - o servico do EYES baixa o app (de novo a cada versao nova do agente) para `%ProgramFiles%\Cybereyes\EYES\eyes-tray.exe`;
   - o servico inicia o app em cada sessao de usuario ativa, com o token do usuario, ate 5 vezes por hora por sessao.
-- App de bandeja no Linux e no macOS: o Wails precisa de CGO (GTK/WebKit e Cocoa) e de compilacao na propria plataforma. A distribuicao automatica fica pendente; o canal local do agente ja atende os dois sistemas.
+- App de bandeja no Linux: distribuido e iniciado pelo EYES a partir da 3.0.3 (ADR-022).
+- App de bandeja no macOS: o Wails precisa de CGO, Cocoa e do SDK da Apple. A distribuicao automatica continua pendente; o canal local do agente ja atende.

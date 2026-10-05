@@ -1,5 +1,5 @@
 // Package mesh so remove o MeshAgent de instalacoes antigas no "eyes uninstall". O EYES nao instala nem
-// sincroniza mais o MeshAgent: o acesso remoto e do proprio EYES (RFC-001, ADR-022, fase 12.8).
+// sincroniza mais o MeshAgent: o acesso remoto e do proprio EYES (RFC-001, ADR-023, fase 12.8).
 package mesh
 
 import (

@@ -1,6 +1,6 @@
 # Fase 12.8: remocao do MeshCentral
 
-Referencias: RFC-001 (secoes 9, 10 e 14), ADR-022, `docs/remoto/roteiro-piloto.md`.
+Referencias: RFC-001 (secoes 9, 10 e 14), ADR-023, `docs/remoto/roteiro-piloto.md`.
 
 ## O que foi removido (checklist da secao 14 do RFC)
 
@@ -13,7 +13,13 @@ Referencias: RFC-001 (secoes 9, 10 e 14), ADR-022, `docs/remoto/roteiro-piloto.m
 | Console | `api/mesh.ts`, secao "MeshCentral" de Configuracoes, item "Recuperar MeshAgent", tipos, chave de consulta e fixtures |
 | Infra | servico `meshcentral`, pasta `infra/docker/meshcentral/`, volumes `mesh_data`, `mesh_files` e `mesh_shared`, variaveis `Mesh__*`, `MESH_HOST`, `MESH_USER`, `MESH_DEVICE_GROUP` e `MESHCENTRAL_VERSION`, servidor e upstream do MeshCentral no Nginx, filtro do envsubst, certificados do `MESH_HOST` no Nginx e no certbot, volumes do MeshCentral no backup e na restauracao (`--no-mesh` aceito sem efeito; conjuntos antigos com esses arquivos sao avisados e ignorados) |
 | CI | build e publicacao da imagem `cybereyes-meshcentral` |
-| Documentacao | README, `.team-context.md`, ADR-013 e a parte do ADR-004 marcados como substituidos pelo ADR-022, `docs/api/fase4-mesh.md` substituido pelo contrato novo, contrato do EYES e runbooks de instalacao, atualizacao, incidentes, segredos, backup e migracao |
+| Documentacao | README, `.team-context.md`, ADR-013 e a parte do ADR-004 marcados como substituidos pelo ADR-023, `docs/api/fase4-mesh.md` substituido pelo contrato novo, contrato do EYES e runbooks de instalacao, atualizacao, incidentes, segredos, backup e migracao |
+
+## Tela via RDP para Linux com Wayland
+
+A rota `POST /api/agents/{id}/remote/rdp` e o item "Tela via RDP (Wayland)" do console (EYES 3.0.2, vindos do `main`) abriam o Web-RDP pelo tunel do MeshAgent ate a porta local da maquina. Sem o MeshCentral nao ha esse tunel, entao a rota e o item sairam junto com ele. Os comandos `rdp_enable` e `rdp_disable` do EYES continuam no agente (nao dependem do MeshCentral), sem uso pelo console.
+
+Consequencia: estacoes Linux so com sessao Wayland voltam a ficar sem tela remota (D-06). Uma proxima etapa pode levar o RDP do GNOME pelo relay proprio (o EYES liga o `grdctl` e o canal do relay carrega o RDP ate o visualizador).
 
 ## Verificacao
 

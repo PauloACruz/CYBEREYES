@@ -1,4 +1,4 @@
-// Package remote implementa o acesso remoto do EYES (RFC-001, ADR-022; contrato em docs/remoto/contrato-remoto.md):
+// Package remote implementa o acesso remoto do EYES (RFC-001, ADR-023; contrato em docs/remoto/contrato-remoto.md):
 // o servico recebe remote_start pelo NATS, inicia o "eyes remote-helper" na sessao grafica do usuario e atende o
 // canal de arquivos; o remote-helper captura a tela, aplica a entrada e sincroniza a area de transferencia pelo relay.
 package remote

@@ -1,6 +1,6 @@
 # Fase 12.6: Linux e macOS
 
-Referencias: RFC-001 (secao 4.5, D-06 e D-07), ADR-022, `docs/remoto/contrato-remoto.md`.
+Referencias: RFC-001 (secao 4.5, D-06 e D-07), ADR-023, `docs/remoto/contrato-remoto.md`.
 
 ## O que foi entregue
 
@@ -20,7 +20,7 @@ Referencias: RFC-001 (secao 4.5, D-06 e D-07), ADR-022, `docs/remoto/contrato-re
 
 ### Aviso e pedido de acesso no Linux e no macOS
 
-- O eyes-tray so e distribuido para Windows. Sem eyes-tray conectado, o EYES usa o que o sistema oferece:
+- O eyes-tray e instalado pelo EYES no Windows e, desde o ADR-022 (EYES 3.0.3), tambem no Linux; no macOS nao. Quando o app do usuario nao esta conectado, o EYES usa o que o sistema oferece:
   - Linux: pedido pelo `zenity` (Permitir, Recusar e prazo) ou pelo `kdialog`; aviso pelo `notify-send`, como o usuario da sessao (`runuser`), com o `DISPLAY` e o barramento D-Bus dele.
   - macOS: pedido e aviso pelo `osascript` (caixa de dialogo com prazo e notificacao do sistema).
   - Sem nenhum desses, `ask` recusa e `notify` segue sem aviso, como no contrato.

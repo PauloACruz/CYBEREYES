@@ -1,6 +1,6 @@
 # Fase 12.5: transferencia de arquivos facilitada
 
-Referencias: RFC-001 (secao 4.7), ADR-022, `docs/remoto/contrato-remoto.md` (secoes 2 e 7).
+Referencias: RFC-001 (secao 4.7), ADR-023, `docs/remoto/contrato-remoto.md` (secoes 2 e 7).
 
 ## O que foi entregue
 

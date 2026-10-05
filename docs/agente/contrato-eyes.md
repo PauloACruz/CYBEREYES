@@ -27,7 +27,7 @@ Especificacao autoritativa do protocolo que o agente **EYES** (novo, escrito do 
 >
 > As rotas `/api/v3`, o NATS e os comandos (secoes 1, 3, 4, 5 e 7) **nao foram tocados** por essas mudancas. Quando elas forem commitadas, revise as secoes 2.4 e 2.5 contra o codigo novo.
 
-> **Fase 12.8 (ADR-022): MeshAgent removido.** O MeshCentral saiu do Cybereyes e o EYES nao instala nem sincroniza mais o MeshAgent. Saem do contrato as rotas `POST /api/v3/meshexe/`, `GET /api/v3/{agent_id}/meshreinstall/` e `POST /api/v3/syncmesh/`, o campo `mesh_node_id` do `newagent` (a coluna `agents.MeshNodeId` foi removida) e o comando `recover` com `mode: mesh`. A opcao `--nomesh` (ou `-nomesh`) continua aceita pelo `eyes install`, sem efeito, para nao quebrar comandos antigos; o `eyes uninstall` ainda remove o MeshAgent de instalacoes antigas (`--keep-mesh` preserva). O acesso remoto agora e do proprio EYES: os comandos NATS `remote_start`, `remote_stop` e `wol`, o relay WebSocket e o canal de arquivos estao em `docs/remoto/contrato-remoto.md`. As referencias ao MeshAgent abaixo ficam como registro e estao marcadas.
+> **Fase 12.8 (ADR-023): MeshAgent removido.** O MeshCentral saiu do Cybereyes e o EYES nao instala nem sincroniza mais o MeshAgent. Saem do contrato as rotas `POST /api/v3/meshexe/`, `GET /api/v3/{agent_id}/meshreinstall/` e `POST /api/v3/syncmesh/`, o campo `mesh_node_id` do `newagent` (a coluna `agents.MeshNodeId` foi removida) e o comando `recover` com `mode: mesh`. A opcao `--nomesh` (ou `-nomesh`) continua aceita pelo `eyes install`, sem efeito, para nao quebrar comandos antigos; o `eyes uninstall` ainda remove o MeshAgent de instalacoes antigas (`--keep-mesh` preserva). O acesso remoto agora e do proprio EYES: os comandos NATS `remote_start`, `remote_stop` e `wol`, o relay WebSocket e o canal de arquivos estao em `docs/remoto/contrato-remoto.md`. As referencias ao MeshAgent abaixo ficam como registro e estao marcadas.
 
 ## Sumario
 
@@ -211,7 +211,7 @@ sequenceDiagram
     A->>A: grava agent_id, token, api (PROPOSTA: arquivo de configuracao protegido)
     A->>S: NATS wss://host/natsws (agent_id / token), com nova tentativa ate o usuario aparecer
 ```
-- A ordem `installer` GET, `installer` POST, `newagent` e **PROPOSTA** (o passo `meshexe` saiu na fase 12.8, ver ADR-022): o servidor nao impoe ordem, so exige o token de instalacao em cada uma.
+- A ordem `installer` GET, `installer` POST, `newagent` e **PROPOSTA** (o passo `meshexe` saiu na fase 12.8, ver ADR-023): o servidor nao impoe ordem, so exige o token de instalacao em cada uma.
 - `client-id` nao e enviado ao servidor em rota nenhuma: o `newagent` so recebe `site`. O servidor tira o cliente do site.
 
 ### 2.2 Rotas de instalacao (`Policies.Installer`)
@@ -222,7 +222,7 @@ Declaradas em `Api/Rmm/AgentProtocolEndpoints.cs:25-30`.
 |---|---|---|
 | `GET /api/v3/installer/` | | 200 `"ok"`; 401 com token invalido ou expirado |
 | `POST /api/v3/installer/` | `{ "version": str }` | 200 `"ok"`; 400 `"Invalid data"` sem `version` `str`; 400 `"Old installer detected (version X ). Latest version is Y Please generate a new installer from the RMM"` quando `version < Agent:LatestVersion` (`:61-74`) |
-| `POST /api/v3/meshexe/` (substituido na fase 12.8, ver ADR-022): rota removida, o EYES nao chama | `{ "plat": str, "goarch": str }` (str ou numero aceito) | 200 binario `application/octet-stream` (nome `meshagent`); 400 string JSON (`"MeshAgent is no longer distributed"` desde o ADR-022, `"Unable to connect to mesh to get group id information"`, `"Arch not supported"`, `"Unable to download mesh agent: HTTP n"`) (`Api/Rmm/Mesh/MeshServices.cs:165-184`) |
+| `POST /api/v3/meshexe/` (substituido na fase 12.8, ver ADR-023): rota removida, o EYES nao chama | `{ "plat": str, "goarch": str }` (str ou numero aceito) | 200 binario `application/octet-stream` (nome `meshagent`); 400 string JSON (`"MeshAgent is no longer distributed"` desde o ADR-023, `"Unable to connect to mesh to get group id information"`, `"Arch not supported"`, `"Unable to download mesh agent: HTTP n"`) (`Api/Rmm/Mesh/MeshServices.cs:165-184`) |
 | `POST /api/v3/newagent/` | ver abaixo | 200 `{ "pk": int, "token": str(40 hex) }`; 400 string JSON |
 
 Regras do `POST /api/v3/installer/`:
@@ -238,7 +238,7 @@ Corpo do `newagent` (`AgentProtocolEndpoints.cs:76-128`). Os campos texto podem 
 | `site` | int ou str numerica | sim | id do site; inexistente da 400 `"Site not found"` |
 | `monitoring_type` | str | nao | `server` ou `workstation`; outro valor vira `server` |
 | `description` | str | nao | truncado em 255 |
-| `mesh_node_id` | str | nao | (substituido na fase 12.8, ver ADR-022): o EYES nao envia mais este campo. Historico: node id do MeshAgent em **hexadecimal**, truncado em 255; o servidor converte com `Convert.FromHexString` para `node//` + base64 com `@` e `$` (`Api/Rmm/Mesh/MeshCentral.cs:70-71`); enviar `""` sem MeshAgent |
+| `mesh_node_id` | str | nao | (substituido na fase 12.8, ver ADR-023): o EYES nao envia mais este campo. Historico: node id do MeshAgent em **hexadecimal**, truncado em 255; o servidor converte com `Convert.FromHexString` para `node//` + base64 com `@` e `$` (`Api/Rmm/Mesh/MeshCentral.cs:70-71`); enviar `""` sem MeshAgent |
 | `goarch` | str | nao | `amd64`, `386`, `arm64` ou `arm`; truncado em 32 |
 | `plat` | str | **na pratica sim** | `windows`, `linux` ou `darwin`; **ausente vira `windows`** (`:107`) |
 
@@ -270,10 +270,10 @@ O servidor gera estes comandos e o EYES tem que aceita-los **sem mudar o servido
 
 **Linux**: `GET /api/install/linux.sh` (anonimo, sem segredo) ou `/api/deploy/{uid}/linux` (com segredo embutido) (`Api/Rmm/InstallScripts.cs:17-30,59-179`).
 - Comando gerado: `curl -fsSL '<api>/api/install/linux.sh' | sudo bash -s -- --client-id N --site-id N --auth TOKEN [--agent-type server|workstation]` (`:32-42`).
-- Opcoes do proprio script: `--api`, `--client-id`, `--site-id`, `--auth`, `--agent-type auto|server|workstation`, `--insecure`, `--nomesh` (`:78-89`). Depois da fase 12.8, `--nomesh` e aceito sem efeito (ver ADR-022).
+- Opcoes do proprio script: `--api`, `--client-id`, `--site-id`, `--auth`, `--agent-type auto|server|workstation`, `--insecure`, `--nomesh` (`:78-89`). Depois da fase 12.8, `--nomesh` e aceito sem efeito (ver ADR-023).
 - Arquitetura por `uname -m`: `x86_64`/`amd64` vira `amd64`; `aarch64`/`arm64` vira `arm64`; `armv6l`/`armv7l` vira `arm`; `i386`/`i686` vira `386` (`:95-101`).
 - Com `auto`, o script detecta interface grafica: com ela vira `workstation`, sem ela `server` (`:104-121`).
-- MeshAgent: instalado **pelo script** em `/opt/tacticalmesh`, salvo `--nomesh` ou MeshCentral desligado (`:131-145`) (substituido na fase 12.8, ver ADR-022): nem o script nem o EYES instalam mais o MeshAgent.
+- MeshAgent: instalado **pelo script** em `/opt/tacticalmesh`, salvo `--nomesh` ou MeshCentral desligado (`:131-145`) (substituido na fase 12.8, ver ADR-023): nem o script nem o EYES instalam mais o MeshAgent.
 - Binario: baixado de `<api>/api/agent/download/linux/<ARCH>` para **`/opt/tacticalagent/tacticalagent`** e marcado `0755` (`:71-72,147-151`). O script tambem cria `/opt/tacticalagent/bin`.
 - Registro: o script executa
   ```
@@ -293,9 +293,9 @@ curl -fsSL -o /tmp/cybereyes-agent '<api>/api/agent/download/darwin/<goarch>' &&
 - O `-m install` do macOS precisa:
   - copiar-se para um local definitivo;
   - instalar o servico (launchd);
-  - instalar o MeshAgent pelo `meshexe` quando `-nomesh` nao vier (substituido na fase 12.8, ver ADR-022): o EYES nao instala mais o MeshAgent.
+  - instalar o MeshAgent pelo `meshexe` quando `-nomesh` nao vier (substituido na fase 12.8, ver ADR-023): o EYES nao instala mais o MeshAgent.
   - Caminhos e rotulo **nao determinados pelo servidor**.
-- `-nomesh` aparece quando o MeshCentral esta desligado no servidor (substituido na fase 12.8, ver ADR-022): o MeshCentral nao existe mais e a opcao, se vier, nao tem efeito.
+- `-nomesh` aparece quando o MeshCentral esta desligado no servidor (substituido na fase 12.8, ver ADR-023): o MeshCentral nao existe mais e a opcao, se vier, nao tem efeito.
 - `agent-type auto` vira `workstation` (`InstallScripts.cs:57`).
 
 **Windows** (`InstallScripts.cs:47-55`), PowerShell:
@@ -309,7 +309,7 @@ Remove-Item $setup -Force
 ```
 - O arquivo servido para Windows **e um instalador** que aceita `/VERYSILENT` e `/SUPPRESSMSGBOXES` (padrao Inno Setup, `docs/adrs/ADR-010-fase1-agente.md:20`). Ele instala o executavel em **`%ProgramFiles%\TacticalAgent\tacticalrmm.exe`**.
 - O executavel recebe flags com **dois hifens** (`--api`, `--client-id`, `--site-id`, `--agent-type`, `--auth`) e `-nomesh` com **um**. O parser do EYES precisa aceitar as duas formas para todas as flags (o pacote `flag` do Go ja aceita).
-- O `-m install` no Windows precisa registrar o servico do Windows e, sem `-nomesh`, instalar o MeshAgent via `meshexe` (substituido na fase 12.8, ver ADR-022): hoje so registra o servico; `-nomesh` e aceito sem efeito. Nome do servico **nao determinado pelo servidor**.
+- O `-m install` no Windows precisa registrar o servico do Windows e, sem `-nomesh`, instalar o MeshAgent via `meshexe` (substituido na fase 12.8, ver ADR-023): hoje so registra o servico; `-nomesh` e aceito sem efeito. Nome do servico **nao determinado pelo servidor**.
 
 **Resumo das flags**:
 
@@ -321,7 +321,7 @@ Remove-Item $setup -Force
 | `-site-id` / `--site-id` | int | sim | sim | sim |
 | `-agent-type` / `--agent-type` | `server` ou `workstation` | sim | sim | sim |
 | `-auth` / `--auth` | token de instalacao (64 hex) | sim | sim | sim |
-| `-nomesh` | booleano, sem efeito desde a fase 12.8 (ADR-022) | sempre | as vezes | as vezes |
+| `-nomesh` | booleano, sem efeito desde a fase 12.8 (ADR-023) | sempre | as vezes | as vezes |
 | `-insecure` | booleano (aceitar TLS invalido) | as vezes | nao | nao |
 
 ### 2.5 Download do binario
@@ -354,7 +354,7 @@ Resposta (`AgentProtocolEndpoints.cs:130-153`). Cada intervalo e sorteado **a ca
 | `checkin_disks` | int | 1000 a 2000 | NATS `agent-disks` |
 | `checkin_sw` | int | 2800 a 3500 | REST `POST /api/v3/software/` |
 | `checkin_wmi` | int | 3000 a 4000 | NATS `agent-wmi` |
-| `checkin_syncmesh` | | | removida na fase 12.8 (ADR-022): o servidor nao manda mais a chave e o EYES nao sincroniza o MeshAgent |
+| `checkin_syncmesh` | | | removida na fase 12.8 (ADR-023): o servidor nao manda mais a chave e o EYES nao sincroniza o MeshAgent |
 | `limit_data` | bool | `false` | sem efeito no servidor |
 | `install_nushell`, `install_deno`, `nushell_enable_config` | bool | `false` | sem efeito |
 | `install_nushell_version`, `install_nushell_url`, `install_deno_version`, `install_deno_url`, `deno_default_permissions` | str | `""` | sem efeito |
@@ -450,7 +450,7 @@ Todas as rotas usam `Authorization: Token <token do agente>` e respondem `"ok"`,
 | Metodo e rota | Corpo | Efeito | Ref. |
 |---|---|---|---|
 | `POST /api/v3/checkin/` | qualquer (ignorado) | Windows: publica `installchoco` se `choco_installed` for falso e **sempre** publica `getwinupdates`; outros sistemas: nada | `Api/Rmm/Monitoring/MonitoringProtocol.cs:247-260` |
-| `POST /api/v3/syncmesh/` (substituido na fase 12.8, ver ADR-022): rota removida, o EYES nao chama | `{ "nodeid": str(hex) }` | grava `mesh_node_id` (truncado em 255; ausente apaga) | `AgentProtocolEndpoints.cs:155-161` |
+| `POST /api/v3/syncmesh/` (substituido na fase 12.8, ver ADR-023): rota removida, o EYES nao chama | `{ "nodeid": str(hex) }` | grava `mesh_node_id` (truncado em 255; ausente apaga) | `AgentProtocolEndpoints.cs:155-161` |
 | `POST /api/v3/choco/` | `{ "installed": bool }` | grava `choco_installed` | `:163-169` |
 | `POST /api/v3/software/` | `{ "software": [item] }` | substitui o inventario de software (JSON cru); 400 `"Invalid data"` sem a lista | `:171-191` |
 | `GET /api/v3/{agent_id}/checkinterval/` | | `{ "agent": int(pk), "check_interval": int }` | `MonitoringProtocol.cs:96-103` |
@@ -800,7 +800,7 @@ O coletor escuta UDP em `trap_port`, que e 162 e exige privilegio. **PROPOSTA**:
 | `installwinupdates` | publish | | `AlertsPatchesEndpoints.cs:151`; `Schedulers.cs:210` |
 | `installwithchoco` | publish | | `AlertsPatchesEndpoints.cs:458-461` |
 | `softwarelist` | request | 60 s | `AlertsPatchesEndpoints.cs:423` |
-| `recover` (substituido na fase 12.8, ver ADR-022): o servidor nao envia mais e o EYES nao trata | request | 60 s | `MeshServices.cs:239` |
+| `recover` (substituido na fase 12.8, ver ADR-023): o servidor nao envia mais e o EYES nao trata | request | 60 s | `MeshServices.cs:239` |
 | `snmp_test` | request | `min(120, timeout*(retries+1)+10)` s | `SnmpEndpoints.cs:357-361` |
 | `wincare_catalog` | request | 20 s | `Api/Rmm/Maintenance/CareService.cs:36-37` |
 | `wincare_run` | request | 30 s | `CareService.cs:79-86` |
@@ -809,7 +809,7 @@ O coletor escuta UDP em `trap_port`, que e 162 e exige privilegio. **PROPOSTA**:
 
 Nao existem `terminal_stop`, `uninstall`, `update` nem `agentupdate`: o servidor nunca os envia. O fim do terminal e `terminal_kill`.
 
-Acesso remoto (fase 12, ADR-022): os comandos `remote_start`, `remote_stop` e `wol` estao definidos em `docs/remoto/contrato-remoto.md`, que e a fonte normativa para eles.
+Acesso remoto (fase 12, ADR-023): os comandos `remote_start`, `remote_stop` e `wol` estao definidos em `docs/remoto/contrato-remoto.md`, que e a fonte normativa para eles.
 
 ### 4.3 Detalhe por `func`
 
@@ -993,7 +993,7 @@ Todos com `payload` de str (`SystemEndpoints.cs:50-66,253-277`):
 - Funciona em todos os sistemas: a rota de atualizacao nao restringe a plataforma.
 
 #### `recover`
-> **Substituido na fase 12.8 (ver ADR-022)**: o EYES nao reinstala nem sincroniza mais o MeshAgent, o servidor nao envia mais este comando e as rotas `meshreinstall` e `syncmesh` foram removidas. O texto abaixo fica como registro.
+> **Substituido na fase 12.8 (ver ADR-023)**: o EYES nao reinstala nem sincroniza mais o MeshAgent, o servidor nao envia mais este comando e as rotas `meshreinstall` e `syncmesh` foram removidas. O texto abaixo fica como registro.
 
 - Pedido: `{ func: "recover", payload: { mode: "mesh" } }`.
 - Resposta ignorada mas obrigatoria. **PROPOSTA**: `"ok"`, ou `"error: <motivo>"`.
@@ -1303,7 +1303,7 @@ O agente nao trata nada diferente. A execucao pedida pelo app chega como `wincar
 | 14 | `registry_browse` na raiz e formato de `data` | parcialmente determinado | raizes abreviadas; `data` str |
 | 15 | Autoatualizacao | nenhum comando no servidor | fora do escopo; reinstalacao |
 | 16 | Versao do EYES | precisa passar nas travas `System.Version` | `3.0.0`+, sem sufixo |
-| 17 | `recover` fora do Windows | `meshreinstall` so tem binario Windows | responder erro (substituido na fase 12.8, ver ADR-022): `recover` e `meshreinstall` nao existem mais |
+| 17 | `recover` fora do Windows | `meshreinstall` so tem binario Windows | responder erro (substituido na fase 12.8, ver ADR-023): `recover` e `meshreinstall` nao existem mais |
 | 18 | `histresult` | redundante | nao chamar |
 | 19 | Execucao como usuario | so o sinal `run_as_user` | sessao interativa ativa; erro sem sessao |
 | 20 | Limite de tamanho de respostas grandes (`eventlog`, `softwarelist`, `procs`) | 64 MiB no NATS | truncar com folga (por exemplo, 5000 itens) |
@@ -1316,7 +1316,7 @@ O agente nao trata nada diferente. A execucao pedida pelo app chega como `wincar
 
 ## 9. Bugs e inconsistencias do servidor
 
-1. (substituido na fase 12.8, ver ADR-022) **`meshreinstall` sempre devolve o MeshAgent do Windows**, para qualquer plataforma (`AgentProtocolEndpoints.cs:50-55`): `DownloadAsync(..., "windows", amd64|386)`. O `recover` no Linux e no macOS nao tem binario correto.
+1. (substituido na fase 12.8, ver ADR-023) **`meshreinstall` sempre devolve o MeshAgent do Windows**, para qualquer plataforma (`AgentProtocolEndpoints.cs:50-55`): `DownloadAsync(..., "windows", amd64|386)`. O `recover` no Linux e no macOS nao tem binario correto.
 2. **`POST /api/v3/winupdates/` com lista vazia da 400 `"Empty payload"`** (`MonitoringProtocol.cs:264-268`). Uma maquina que fica sem atualizacoes pendentes nao consegue limpar as antigas nao instaladas.
 3. **Escrita no registro trata qualquer resposta que nao seja mapa como sucesso** (`SystemEndpoints.cs:271-276`), inclusive `"error: ..."` em texto.
 4. **`TaskResultAsync` usa `GetString()` sem conferir o tipo** (`MonitoringProtocol.cs:217-218`): `stdout`/`stderr` numericos ou booleanos causam 500.

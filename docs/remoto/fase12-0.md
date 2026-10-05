@@ -2,7 +2,7 @@
 
 ## Entregue
 - Contrato de fio v1: `docs/remoto/contrato-remoto.md`.
-- Decisoes D-01, D-03, D-04, D-07 e D-08: ADR-022.
+- Decisoes D-01, D-03, D-04, D-07 e D-08: ADR-023.
 - Etapa 0: o servidor deixou de oferecer o MeshAgent (`Mesh:DistributeAgent`, padrao `false`).
 
 ## Pendente (precisa do responsavel pelo produto)

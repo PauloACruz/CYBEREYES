@@ -23,11 +23,13 @@ for t in "${TARGETS[@]}"; do
         -o "${OUT}/${name}" ./cmd/eyes
 done
 # App de bandeja (eyes-tray) do Windows: Wails sem CGO, com o frontend ja compilado em tray/frontend/dist.
+# O do Linux precisa de CGO e das bibliotecas GTK/WebKitGTK: tray/build-linux.sh (estagio proprio no Dockerfile).
 if [ -f tray/frontend/dist/index.html ]; then
     for arch in amd64 386 arm64; do
         name="eyes-tray-v${VERSION}-windows-${arch}.exe"
         echo "-> ${name}"
-        (cd tray && CGO_ENABLED=0 GOOS=windows GOARCH="$arch" go build -trimpath -ldflags "-H=windowsgui -s -w" -o "${OUT}/${name}" .)
+        (cd tray && CGO_ENABLED=0 GOOS=windows GOARCH="$arch" go build -trimpath \
+            -ldflags "-H=windowsgui -s -w -X main.version=${VERSION}" -o "${OUT}/${name}" .)
     done
 else
     echo "(eyes-tray ignorado: rode npm ci && npm run build em tray/frontend)"

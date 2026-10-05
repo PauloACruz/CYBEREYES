@@ -51,7 +51,7 @@ docker compose exec -T postgres psql -U cybereyes -d cybereyes -Atc \
 ```
 
 ## Atualizacao que remove o MeshCentral (fase 12.8)
-O MeshCentral saiu do Cybereyes na fase 12.8 (ADR-022); o acesso remoto agora e do proprio EYES e da API. Na primeira atualizacao para uma versao sem MeshCentral:
+O MeshCentral saiu do Cybereyes na fase 12.8 (ADR-023); o acesso remoto agora e do proprio EYES e da API. Na primeira atualizacao para uma versao sem MeshCentral:
 1. Siga "Antes de atualizar" e "Atualizar o servidor" normalmente; o `git pull` traz o compose e o template do Nginx sem o servico `meshcentral` e sem o servidor do `MESH_HOST`.
 2. Retire do `.env` as variaveis `MESH_HOST`, `MESH_*` e `MESHCENTRAL_VERSION` (o `diff` com o `.env.example` mostra as que sobraram).
 3. Suba com `docker compose up -d --remove-orphans` para parar e remover o conteiner antigo do `meshcentral`, e reconstrua o Nginx (`docker compose build nginx && docker compose up -d nginx`).

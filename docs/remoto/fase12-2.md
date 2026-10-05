@@ -1,6 +1,6 @@
 # Fase 12.2: fundacao ponta a ponta
 
-Referencias: RFC-001, ADR-022, `docs/remoto/contrato-remoto.md` (normativo).
+Referencias: RFC-001, ADR-023, `docs/remoto/contrato-remoto.md` (normativo).
 
 ## O que foi entregue
 

@@ -1,6 +1,6 @@
 # Fase 12.7: o resto do MeshCentral
 
-Referencias: RFC-001 (secao 4.9), ADR-022, `docs/remoto/contrato-remoto.md` (secoes 2.1, 3 e 8).
+Referencias: RFC-001 (secao 4.9), ADR-023, `docs/remoto/contrato-remoto.md` (secoes 2.1, 3 e 8).
 
 ## O que foi entregue
 

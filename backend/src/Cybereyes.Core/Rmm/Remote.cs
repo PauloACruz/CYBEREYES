@@ -94,7 +94,7 @@ public sealed class RemotePolicy
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
     public string? UpdatedBy { get; set; }
 
-    /// <summary>Valores padrao do escopo global (contrato, secao 8.1; ADR-022, D-04).</summary>
+    /// <summary>Valores padrao do escopo global (contrato, secao 8.1; ADR-023, D-04).</summary>
     public static RemotePolicy Defaults() => new()
     {
         Scope = RemotePolicyScope.Global,

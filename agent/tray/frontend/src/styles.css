@@ -9,6 +9,9 @@
   --danger: #b42318;
   --bubble-me: #1d5fd1;
   --bubble-tech: #eef1f6;
+  --ok: #12b76a;
+  --attention: #f79009;
+  --attention-text: #b54708;
   --radius: 10px;
   font-family: 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
   font-size: 14px;
@@ -29,6 +32,7 @@
     --danger: #f97066;
     --bubble-me: #2f6ae0;
     --bubble-tech: #283140;
+    --attention-text: #fdb022;
     color-scheme: dark;
   }
 }
@@ -97,6 +101,30 @@ button { font: inherit; }
 .ticket-meta { display: flex; justify-content: space-between; font-size: 12px; gap: 8px; }
 .new-dot { margin-left: auto; width: 9px; height: 9px; border-radius: 50%; background: var(--primary); }
 
+.ticket-section { display: flex; flex-direction: column; gap: 8px; }
+.ticket-section > p { margin: 0; }
+.section-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.section-count { font-weight: 500; }
+
+/* Andamento do chamado: aberto, atendimento e conclusao, ligados por uma linha. */
+.progress { list-style: none; margin: 6px 0 2px; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); }
+.progress-step { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 0 2px; text-align: center; }
+.progress-step + .progress-step::before {
+  content: ''; position: absolute; top: 10px; right: 50%; width: 100%; height: 2px; background: var(--border);
+}
+.progress-step + .progress-step:not(.progress-pending)::before { background: var(--ok); }
+.progress-dot {
+  position: relative; z-index: 1; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 12px; font-weight: 700; color: #fff; background: var(--surface); border: 2px solid var(--border);
+}
+.progress-done .progress-dot { background: var(--ok); border-color: var(--ok); }
+.progress-current .progress-dot { background: var(--primary); border-color: var(--primary); box-shadow: inset 0 0 0 4px var(--surface); }
+.progress-attention .progress-dot { background: var(--attention); border-color: var(--attention); }
+.progress-label { font-size: 12px; font-weight: 600; }
+.progress-pending .progress-label { color: var(--muted); font-weight: 500; }
+.progress-detail { font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
+.progress-attention .progress-detail { color: var(--attention-text); font-weight: 600; }
+
 .badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
 .badge-new { background: #e6efff; color: #1d4fb0; }
 .badge-in_progress { background: #fff3d6; color: #8a5300; }
@@ -131,7 +159,8 @@ button { font: inherit; }
 
 .chat { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; flex: 1; }
 .chat-empty { flex: 1; }
-.chat-end { height: 0; }
+/* A rolagem ate o fim desconta o campo de mensagem fixo no rodape, que cobriria a ultima mensagem. */
+.chat-end { height: 0; scroll-margin-bottom: 72px; }
 .msg { display: flex; }
 .msg-requester { justify-content: flex-end; }
 .msg-technician { justify-content: flex-start; }

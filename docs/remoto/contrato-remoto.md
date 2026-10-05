@@ -1,6 +1,6 @@
 # Contrato de fio do acesso remoto (v1)
 
-Especificacao normativa do acesso remoto proprio do Cybereyes (RFC-001, ADR-022). Vale para as tres pontas: o console (visualizador), a API (sessoes, relay, arquivos, politicas e auditoria) e o EYES (servico e `eyes remote-helper`).
+Especificacao normativa do acesso remoto proprio do Cybereyes (RFC-001, ADR-023). Vale para as tres pontas: o console (visualizador), a API (sessoes, relay, arquivos, politicas e auditoria) e o EYES (servico e `eyes remote-helper`).
 
 - **Status**: v1, fase 12.0. Itens marcados com **[S1]** a **[S6]** dependem da prova tecnica correspondente (RFC-001, secao 7.1) e podem mudar com o resultado dela.
 - **Regra de leitura**: "deve" e obrigatorio; "pode" e opcional. O que nao esta aqui nao faz parte da v1.

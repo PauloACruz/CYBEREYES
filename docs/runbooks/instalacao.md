@@ -5,7 +5,7 @@ Para restaurar um servidor perdido, siga este runbook ate o passo 5 e depois `ba
 ## 1. Requisitos
 - VPS com 4 vCPU, 8 GB de RAM e 160 GB de SSD para 400 estacoes (estimativa do `docs/PLANO.md`, sem teste de carga).
 - Ubuntu Server 24.04 LTS (ou outra distribuicao com Docker Engine e o plugin `docker compose` v2).
-- Um nome DNS do tipo A apontando para o IP da VPS: `CYBEREYES_HOST` (console, API, conexao dos agentes e acesso remoto), por exemplo `rmm.suaempresa.com.br`. Desde a fase 12.8 nao existe mais o segundo nome do MeshCentral (`MESH_HOST`, ver ADR-022).
+- Um nome DNS do tipo A apontando para o IP da VPS: `CYBEREYES_HOST` (console, API, conexao dos agentes e acesso remoto), por exemplo `rmm.suaempresa.com.br`. Desde a fase 12.8 nao existe mais o segundo nome do MeshCentral (`MESH_HOST`, ver ADR-023).
 - Saida para a internet liberada (imagens, Let's Encrypt, releases do agente no GitHub, SMTP).
 
 Instalar o Docker (repositorio oficial):

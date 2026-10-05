@@ -2,11 +2,11 @@
 
 ## Status: Aprovado
 
-- **Aprovacao**: 2026-10-05, com as decisoes da secao 13 (registradas no ADR-022).
+- **Aprovacao**: 2026-10-05, com as decisoes da secao 13 (registradas no ADR-023).
 
 - **Data**: 2026-10-05
 - **Pedido**: refatorar o MeshCentral e trazer o acesso remoto para dentro deste repositorio, como foi feito com o agente do Tactical (ADR-020), para melhorar o codigo e deixar a integracao completa. Requisitos acrescentados no pedido: **area de transferencia automatica** e **transferencia de arquivos facilitada**.
-- **Decisao registrada**: ADR-022 (acesso remoto proprio), que substitui o ADR-013 e a parte do ADR-004 que mantem o MeshCentral. O requisito do ADR-004 continua: acesso remoto pelo navegador, sem instalar nada no computador do tecnico.
+- **Decisao registrada**: ADR-023 (acesso remoto proprio), que substitui o ADR-013 e a parte do ADR-004 que mantem o MeshCentral. O requisito do ADR-004 continua: acesso remoto pelo navegador, sem instalar nada no computador do tecnico.
 - **Relacionados**: ADR-004, ADR-013, ADR-018, ADR-019, ADR-020, `docs/api/fase4-mesh.md`, `docs/agente/contrato-eyes.md`, `docs/runbooks/migracao-400-estacoes.md`.
 - **Caminhos curtos** (mesma convencao do contrato do EYES): `Api/` = `backend/src/Cybereyes.Api/`, `Core/` = `backend/src/Cybereyes.Core/`, `Tests/` = `backend/tests/Cybereyes.Api.Tests/`, `front/` = `frontend/src/`. Referencias ao MeshCentral apontam para o pacote npm `meshcentral@1.2.5` (a versao em uso); ao MeshAgent, para o repositorio `Ylianst/MeshAgent` no commit `709f373` (2026-09-23).
 
@@ -435,7 +435,7 @@ Com o servidor limpo (D-08), nao ha convivencia: o EYES nao precisa de chave par
 | Infra | rota do relay com `hash` no Nginx; no fim saem o servico `meshcentral`, `MESH_HOST`, o segundo certificado e os volumes `mesh_*` do backup |
 | Desempenho | banda de tela passa pela API; medir na S3 (vazao por replica) e acompanhar o `mem_limit` de 1 GB da API |
 | Seguranca | secao 4.13; superficie publica menor sem o MeshCentral |
-| Documentacao | contrato novo, ADR-022, fase 12 no plano, runbooks de instalacao, atualizacao, incidentes, segredos, backup e migracao |
+| Documentacao | contrato novo, ADR-023, fase 12 no plano, runbooks de instalacao, atualizacao, incidentes, segredos, backup e migracao |
 
 ---
 
@@ -446,7 +446,7 @@ Tamanho relativo: **P** (pequeno), **M** (medio) e **G** (grande), comparados en
 | Fase | Entregas | Criterio de aceite | Tamanho | Depende de |
 |---|---|---|---|---|
 | **Etapa 0**: servidor sem oferecer o MeshAgent | o servidor deixa de oferecer o MeshAgent nas instalacoes (os comandos saem com `--nomesh`), para nenhuma estacao instalar o MeshAgent antes da remocao. As correcoes de seguranca da integracao atual (token de login com `once` e `expire` curto, sem `allowFraming`, log do Nginx sem a query string) so entram se alguma maquina for usar o MeshCentral antes da remocao | instalacao nova de teste registra o EYES sem MeshAgent | P | nenhuma |
-| **12.0** Especificacao e decisoes | `docs/remoto/contrato-remoto.md` (fio, limites, erros, versoes e checklist de conformidade); respostas as decisoes D-01 a D-09; distribuicao de sistemas operacionais das 400 estacoes; texto do aviso e retencao (LGPD); ADR-022 | contrato revisado e ADR aprovado | P | aprovacao desta RFC |
+| **12.0** Especificacao e decisoes | `docs/remoto/contrato-remoto.md` (fio, limites, erros, versoes e checklist de conformidade); respostas as decisoes D-01 a D-09; distribuicao de sistemas operacionais das 400 estacoes; texto do aviso e retencao (LGPD); ADR-023 | contrato revisado e ADR aprovado | P | aprovacao desta RFC |
 | **12.1** Provas tecnicas | S1 a S6 (secao 7.1), com relatorio e medidas | cada prova com resultado "segue" ou "para"; se S1 ou S3 pararem, esta RFC volta para discussao | M | 12.0 |
 | **12.2** Fundacao ponta a ponta | API: sessoes, tokens, relay, emparelhamento, limites, auditoria e `remote_sessions`. Nginx: rota do relay. EYES: `remote_start` e `remote_stop`, gerente de sessoes, auxiliar minimo. Console: janela `/remote/:agentId`, canvas e reconexao. CI: Playwright montado e E2E com o EYES real sob Xvfb | primeiro quadro e clique funcionando no CI (Xvfb) e numa maquina Windows de teste; inicio e fim da sessao na auditoria | M | 12.1 (S1 e S3) |
 | **12.3** Tela completa no Windows | qualidade adaptativa, cursor, varios monitores, escala de DPI, teclado (layouts, Unicode, Keyboard Lock), Ctrl+Alt+Del, UAC e tela bloqueada, somente visualizacao; aviso e consentimento no `eyes-tray`; botoes do console (agente, chamado e ativo) usando o novo visualizador; historico de sessoes no agente e no chamado | checklist de tela aprovado em Windows 10 e 11 reais: 1 e 2 monitores, escala de 100% e 150%, UAC, tela bloqueada, troca rapida de usuario, maquina virtual | G | 12.2 |

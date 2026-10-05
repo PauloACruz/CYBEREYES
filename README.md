@@ -1,6 +1,6 @@
 # Cybereyes
 
-Plataforma unificada de RMM e chamados: backend C# (.NET 10), frontend React, agente EYES em Go (`agent/`, ver ADR-020) e acesso remoto proprio pelo navegador, embutido no EYES e na API (ver ADR-022).
+Plataforma unificada de RMM e chamados: backend C# (.NET 10), frontend React, agente EYES em Go (`agent/`, ver ADR-020) e acesso remoto proprio pelo navegador, embutido no EYES e na API (ver ADR-023).
 
 Contexto, decisoes e padroes: [`.team-context.md`](.team-context.md). Plano por fases: [`docs/PLANO.md`](docs/PLANO.md).
 
@@ -47,4 +47,4 @@ cd frontend && npm run lint && npm run typecheck && npm test
 
 O Nginx distribui as requisicoes entre as instancias da API (`API_REPLICAS`, padrao 2). O Certbot emite e renova os certificados Let's Encrypt automaticamente (perfil `letsencrypt`); para usar certificado proprio, coloque `fullchain.pem` e `privkey.pem` em `infra/docker/certs/<host>/`. Backup e restauracao: [`docs/runbooks/backup-restauracao.md`](docs/runbooks/backup-restauracao.md).
 
-O acesso remoto e proprio do Cybereyes (o MeshCentral saiu na fase 12.8, ver ADR-022): o tecnico abre a tela da estacao numa janela do console (`/acesso-remoto/:agentId`), com area de transferencia automatica, transferencia de arquivos (painel, arrastar e soltar e aba "Arquivos"), terminal do EYES e Wake-on-LAN por um EYES vizinho. O relay passa pelo mesmo nome do console (`location /api/remote/` no Nginx), sem segundo dominio nem segundo login. Permissoes: `agents.remote` (tela e area de transferencia), `agents.files` (arquivos), `agents.control` (Wake-on-LAN) e `settings.manage` (politicas em Configuracoes > Acesso remoto). Detalhes: [`docs/remoto/contrato-remoto.md`](docs/remoto/contrato-remoto.md).
+O acesso remoto e proprio do Cybereyes (o MeshCentral saiu na fase 12.8, ver ADR-023): o tecnico abre a tela da estacao numa janela do console (`/acesso-remoto/:agentId`), com area de transferencia automatica, transferencia de arquivos (painel, arrastar e soltar e aba "Arquivos"), terminal do EYES e Wake-on-LAN por um EYES vizinho. O relay passa pelo mesmo nome do console (`location /api/remote/` no Nginx), sem segundo dominio nem segundo login. Permissoes: `agents.remote` (tela e area de transferencia), `agents.files` (arquivos), `agents.control` (Wake-on-LAN) e `settings.manage` (politicas em Configuracoes > Acesso remoto). Detalhes: [`docs/remoto/contrato-remoto.md`](docs/remoto/contrato-remoto.md).

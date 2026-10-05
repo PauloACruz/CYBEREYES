@@ -1,4 +1,4 @@
-# ADR-022: Acesso remoto proprio no lugar do MeshCentral
+# ADR-023: Acesso remoto proprio no lugar do MeshCentral
 
 - **Status**: Aprovado
 - **Data**: 2026-10-05

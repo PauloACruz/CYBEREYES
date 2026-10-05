@@ -127,7 +127,7 @@ Codigos de erro novos: `SSO_PROVIDER_ERROR`, `SSO_INVALID_STATE`, `SSO_INVALID_T
 
 ## 3. Entrada em producao
 - **Hardening** (ADR-018): cabecalhos de seguranca no Nginx (CSP, HSTS, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, `frame-ancestors`); conteineres sem root quando a imagem permite, `no-new-privileges`, `cap_drop: ALL` com as capacidades necessarias, limites de memoria; somente 80, 443 e a porta do NATS para agentes expostas; Redis com senha; verificacao de dependencias vulneraveis no CI (`dotnet list package --vulnerable`, `npm audit`).
-- **Backup e restauracao**: scripts `infra/docker/backup/backup.sh` e `restore.sh` (PostgreSQL com `pg_dump -Fc`, volumes do MeshCentral (substituido na fase 12.8, ver ADR-022): o backup nao inclui mais volumes do MeshCentral, cifragem opcional com `BACKUP_PASSPHRASE`, retencao `BACKUP_KEEP_DAYS`), servico agendado no compose e restauracao testada em projeto separado.
+- **Backup e restauracao**: scripts `infra/docker/backup/backup.sh` e `restore.sh` (PostgreSQL com `pg_dump -Fc`, volumes do MeshCentral (substituido na fase 12.8, ver ADR-023): o backup nao inclui mais volumes do MeshCentral, cifragem opcional com `BACKUP_PASSPHRASE`, retencao `BACKUP_KEEP_DAYS`), servico agendado no compose e restauracao testada em projeto separado.
 - **Runbooks** em `docs/runbooks/`: instalacao, atualizacao e reversao, backup e restauracao, incidentes comuns, rotacao de segredos e migracao das 400 estacoes.
 
 ## 4. Fora desta fase

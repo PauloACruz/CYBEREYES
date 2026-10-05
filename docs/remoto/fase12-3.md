@@ -1,6 +1,6 @@
 # Fase 12.3: tela completa no Windows
 
-Referencias: RFC-001, ADR-022, `docs/remoto/contrato-remoto.md` (secoes 5 e 8.3), `docs/remoto/roteiro-piloto.md`.
+Referencias: RFC-001, ADR-023, `docs/remoto/contrato-remoto.md` (secoes 5 e 8.3), `docs/remoto/roteiro-piloto.md`.
 
 ## O que foi entregue
 

@@ -1,6 +1,6 @@
 # Fase 12.4: area de transferencia automatica
 
-Referencias: RFC-001 (secao 4.6), ADR-022, `docs/remoto/contrato-remoto.md` (secao 6).
+Referencias: RFC-001 (secao 4.6), ADR-023, `docs/remoto/contrato-remoto.md` (secao 6).
 
 ## O que foi entregue
 

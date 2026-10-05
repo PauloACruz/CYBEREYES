@@ -1,6 +1,6 @@
 # Roteiro do piloto do acesso remoto proprio
 
-Referencias: RFC-001 (secoes 7, 9 e 11), ADR-022, `docs/remoto/contrato-remoto.md`.
+Referencias: RFC-001 (secoes 7, 9 e 11), ADR-023, `docs/remoto/contrato-remoto.md`.
 
 Este roteiro valida em maquinas reais o que o CI nao alcanca: Windows (prova S1), macOS (S6), navegadores reais e a rede do cliente. Cada item tem o resultado esperado; anote o que aconteceu, a versao do EYES e a data. Um item que falha volta para a fase correspondente antes do corte (fase 12.8).
 

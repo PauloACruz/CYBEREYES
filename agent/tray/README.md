@@ -1,6 +1,8 @@
 # eyes-tray
 
-App de bandeja do usuário final do EYES. Roda na sessão do usuário, abre chamados (com captura de tela), mostra a conversa com o técnico em tempo real e avisa por notificação do sistema.
+App de bandeja do usuário final do EYES. Roda na sessão do usuário, abre chamados vinculados à máquina (com captura de tela), mostra o andamento e a conversa com o técnico em tempo real e avisa por notificação do sistema.
+
+No Windows e no Linux o serviço do EYES baixa o app da API, mantém na versão do agente e o inicia em cada sessão gráfica (ADR-020 e ADR-022): instalar o agente basta. No macOS o app ainda não é distribuído pelo EYES.
 
 Feito em Go com Wails v3 (`github.com/wailsapp/wails/v3` fixo em `v3.0.0-beta.26`, ADR-008) e React + TypeScript (Vite). É um módulo Go separado (`github.com/pauloacruz/cybereyes/agent/tray`); o agente na raiz do repositório não depende dele.
 
@@ -30,12 +32,24 @@ sequenceDiagram
 * Notificações: mensagem de técnico com a janela fora de foco e mudança de status do chamado (título "EYES", texto com o número do chamado). Clicar na notificação abre o chamado.
 * Bandeja: "Abrir EYES", "Novo chamado" e "Sair". Clicar no ícone mostra a janela. Fechar a janela só esconde. Instância única: abrir de novo só traz a janela para a frente.
 * Captura de tela: com "Anexar captura da tela" marcado, a janela some, o app espera 400 ms, captura o monitor principal em PNG (`github.com/kbinani/screenshot`) e mostra a janela de novo. Acima de 10 MB a imagem é convertida para JPEG.
+* Andamento do chamado: linha com as etapas aberto, em atendimento (técnico ou "Aguardando um técnico") e resolvido ou encerrado, com destaque quando depende do usuário ("Aguardando sua resposta"). A lista separa "Em andamento" de "Encerrados".
+* Argumentos: `--hidden` inicia só na bandeja (o agente sempre usa); `--version` imprime a versão e sai antes de abrir a interface (o agente usa para validar o binário e, no Linux, conferir as bibliotecas). Abrir de novo sem `--hidden` (atalho do menu) mostra a janela; com `--hidden`, não.
+
+## Distribuição e início automático
+
+| Sistema | Como chega à estação | Quem inicia |
+|---|---|---|
+| Windows | O serviço baixa `eyes-tray.exe` (`/api/agent/download/windows/<arch>?component=tray`) para `%ProgramFiles%\Cybereyes\EYES` a cada versão nova do agente | O serviço, em cada sessão ativa, com o token do usuário (ADR-020) |
+| Linux | O serviço baixa `eyes-tray` (`/api/agent/download/linux/<arch>?component=tray`) para `/opt/cybereyes`, instala a WebKitGTK 4.1 se faltar (somente em estações) e cria o atalho "EYES" em `/usr/share/applications/eyes-tray.desktop` | O serviço, em cada sessão gráfica ativa do logind, como o usuário, por `systemd-run --user` (ADR-022) |
+| macOS | Não distribuído pelo EYES (Wails precisa do SDK da Apple) | LaunchAgent instalado à parte (`packaging/macos`) |
+
+No Linux o supervisor só age em máquinas com ambiente gráfico. A imagem da API compila o binário do Linux para a arquitetura de quem a constrói (amd64 no CI); para outras arquiteturas a rota responde 404 e o agente só registra no log.
 
 ## Estrutura
 
 | Caminho | Conteúdo |
 |---|---|
-| `main.go` | Janela, bandeja, instância única, notificações |
+| `main.go` | Janela, bandeja, instância única, notificações, `--version` |
 | `service.go` | `TrayService`, o serviço chamado pela interface |
 | `selfservice.go` | Métodos do autoatendimento e notificação ao fim da execução |
 | `capture.go`, `notifier.go` | Captura de tela e notificações do sistema |
@@ -44,6 +58,7 @@ sequenceDiagram
 | `internal/realtime` | Cliente SignalR (protocolo JSON sobre WebSocket) |
 | `frontend/` | Interface React + TypeScript (Vite) |
 | `build/` | Ícones (`appicon.png`, `tray.png`) |
+| `build-linux.sh` | Compila o binário do Linux no formato que a API distribui |
 | `packaging/` | Exemplos para iniciar com a sessão em cada sistema |
 
 ### Métodos expostos à interface
@@ -88,16 +103,18 @@ npm run build
 cd ..
 ```
 
-Linux (CGO):
+Linux (CGO), gera `eyes-tray-v<versão>-linux-<arch>` com a versão de `../VERSION`:
 
 ```bash
-go build -tags gtk3 -o eyes-tray .
+./build-linux.sh /tmp/dist
 ```
 
-Windows (sem CGO, pode ser compilado a partir do Linux):
+A imagem da API faz o mesmo no Debian 12 (glibc 2.36), para o binário rodar no Ubuntu 22.04 ou mais novo, Debian 12, Fedora, openSUSE e Arch. Compilado numa distribuição mais nova, o binário pode exigir uma glibc que as estações não têm.
+
+Windows (sem CGO, pode ser compilado a partir do Linux; `../build.sh` gera os três):
 
 ```bash
-GOOS=windows GOARCH=amd64 go build -ldflags "-H=windowsgui" -o eyes-tray.exe .
+GOOS=windows GOARCH=amd64 go build -ldflags "-H=windowsgui -X main.version=$(cat ../VERSION)" -o eyes-tray.exe .
 ```
 
 macOS (no próprio Mac, CGO):
@@ -123,6 +140,8 @@ npm test
 
 Testes Go: cliente IPC com agente falso em socket Unix temporário (Linux), renovação do token perto da expiração, parser do protocolo SignalR (handshake, separador 0x1E, ping, invocation, close), cliente SignalR contra um hub falso e renovação do token quando a API responde 401.
 
+No CI, o job `tray` do workflow do agente roda esses passos e compila os binários do Linux e do Windows (o do Linux é executado com `--version`).
+
 ### Desenvolvimento da interface sem o Go
 
 `npm run dev:mock` abre o Vite com um backend simulado (dados fictícios e uma resposta automática de técnico 3 s depois de abrir um chamado).
@@ -133,9 +152,9 @@ Testes Go: cliente IPC com agente falso em socket Unix temporário (Linux), reno
 |---|---|
 | `EYES_TRAY_INSECURE=1` | **Somente para testes.** Desliga a validação do certificado TLS da API e do WebSocket (por exemplo, servidor de laboratório com certificado autoassinado). O app registra um aviso no log. Nunca use em produção. |
 
-## Iniciar com a sessão do usuário
+## Iniciar com a sessão do usuário (instalação manual)
 
-O argumento `--hidden` inicia o app só na bandeja, sem abrir a janela.
+No Windows e no Linux o serviço do EYES já faz isso (seção "Distribuição e início automático"); não use os exemplos abaixo junto com ele. Eles servem para o macOS e para testes sem o agente. O argumento `--hidden` inicia o app só na bandeja, sem abrir a janela.
 
 * **Windows**: valor `EyesTray` na chave `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run`. Veja `packaging/windows/eyes-tray-run.reg` ou `packaging/windows/install-run-key.ps1` (executar como administrador).
 * **Linux**: copie `packaging/linux/eyes-tray.desktop` para `/etc/xdg/autostart/eyes-tray.desktop` e o binário para `/usr/bin/eyes-tray`. No GNOME, o ícone da bandeja precisa da extensão AppIndicator/KStatusNotifierItem.
@@ -143,7 +162,8 @@ O argumento `--hidden` inicia o app só na bandeja, sem abrir a janela.
 
 ## Limites conhecidos
 
-* Linux sem `StatusNotifierWatcher` (por exemplo, GNOME sem extensão de AppIndicator) não mostra o ícone da bandeja; a janela continua funcionando. Como fechar só esconde, nesse caso use `eyes-tray` de novo (instância única) para trazer a janela de volta.
+* Linux sem `StatusNotifierWatcher` (por exemplo, GNOME sem extensão de AppIndicator) não mostra o ícone da bandeja; a janela continua funcionando. Como fechar só esconde, nesse caso use o atalho "EYES" do menu de aplicativos (ou `eyes-tray` de novo, instância única) para trazer a janela de volta.
+* Linux: o binário distribuído exige glibc 2.34 ou mais nova e a WebKitGTK 4.1 (Ubuntu 20.04 e Debian 11 ficam de fora).
 * Sem barramento D-Bus de sessão ou sem servidor de notificações, o app funciona sem notificações (registra no log).
 * Captura de tela no Linux usa X11; em sessão Wayland pura ela falha e o chamado é aberto sem a captura, com aviso na tela.
 * O agente reaproveita o token em cache enquanto faltar mais de 1 hora para expirar; se o servidor invalidar o token antes disso, o 401 persiste até o agente renovar.

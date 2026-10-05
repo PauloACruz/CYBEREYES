@@ -11,7 +11,7 @@ Meta (ver `.team-context.md`): RPO < 24 h, RTO < 2 h.
 
 Com o projeto Compose padrao (`name: cybereyes`), o volume real do banco e `cybereyes_postgres_data`.
 
-Desde a fase 12.8 (ADR-022) o MeshCentral nao existe mais e os volumes `mesh_data`, `mesh_files` e `mesh_shared` sairam do backup. Conjuntos feitos antes disso ainda podem trazer `mesh_data.tar.gz` e `mesh_files.tar.gz`; esses arquivos nao sao mais usados. O destino dos volumes antigos na VPS esta em `atualizacao.md` ("Atualizacao que remove o MeshCentral").
+Desde a fase 12.8 (ADR-023) o MeshCentral nao existe mais e os volumes `mesh_data`, `mesh_files` e `mesh_shared` sairam do backup. Conjuntos feitos antes disso ainda podem trazer `mesh_data.tar.gz` e `mesh_files.tar.gz`; esses arquivos nao sao mais usados. O destino dos volumes antigos na VPS esta em `atualizacao.md` ("Atualizacao que remove o MeshCentral").
 
 Fora do backup, de proposito:
 - `redis_data`: o Redis so faz o backplane do SignalR; nada nele precisa sobreviver.

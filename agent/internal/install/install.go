@@ -23,6 +23,7 @@ import (
 	"github.com/pauloacruz/cybereyes/agent/internal/config"
 	"github.com/pauloacruz/cybereyes/agent/internal/mesh"
 	"github.com/pauloacruz/cybereyes/agent/internal/service"
+	"github.com/pauloacruz/cybereyes/agent/internal/tray"
 	"github.com/pauloacruz/cybereyes/agent/internal/version"
 )
 
@@ -267,6 +268,8 @@ func Uninstall(args []string) error {
 	if err := service.Uninstall(); err != nil {
 		fmt.Println("Aviso:", err)
 	}
+	// App de bandeja: encerra nas sessoes e apaga o atalho do menu (Linux).
+	tray.Remove()
 	if !*keepMesh {
 		if err := mesh.Uninstall(context.Background()); err != nil {
 			fmt.Println("Aviso:", err)

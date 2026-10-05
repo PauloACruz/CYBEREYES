@@ -42,7 +42,7 @@ const (
 var statusNames = map[string]string{
 	"new":          "Novo",
 	"in_progress":  "Em atendimento",
-	"waiting_user": "Aguardando usuário",
+	"waiting_user": "Aguardando sua resposta",
 	"resolved":     "Resolvido",
 	"closed":       "Fechado",
 }

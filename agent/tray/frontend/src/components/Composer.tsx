@@ -3,17 +3,21 @@ import { useState, type SyntheticEvent, type KeyboardEvent } from 'react';
 interface Props {
   enabled: boolean;
   onSend: (body: string) => Promise<void>;
+  /** Texto exibido no lugar do campo quando o chat esta bloqueado. */
+  lockedText?: string;
+  placeholder?: string;
 }
 
 export const CHAT_LOCKED_TEXT = 'O chat será liberado quando um técnico assumir o seu chamado.';
+export const CHAT_CLOSED_TEXT = 'Este chamado foi encerrado. Se precisar de ajuda de novo, abra um novo chamado.';
 
-export function Composer({ enabled, onSend }: Props) {
+export function Composer({ enabled, onSend, lockedText = CHAT_LOCKED_TEXT, placeholder = 'Escreva sua mensagem' }: Props) {
   const [body, setBody] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
 
   if (!enabled) {
-    return <p className="chat-locked">{CHAT_LOCKED_TEXT}</p>;
+    return <p className="chat-locked">{lockedText}</p>;
   }
 
   async function send(e?: SyntheticEvent) {
@@ -49,7 +53,7 @@ export function Composer({ enabled, onSend }: Props) {
           rows={2}
           value={body}
           maxLength={20000}
-          placeholder="Escreva sua mensagem"
+          placeholder={placeholder}
           onChange={(e) => { setBody(e.target.value); }}
           onKeyDown={onKey}
           disabled={sending}

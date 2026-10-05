@@ -6,7 +6,6 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -14,9 +13,7 @@ import (
 
 	"golang.org/x/sys/windows"
 
-	"github.com/pauloacruz/cybereyes/agent/internal/config"
 	"github.com/pauloacruz/cybereyes/agent/internal/env"
-	"github.com/pauloacruz/cybereyes/agent/internal/version"
 )
 
 const trayExe = "eyes-tray.exe"
@@ -35,7 +32,7 @@ func startSupervisor(e *env.Env) {
 			return
 		case <-time.After(20 * time.Second):
 		}
-		s.ensureBinary(ctx)
+		ensureBinary(ctx, e)
 		lastCheck := time.Now()
 		ticker := time.NewTicker(15 * time.Second)
 		defer ticker.Stop()
@@ -47,7 +44,7 @@ func startSupervisor(e *env.Env) {
 			case <-ticker.C:
 			}
 			if time.Since(lastCheck) > 6*time.Hour {
-				s.ensureBinary(ctx)
+				ensureBinary(ctx, e)
 				lastCheck = time.Now()
 			}
 		}
@@ -59,49 +56,21 @@ type supervisor struct {
 	launches map[uint32][]time.Time
 }
 
-func trayPath() string { return filepath.Join(config.InstallDir(), trayExe) }
-
-func versionFile() string { return filepath.Join(config.InstallDir(), "eyes-tray.version") }
-
-// ensureBinary baixa o eyes-tray da API quando falta ou e de outra versao do EYES.
-func (s *supervisor) ensureBinary(ctx context.Context) {
-	if data, err := os.ReadFile(versionFile()); err == nil && strings.TrimSpace(string(data)) == version.Version {
-		if _, err := os.Stat(trayPath()); err == nil {
-			return
-		}
-	}
-	tmp := trayPath() + ".download"
-	f, err := os.OpenFile(tmp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o755)
-	if err != nil {
-		s.e.Log.Warn("app de bandeja: falha ao criar o arquivo", "erro", err)
-		return
-	}
-	dctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
-	defer cancel()
-	n, err := s.e.API.Download(dctx, "GET", "/api/agent/download/windows/"+runtime.GOARCH+"?component=tray", nil, f)
-	f.Close()
-	if err != nil || n < 1<<20 {
-		os.Remove(tmp)
-		s.e.Log.Info("app de bandeja indisponivel no servidor", "erro", err)
-		return
-	}
-	// O executavel antigo pode estar em uso: renomeia antes de trocar e encerra as instancias antigas.
+// swapBinary troca o executavel: o antigo pode estar em uso, entao e renomeado antes e as
+// instancias dele sao encerradas (o supervisor inicia a versao nova na proxima volta).
+func swapBinary(tmp string) error {
 	old := trayPath() + ".old"
 	_ = os.Remove(old)
 	if _, err := os.Stat(trayPath()); err == nil {
 		if err := os.Rename(trayPath(), old); err != nil {
-			os.Remove(tmp)
-			s.e.Log.Warn("app de bandeja: falha ao substituir", "erro", err)
-			return
+			return err
 		}
 	}
 	if err := os.Rename(tmp, trayPath()); err != nil {
-		s.e.Log.Warn("app de bandeja: falha ao instalar", "erro", err)
-		return
+		return err
 	}
-	_ = os.WriteFile(versionFile(), []byte(version.Version), 0o644)
 	killAll(old)
-	s.e.Log.Info("app de bandeja atualizado", "versao", version.Version)
+	return nil
 }
 
 // tick inicia o app nas sessoes ativas que ainda nao o tem.
