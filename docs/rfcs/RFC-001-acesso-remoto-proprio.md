@@ -1,10 +1,12 @@
 # RFC-001: Acesso remoto proprio (substituir o MeshCentral)
 
-## Status: Proposto
+## Status: Aprovado
+
+- **Aprovacao**: 2026-10-05, com as decisoes da secao 13 (registradas no ADR-022).
 
 - **Data**: 2026-10-05
 - **Pedido**: refatorar o MeshCentral e trazer o acesso remoto para dentro deste repositorio, como foi feito com o agente do Tactical (ADR-020), para melhorar o codigo e deixar a integracao completa. Requisitos acrescentados no pedido: **area de transferencia automatica** e **transferencia de arquivos facilitada**.
-- **Ao aprovar**: registrar o ADR-022 (acesso remoto proprio), que substitui o ADR-013 e a parte do ADR-004 que mantem o MeshCentral. O requisito do ADR-004 continua: acesso remoto pelo navegador, sem instalar nada no computador do tecnico.
+- **Decisao registrada**: ADR-022 (acesso remoto proprio), que substitui o ADR-013 e a parte do ADR-004 que mantem o MeshCentral. O requisito do ADR-004 continua: acesso remoto pelo navegador, sem instalar nada no computador do tecnico.
 - **Relacionados**: ADR-004, ADR-013, ADR-018, ADR-019, ADR-020, `docs/api/fase4-mesh.md`, `docs/agente/contrato-eyes.md`, `docs/runbooks/migracao-400-estacoes.md`.
 - **Caminhos curtos** (mesma convencao do contrato do EYES): `Api/` = `backend/src/Cybereyes.Api/`, `Core/` = `backend/src/Cybereyes.Core/`, `Tests/` = `backend/tests/Cybereyes.Api.Tests/`, `front/` = `frontend/src/`. Referencias ao MeshCentral apontam para o pacote npm `meshcentral@1.2.5` (a versao em uso); ao MeshAgent, para o repositorio `Ylianst/MeshAgent` no commit `709f373` (2026-09-23).
 
@@ -13,8 +15,8 @@
 - **Recomendacao**: nao fazer fork do MeshCentral. Construir o acesso remoto como modulo proprio, dividido entre as tres pecas que ja sao nossas: o EYES (captura de tela, entrada, area de transferencia e arquivos), a API C# (sessoes, relay, politicas e auditoria) e o console React (visualizador). E o mesmo caminho do ADR-020: especificacao primeiro, codigo proprio no monorepo e so dependencias permissivas.
 - **Por que nao fork**: o MeshCentral 1.2.5 tem 60.995 linhas de JavaScript nos modulos do servidor e mais 46.249 nas duas telas principais; o MeshAgent tem cerca de 202 mil linhas de C (metade delas o motor JavaScript Duktape), alem de OpenSSL e libjpeg-turbo embutidos. Seriam duas linguagens e cadeias de compilacao a mais, e continuariam existindo dois agentes em cada maquina.
 - **O que muda para quem usa**: um agente so (EYES), um endereco so (`CYBEREYES_HOST`), sem segundo login e sem segunda base de usuarios. O acesso remoto abre dentro do console, com as mesmas permissoes e a mesma auditoria. A area de transferencia sincroniza sozinha e os arquivos vao para a maquina remota arrastando para cima da tela.
-- **Como chegar la sem risco**: provas tecnicas com criterio de seguir ou parar, convivencia com o MeshCentral atras de uma chave de configuracao, piloto, e so depois a remocao do MeshCentral e do MeshAgent (o EYES remove o MeshAgent sozinho).
-- **Antes de tudo (Etapa 0)**: corrigir tres pontos de seguranca da integracao atual, porque o MeshCentral segue em producao ate o corte: token de login reutilizavel por 60 minutos, `allowFraming` ligado sem necessidade e token gravado no log do Nginx.
+- **Como chegar la (servidor limpo, D-08)**: provas tecnicas com criterio de seguir ou parar, piloto em homologacao e remocao do MeshCentral do repositorio e da VPS antes da migracao das 400 estacoes. Nenhuma estacao recebe o MeshAgent e nao ha periodo de convivencia em producao.
+- **Enquanto o MeshCentral existir no servidor (Etapa 0)**: o servidor deixa de oferecer o MeshAgent. As tres falhas de seguranca da integracao atual (token de login reutilizavel por 60 minutos, `allowFraming` ligado sem necessidade e token gravado no log do Nginx) so precisam de correcao se alguma maquina for usar o MeshCentral antes da remocao.
 
 ---
 
@@ -104,7 +106,7 @@ flowchart LR
 | RF-02 Area de transferencia automatica | Texto nos dois sentidos, sem clique, ligada por padrao (salvo politica). Imagem na segunda etapa. Arquivos pelo RF-03 |
 | RF-03 Transferencia de arquivos facilitada | Arrastar arquivos e pastas para cima da tela envia para a Area de Trabalho do usuario conectado (ou para a pasta escolhida); painel de arquivos ao lado da tela; download de arquivos e pastas (pasta vira zip); arquivos copiados na maquina remota aparecem como "Baixar"; arquivos colados no visualizador ficam prontos para Ctrl+V no Explorer remoto (Windows); progresso, cancelamento e retomada |
 | RF-04 Arquivos sem abrir a tela | Aba "Arquivos" na pagina do agente (substitui o `viewmode=13`) |
-| RF-05 Consentimento e aviso | Politica por cliente ou site: sem aviso, avisar ou perguntar ao usuario; aviso visivel durante a sessao, com botao para o usuario encerrar |
+| RF-05 Consentimento e aviso | Padrao: sem aviso (D-04). Em Configuracoes, por cliente ou site, da para ligar "avisar" (aviso visivel durante a sessao, com botao para o usuario encerrar) ou "perguntar" |
 | RF-06 Auditoria | Inicio, fim, duracao, tecnico, maquina, recursos usados e bytes de cada sessao; nome, tamanho, SHA-256 e sentido de cada arquivo; da area de transferencia, so contagem e tamanho, nunca o conteudo |
 | RF-07 Wake-on-LAN | Sem MeshCentral: o EYES de outra maquina online no mesmo site envia o pacote magico |
 | RF-08 Pontos de entrada | Pagina do agente, barra lateral do chamado e ficha do ativo, os mesmos lugares onde o `RemoteAccessMenu` aparece hoje (`front/features/agents/AgentDetailPage.tsx`, `front/features/tickets/TicketSidebar.tsx`, `front/features/inventory/AssetSheetPage.tsx`) |
@@ -141,7 +143,7 @@ flowchart LR
 | Esforco | baixo | muito alto, e continuo | alto, concentrado em captura e entrada por sistema |
 | Risco principal | integracao continua parcial | divida tecnica grande em linguagens fora do time | captura e entrada no Windows, Linux Wayland e macOS |
 
-**Decisao proposta**: C, com a Etapa 0 (parte da alternativa A) feita ja, porque o MeshCentral segue em producao ate o corte.
+**Decisao (D-01)**: C.
 
 ---
 
@@ -312,9 +314,9 @@ sequenceDiagram
 
 | Modo (politica por cliente ou site) | Comportamento | Uso sugerido |
 |---|---|---|
-| Sem aviso | conecta direto | servidores e maquinas sem usuario |
-| Avisar (padrao proposto para estacoes) | conecta e mostra "Fulano esta acessando este computador" com botao Encerrar | estacoes |
-| Perguntar | o usuario aceita ou recusa; sem resposta em 60 s, recusa | clientes que exigirem |
+| Sem aviso (padrao, D-04) | conecta direto | padrao de todas as maquinas |
+| Avisar (ligado em Configuracoes) | conecta e mostra "Fulano esta acessando este computador" com botao Encerrar | clientes ou sites que pedirem |
+| Perguntar (ligado em Configuracoes) | o usuario aceita ou recusa; sem resposta em 60 s, recusa | clientes que exigirem |
 
 - Sem usuario logado, a politica decide se o tecnico pode conectar na tela de login.
 - O aviso e o pedido usam o app de bandeja (`eyes-tray`). Hoje o canal local so tem pedidos do app para o agente, uma linha JSON por conexao (`agent/internal/tray/tray.go:1-8`). Ele passa a ter tambem uma conexao de eventos do agente para o app. O agente identifica o usuario pelo processo do outro lado do canal, como ja faz para emitir o token do app, e so aceita a resposta vinda da sessao que esta sendo acessada.
@@ -371,7 +373,7 @@ Relay (WebSocket binario; formato exato e versoes no contrato):
 - `desktop`, da tela para o agente: `auth` (primeira mensagem), `settings` (qualidade, escala, quadros, monitor), `key`, `text`, `mouse`, `wheel`, `refresh`, `clipboard`, `cad`, `ack` (controle de fluxo e medida de atraso).
 - `files`: `list`, `stat`, `mkdir`, `rename`, `delete`, `upload-begin`, `chunk`, `upload-end`, `download-begin`, `download-end`, `progress`, `cancel`, `error`.
 
-Configuracao entregue ao agente pelo `config` (`/api/v3/{agent_id}/config/`), que o EYES ja busca na partida e a cada hora (`agent/internal/inventory/inventory.go:214-229`): se instala ou remove o MeshAgent durante a transicao (secao 9).
+Com o servidor limpo (D-08), nao ha convivencia: o EYES nao precisa de chave para instalar ou remover o MeshAgent. A rotina de instalacao do MeshAgent sai do EYES na fase 12.8.
 
 ### 4.12 Modelo de dados
 
@@ -381,7 +383,7 @@ Configuracao entregue ao agente pelo `config` (`/api/v3/{agent_id}/config/`), qu
 | `remote_transfers` | `id` (uuid), `session_id`, `agent_id`, `user_id`, `direction`, `remote_path`, `size_bytes`, `sha256`, `started_at`, `finished_at`, `status`, `error` | (`session_id`), (`agent_id`, `started_at` desc) |
 | `remote_policies` | escopo (global, cliente ou site), `consent_mode`, `clipboard_to_remote`, `clipboard_to_local`, `files_upload`, `files_download`, `max_file_mb`, `idle_minutes`, `max_hours`, `allow_at_login_screen` | escopo unico |
 
-- Migrations so aditivas ate o corte. A coluna `MeshNodeId` da tabela `agents` sai so na fase 12.8.
+- Migrations so aditivas ate a fase 12.8. A coluna `MeshNodeId` da tabela `agents` sai so na fase 12.8.
 
 ### 4.13 Seguranca (modelo de ameacas resumido)
 
@@ -398,7 +400,7 @@ Configuracao entregue ao agente pelo `config` (`/api/v3/{agent_id}/config/`), qu
 | Elevacao de privilegio | abusar do processo auxiliar que roda como SYSTEM na sessao do usuario | o auxiliar nao abre porta local, fala so com o servico por canal herdado e com o relay autenticado; o usuario local nao consegue comanda-lo; decodificadores com testes de fuzz |
 
 - **Pipeline**: o DoD pede `golangci-lint`, mas o workflow do agente roda so `gofmt` e `go vet` (`.github/workflows/agent.yml`). Incluir o `golangci-lint` com o `gosec` e testes de fuzz do Go nos decodificadores de mensagens.
-- **Assinatura de codigo**: captura de tela e injecao de entrada sao comportamentos que antivirus e EDR observam, e os binarios do EYES ainda nao sao assinados (ADR-020). Recomendacao: assinar o EYES no Windows antes do piloto (D-07).
+- **Assinatura de codigo**: captura de tela e injecao de entrada sao comportamentos que antivirus e EDR observam, e os binarios do EYES ainda nao sao assinados (ADR-020). Decisao D-07: comecar sem assinatura; o piloto mede alertas de antivirus e EDR, e a assinatura volta a ser avaliada se eles aparecerem.
 
 ---
 
@@ -412,7 +414,7 @@ Configuracao entregue ao agente pelo `config` (`/api/v3/{agent_id}/config/`), qu
 
 **Perdemos ou assumimos**
 - Maturidade: o KVM do MeshAgent tem anos de casos especiais (placas de video, Wayland, DRM, telas giradas). Os nossos aparecem no piloto.
-- Linux com Wayland pode ficar sem acesso remoto na v1 (hoje o MeshAgent tem codigo para isso). Mitigacao: manter o MeshCentral como alternativa para essas maquinas ate a decisao D-06.
+- Linux com Wayland pode ficar sem acesso remoto na v1 (hoje o MeshAgent tem codigo para isso). Com o servidor limpo (D-08), essas maquinas ficam sem tela remota ate a decisao D-06.
 - O macOS depende de assinatura de codigo e de permissoes concedidas pelo usuario ou por MDM, como ja acontece com o MeshAgent.
 - JPEG em Go puro gasta mais CPU que o libjpeg-turbo do MeshAgent; a prova S2 mede.
 - O trafego de tela passa a atravessar as replicas da API, que passam a precisar de roteamento por sessao no Nginx.
@@ -423,7 +425,7 @@ Configuracao entregue ao agente pelo `config` (`/api/v3/{agent_id}/config/`), qu
 
 | Area | Impacto |
 |---|---|
-| Agente (EYES) | novos pacotes `remote` e `files`, subcomando `remote-helper`, eventos no canal local da bandeja, MAC no inventario Linux e macOS, remocao do MeshAgent no corte; a versao nova chega pela atualizacao automatica (`agentupdate`) |
+| Agente (EYES) | novos pacotes `remote` e `files`, subcomando `remote-helper`, eventos no canal local da bandeja, MAC no inventario Linux e macOS, rotina de instalacao do MeshAgent removida; a versao nova chega pela atualizacao automatica (`agentupdate`) |
 | App de bandeja | aviso, pedido de consentimento e botao de encerrar |
 | API | modulo `Rmm/Remote` (sessoes, relay, arquivos, politicas, auditoria); `Rmm/Mesh` sai no fim |
 | Console | visualizador, painel e aba de arquivos, politicas em Configuracoes; `RemoteAccessMenu`, `MeshSection`, `api/mesh.ts` e o item "Recuperar MeshAgent" saem ou mudam |
@@ -441,16 +443,16 @@ Tamanho relativo: **P** (pequeno), **M** (medio) e **G** (grande), comparados en
 
 | Fase | Entregas | Criterio de aceite | Tamanho | Depende de |
 |---|---|---|---|---|
-| **Etapa 0**: correcoes na integracao atual | (1) token de login com `once` aleatorio e `expire` de 1 a 2 minutos (`Api/Rmm/Mesh/MeshCentral.cs:112-113`), recurso que o MeshCentral ja trata (`meshcentral.js:3895`); (2) retirar `allowFraming` do `entrypoint.sh`; (3) log do Nginx sem a query string no servidor do `MESH_HOST`; (4) healthcheck do conteiner e tag da imagem com a revisao do entrypoint | link de acesso remoto funciona uma unica vez e vence no prazo (teste unitario do payload e teste manual); MeshCentral responde com `X-Frame-Options: sameorigin`; o token nao aparece em `docker compose logs nginx` | P | nenhuma |
+| **Etapa 0**: servidor sem oferecer o MeshAgent | o servidor deixa de oferecer o MeshAgent nas instalacoes (os comandos saem com `--nomesh`), para nenhuma estacao instalar o MeshAgent antes da remocao. As correcoes de seguranca da integracao atual (token de login com `once` e `expire` curto, sem `allowFraming`, log do Nginx sem a query string) so entram se alguma maquina for usar o MeshCentral antes da remocao | instalacao nova de teste registra o EYES sem MeshAgent | P | nenhuma |
 | **12.0** Especificacao e decisoes | `docs/remoto/contrato-remoto.md` (fio, limites, erros, versoes e checklist de conformidade); respostas as decisoes D-01 a D-09; distribuicao de sistemas operacionais das 400 estacoes; texto do aviso e retencao (LGPD); ADR-022 | contrato revisado e ADR aprovado | P | aprovacao desta RFC |
 | **12.1** Provas tecnicas | S1 a S6 (secao 7.1), com relatorio e medidas | cada prova com resultado "segue" ou "para"; se S1 ou S3 pararem, esta RFC volta para discussao | M | 12.0 |
-| **12.2** Fundacao ponta a ponta | API: sessoes, tokens, relay, emparelhamento, limites, auditoria, `remote_sessions`, chave `Remote__Provider`. Nginx: rota do relay. EYES: `remote_start` e `remote_stop`, gerente de sessoes, auxiliar minimo. Console: janela `/remote/:agentId`, canvas e reconexao. CI: Playwright montado e E2E com o EYES real sob Xvfb | primeiro quadro e clique funcionando no CI (Xvfb) e numa maquina Windows de teste; inicio e fim da sessao na auditoria | M | 12.1 (S1 e S3) |
-| **12.3** Tela completa no Windows | qualidade adaptativa, cursor, varios monitores, escala de DPI, teclado (layouts, Unicode, Keyboard Lock), Ctrl+Alt+Del, UAC e tela bloqueada, somente visualizacao; aviso e consentimento no `eyes-tray`; botoes do console (agente, chamado e ativo) usando o novo visualizador quando a chave permitir; historico de sessoes no agente e no chamado | checklist de tela aprovado em Windows 10 e 11 reais: 1 e 2 monitores, escala de 100% e 150%, UAC, tela bloqueada, troca rapida de usuario, maquina virtual | G | 12.2 |
+| **12.2** Fundacao ponta a ponta | API: sessoes, tokens, relay, emparelhamento, limites, auditoria e `remote_sessions`. Nginx: rota do relay. EYES: `remote_start` e `remote_stop`, gerente de sessoes, auxiliar minimo. Console: janela `/remote/:agentId`, canvas e reconexao. CI: Playwright montado e E2E com o EYES real sob Xvfb | primeiro quadro e clique funcionando no CI (Xvfb) e numa maquina Windows de teste; inicio e fim da sessao na auditoria | M | 12.1 (S1 e S3) |
+| **12.3** Tela completa no Windows | qualidade adaptativa, cursor, varios monitores, escala de DPI, teclado (layouts, Unicode, Keyboard Lock), Ctrl+Alt+Del, UAC e tela bloqueada, somente visualizacao; aviso e consentimento no `eyes-tray`; botoes do console (agente, chamado e ativo) usando o novo visualizador; historico de sessoes no agente e no chamado | checklist de tela aprovado em Windows 10 e 11 reais: 1 e 2 monitores, escala de 100% e 150%, UAC, tela bloqueada, troca rapida de usuario, maquina virtual | G | 12.2 |
 | **12.4** Area de transferencia automatica | texto nos dois sentidos por eventos; Ctrl+V interceptado; sem eco; politica aplicada no agente; auditoria por contagem; depois, imagem PNG | copiar no Windows remoto e colar no computador do tecnico em ate 1 s, sem clique (Chrome e Edge); Ctrl+V dentro da tela cola o texto local (Chrome, Edge e Firefox); politica desligada bloqueia os dois sentidos | M | 12.2 |
 | **12.5** Transferencia de arquivos facilitada | arrastar e soltar na tela; painel de arquivos e aba "Arquivos"; pasta baixada como zip; copiar e colar arquivos entre as pontas (Windows); blocos, retomada, SHA-256, limites, `remote_transfers` e permissao `agents.files` | 10 arquivos soltos de uma vez chegam a Area de Trabalho do usuario; arquivo no limite definido em D-05 enviado e baixado com hash conferido; queda de rede no meio retoma sem recomecar; arquivo copiado no Explorer remoto vira "Baixar" no visualizador | G | 12.2 |
 | **12.6** Linux e macOS | Linux X11 com tela, area de transferencia e arquivos; Wayland e macOS conforme D-06 e D-07; aviso nesses sistemas | checklist por sistema aprovado em maquinas reais | G | 12.3, D-06 e D-07 |
-| **12.7** O resto do MeshCentral | Wake-on-LAN pelo EYES e MAC no Linux e no macOS; menu de terminal apontando para o terminal do EYES; politicas em Configuracoes; relatorio de sessoes remotas | WoL acorda uma maquina desligada a partir de outra do mesmo site; nenhuma tela do console depende do MeshCentral com `Remote__Provider=eyes` | P | 12.2 |
-| **12.8** Piloto, corte e remocao | piloto com `Remote__Provider=auto`; corte com `Remote__InstallMeshAgent=false` e `Remote__RemoveMeshAgent=true`; 30 dias de observacao; remocao do MeshCentral do repositorio (secao 14); ADR-004 e ADR-013 marcados como substituidos | zero MeshAgent na frota; `docker compose` sem `meshcentral`; CI verde; runbooks atualizados | M | todas as anteriores |
+| **12.7** O resto do MeshCentral | Wake-on-LAN pelo EYES e MAC no Linux e no macOS; menu de terminal apontando para o terminal do EYES; politicas em Configuracoes; relatorio de sessoes remotas | WoL acorda uma maquina desligada a partir de outra do mesmo site; nenhuma tela do console depende do MeshCentral | P | 12.2 |
+| **12.8** Piloto e remocao | piloto em homologacao com estacoes reais; remocao do MeshCentral do repositorio e da VPS (secao 14); ADR-004 e ADR-013 marcados como substituidos; so entao a migracao das 400 estacoes comeca | checklists de paridade aprovados; `docker compose` sem `meshcentral`; CI verde; runbooks atualizados | M | todas as anteriores |
 
 ### 7.1 Provas tecnicas (fase 12.1)
 
@@ -475,38 +477,27 @@ Tamanho relativo: **P** (pequeno), **M** (medio) e **G** (grande), comparados en
 | Ponta a ponta no CI | EYES real sob Xvfb + API + console com Playwright: primeiro quadro, clique, digitacao, area de transferencia nos dois sentidos, envio e download com hash | job novo; o DoD preve Playwright, mas o console hoje so tem `vitest` |
 | Fumaca | o auxiliar sobe e responde nos runners Windows, macOS e Linux | `agent/smoke` (workflow `agent.yml`) |
 | Manual em maquinas reais | checklists por sistema: UAC, tela bloqueada, monitores, escala, layouts de teclado, maquinas virtuais | piloto |
-| Carga | sessoes simultaneas e vazao do relay por replica | prova S3 e antes do corte |
+| Carga | sessoes simultaneas e vazao do relay por replica | prova S3 e antes da migracao das 400 estacoes |
 | Seguranca | token reutilizado ou vencido, sessao de outro agente, permissao retirada no meio, consentimento recusado, caminho com `..`, arquivo acima do limite, politica desligada | `Tests/` e `agent/internal/remote` |
 
 ---
 
-## 9. Migracao e corte
+## 9. Migracao e corte (servidor limpo, D-08)
 
-Chaves na configuracao da API (como as `Agent__*`); a politica por site pode antecipar o acesso novo nos sites do piloto.
+1. **Agora (Etapa 0)**: o servidor para de oferecer o MeshAgent. Nenhuma estacao instala o MeshAgent daqui em diante.
+2. **Fases 12.0 a 12.7**: tudo desenvolvido e testado em homologacao, com o EYES real e estacoes de teste.
+3. **Fase 12.8**: piloto em homologacao; checklists de paridade aprovados; o MeshCentral sai do repositorio e da VPS (secao 14).
+4. **Depois**: a migracao das 400 estacoes (`docs/runbooks/migracao-400-estacoes.md`) roda num servidor ja sem MeshCentral. O runbook passa a citar o acesso remoto novo nos criterios de cada onda.
 
-| Chave | Valores | Efeito |
-|---|---|---|
-| `Remote__Provider` | `mesh` (padrao ate o piloto), `auto`, `eyes` | qual acesso remoto o console usa; `auto` usa o novo nos agentes que anunciam o recurso e o MeshCentral nos demais |
-| `Remote__InstallMeshAgent` | `true` (padrao ate o corte) ou `false` | o EYES instala ou nao o MeshAgent |
-| `Remote__RemoveMeshAgent` | `false` (padrao) ou `true` | o EYES remove o MeshAgent do Cybereyes, so quando o `.msh` aponta para o nosso servidor e grupo (a mesma regra que hoje decide substituir um MeshAgent de outro servidor) |
-
-Sequencia:
-1. Fases 12.2 a 12.7 com `mesh` em producao; o acesso novo e testado em homologacao e nos sites do piloto.
-2. Piloto com `auto`; o MeshCentral continua disponivel no menu como alternativa.
-3. Checklist de paridade aprovado: `Remote__InstallMeshAgent=false`, `Remote__RemoveMeshAgent=true` e `Remote__Provider=eyes`.
-4. 30 dias de observacao com o MeshCentral ainda no ar (sem MeshAgents conectados).
-5. Remocao do MeshCentral do repositorio e da VPS (secao 14).
-
-**Relacao com a migracao das 400 estacoes** (`docs/runbooks/migracao-400-estacoes.md`, ainda nao executada): recomendo nao esperar por esta RFC. As ondas seguem com o MeshAgent e, no corte, o proprio EYES remove o MeshAgent pela atualizacao automatica, sem visita as maquinas. Esperar so faria sentido se o acesso novo ficasse pronto antes da primeira onda (D-08).
+Consequencia aceita: ate o fim da fase 12.8, as estacoes que entrarem no Cybereyes ficam sem acesso remoto pela tela (o terminal do EYES continua disponivel). Por isso a migracao das 400 estacoes espera o acesso novo.
 
 ---
 
 ## 10. Plano de rollback
 
-- **Antes do corte**: `Remote__Provider=mesh` devolve tudo ao MeshCentral na hora; os MeshAgents continuam instalados.
-- **Depois do corte, nos 30 dias de observacao**: `Remote__InstallMeshAgent=true` faz o EYES reinstalar o MeshAgent pela rotina que ja existe (no maximo a cada 30 minutos) e `Remote__Provider=mesh` volta o console.
-- **Depois da remocao do repositorio**: reverter os commits da remocao e restaurar o `mesh_data` do ultimo backup guardado para isso. Por isso esse backup fica guardado fora da retencao normal por um prazo combinado (D-09).
-- **Banco**: migrations aditivas ate o fim; a coluna `MeshNodeId` sai so no ultimo passo.
+- **Ate a fase 12.8**: nada muda em producao alem da Etapa 0, que se desfaz voltando a oferecer o MeshAgent.
+- **Depois da remocao do MeshCentral**: reverter os commits da remocao e subir de novo o servico `meshcentral` com um `mesh_data` novo; nao ha dados a preservar, porque nenhuma estacao de producao usou o MeshAgent.
+- **Banco**: a coluna `MeshNodeId` sai na fase 12.8, numa migration reversivel.
 
 ---
 
@@ -514,7 +505,7 @@ Sequencia:
 
 | Metrica | Como medir | Meta |
 |---|---|---|
-| MeshAgent na frota | agentes com `MeshNodeId` preenchido | 0 depois do corte |
+| MeshAgent na frota | agentes com `MeshNodeId` preenchido | 0 (nenhum instalado) |
 | Infra | `docker compose ps` e DNS | 1 conteiner e 1 dominio a menos |
 | Sucesso de abertura | sessoes com primeiro quadro dividido pelas sessoes pedidas, sem contar recusa do usuario | 98% ou mais (proposta) |
 | Tempo ate o primeiro quadro | `first_frame_at` menos `started_at` | P95 ate 3 s (proposta) |
@@ -529,33 +520,33 @@ Sequencia:
 
 | ID | Risco | Probabilidade | Impacto | Mitigacao |
 |---|---|---|---|---|
-| R-01 | Captura e entrada no Windows em Go puro nao chegarem ao nivel do MeshAgent (UAC, tela bloqueada, troca de sessao) | Media | Alto | prova S1 com criterio de parar; MeshCentral continua ate a paridade |
+| R-01 | Captura e entrada no Windows em Go puro nao chegarem ao nivel do MeshAgent (UAC, tela bloqueada, troca de sessao) | Media | Alto | prova S1 com criterio de parar antes de remover o MeshCentral |
 | R-02 | JPEG em Go puro caro demais em CPU | Media | Medio | diferenca de blocos, escala e quadros adaptativos; prova S2; codificacao por hardware depois |
-| R-03 | Linux com Wayland sem suporte na v1 | Alta | Medio | X11 primeiro; MeshCentral como alternativa nessas maquinas ate D-06 |
+| R-03 | Linux com Wayland sem suporte na v1 | Alta | Medio | X11 primeiro; decisao D-06 apos a prova S5 |
 | R-04 | macOS: assinatura e permissoes de Gravacao de Tela e Acessibilidade | Alta | Medio | prova S6; decisao D-07; perfil de MDM onde houver |
 | R-05 | Restricoes de area de transferencia variando por navegador | Alta | Medio | Ctrl+V interceptado; Chrome e Edge como alvo principal; prova S4 |
 | R-06 | Emparelhamento do relay com 2 replicas | Baixa | Alto | prova S3; alternativa de encaminhamento interno entre replicas |
-| R-07 | Antivirus ou EDR bloqueando captura e injecao de entrada de um binario sem assinatura | Media | Alto | assinatura de codigo no Windows antes do piloto (D-07); orientacao de liberacao no EDR |
+| R-07 | Antivirus ou EDR bloqueando captura e injecao de entrada de um binario sem assinatura | Media | Alto | risco aceito em D-07: o piloto mede os alertas; orientacao de liberacao no EDR; assinatura reavaliada se houver bloqueio |
 | R-08 | Escopo crescendo (gravacao, chat, varios tecnicos, audio) | Media | Medio | secao 2.4 fora da v1; entra no backlog por decisao |
 | R-09 | Privacidade e LGPD (tela, area de transferencia e arquivos) | Media | Alto | consentimento, aviso, auditoria sem conteudo, retencao definida (D-04) |
-| R-10 | Concorrencia com a migracao das 400 estacoes | Media | Medio | chaves de configuracao e remocao automatica do MeshAgent (secao 9) |
+| R-10 | Migracao das 400 estacoes atrasada pelo acesso novo | Alta | Medio | decisao D-08 (servidor limpo); o terminal do EYES cobre o suporte basico ate la (secao 9) |
 | R-11 | Processo auxiliar como SYSTEM virar porta de entrada | Baixa | Critico | secao 4.13: sem porta local, canal herdado, fuzz e revisao de seguranca antes do piloto |
 
 ---
 
-## 13. Decisoes pendentes
+## 13. Decisoes
 
-| ID | Decisao | Recomendacao |
+| ID | Decisao | Resultado |
 |---|---|---|
-| D-01 | Abordagem: modulo proprio (C), fork (B) ou manter o MeshCentral (A) | C, com a Etapa 0 ja |
-| D-02 | Ordem dos sistemas | Windows, depois Linux X11, depois macOS; confirmar com a distribuicao real das 400 estacoes |
-| D-03 | Visualizador so no navegador (ADR-004) ou tambem um app nativo para o tecnico (Wails, como o `eyes-tray`), que permitiria copiar e colar arquivos exatamente como no RDP | navegador agora; app nativo como fase futura opcional, se o download do item 4.7.3 nao bastar |
-| D-04 | Consentimento padrao, texto do aviso e retencao da auditoria | estacoes: "avisar"; servidores: "sem aviso"; "perguntar" por cliente ou site; validar com o juridico |
-| D-05 | Destino padrao do arrastar e soltar e limite de tamanho de arquivo | Area de Trabalho do usuario conectado; limite configuravel por politica, com padrao definido no contrato |
-| D-06 | Linux com Wayland na v1 ou depois | depois, conforme a prova S5; MeshCentral como alternativa nessas maquinas ate la |
-| D-07 | Assinatura de codigo: certificado para Windows e conta do Apple Developer Program para macOS | assinar no Windows antes do piloto; macOS conforme a prova S6 |
-| D-08 | A migracao das 400 estacoes espera o acesso novo? | nao esperar (secao 9) |
-| D-09 | Gravacao de sessao e prazo de guarda do ultimo backup do MeshCentral | gravacao fora da v1; guardar o backup do `mesh_data` por 90 dias depois da remocao |
+| D-01 | Abordagem: modulo proprio (C), fork (B) ou manter o MeshCentral (A) | **Decidido**: modulo proprio |
+| D-02 | Ordem dos sistemas | Pendente. Recomendacao: Windows, depois Linux X11, depois macOS; confirmar com a distribuicao real das 400 estacoes |
+| D-03 | Visualizador so no navegador ou tambem um app nativo para o tecnico | **Decidido**: comecar pelo navegador; app nativo fica como fase futura opcional |
+| D-04 | Consentimento padrao | **Decidido**: sem aviso por padrao; "avisar" e "perguntar" podem ser ligados em Configuracoes, por cliente ou site. Texto do aviso e retencao da auditoria ainda a definir (LGPD) |
+| D-05 | Destino padrao do arrastar e soltar e limite de tamanho de arquivo | Pendente. Recomendacao: Area de Trabalho do usuario conectado; limite configuravel por politica |
+| D-06 | Linux com Wayland na v1 ou depois | Pendente, depende da prova S5. Com o servidor limpo nao ha MeshCentral como alternativa: maquinas Wayland ficam sem tela remota ate essa decisao |
+| D-07 | Assinatura de codigo (Windows e macOS) | **Decidido**: comecar sem assinatura (risco R-07 aceito) |
+| D-08 | A migracao das 400 estacoes espera o acesso novo? | **Decidido**: servidor limpo; a migracao comeca so depois da remocao do MeshCentral (secao 9) |
+| D-09 | Gravacao de sessao | Pendente. Recomendacao: fora da v1 |
 
 ---
 
@@ -577,7 +568,7 @@ Sequencia:
 
 ## 15. Proximos passos
 
-1. Aprovar ou ajustar esta RFC, respondendo as decisoes da secao 13.
-2. Etapa 0: um PR pequeno com as quatro correcoes da integracao atual.
-3. Fase 12.0: contrato de fio e levantamento dos sistemas operacionais das 400 estacoes.
+1. Etapa 0: servidor deixa de oferecer o MeshAgent.
+2. Fase 12.0: contrato de fio (`docs/remoto/contrato-remoto.md`) e levantamento dos sistemas operacionais das 400 estacoes (D-02).
+3. Decidir D-05 e a parte de LGPD do D-04 durante a fase 12.0.
 4. Fase 12.1: provas tecnicas S1 a S6, com relatorio de seguir ou parar.
