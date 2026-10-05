@@ -86,7 +86,9 @@ docker compose logs --tail 5 backup            # "proximo backup: ..."
 1. Abra `https://CYBEREYES_HOST` e entre com `ADMIN_USERNAME` e `ADMIN_PASSWORD`.
 2. O console exige configurar a verificacao em duas etapas (Google Authenticator, Microsoft Authenticator ou similar). Leia o QR code e confirme o codigo.
 3. Troque a senha do administrador pelo console. `ADMIN_PASSWORD` so e usado pelo `migrate` quando o banco ainda nao tem nenhum usuario; depois disso mudar o valor no `.env` nao altera senha nenhuma.
-4. Configure SMTP e o teste de e-mail em Configuracoes; crie cliente e site; gere uma implantacao e instale um agente de teste.
+4. Configure o SMTP em Configuracoes > E-mail e rode o teste de e-mail. Ele e usado por alertas, relatorios, convite de usuarios e recuperacao de senha (ADR-021). O envio usa STARTTLS: use a porta 587 (a 465, SSL direto, nao funciona). Para nao cair no spam, publique SPF e DKIM do dominio do remetente.
+5. Crie os demais tecnicos em Usuarios com "Enviar convite por e-mail"; cada um define a propria senha e o 2FA.
+6. Crie cliente e site; gere uma implantacao e instale um agente de teste.
 
 ## 7. O que o compose ja aplica (hardening, ADR-018)
 | Servico | Usuario | Capacidades (`cap_drop: ALL` + ) | Raiz somente leitura | `mem_limit` |

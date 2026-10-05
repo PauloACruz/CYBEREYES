@@ -8,6 +8,7 @@ export const usersApi = {
   update: (id: string, body: UpdateUserRequest) => api.put<UserDto>(`/api/users/${encodeURIComponent(id)}`, body),
   resetPassword: (id: string, body: ResetPasswordRequest) =>
     api.post<undefined>(`/api/users/${encodeURIComponent(id)}/reset-password`, body),
+  resendInvite: (id: string) => api.post<undefined>(`/api/users/${encodeURIComponent(id)}/invite`),
   resetTwoFactor: (id: string) => api.post<undefined>(`/api/users/${encodeURIComponent(id)}/reset-2fa`),
   remove: (id: string) => api.delete(`/api/users/${encodeURIComponent(id)}`),
   removeSsoLogin: (id: string, providerId: number) =>

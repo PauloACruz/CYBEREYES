@@ -1,5 +1,6 @@
-import { Alert, Button, Group, Modal, MultiSelect, PasswordInput, Stack, Switch, TextInput } from '@mantine/core';
+import { Alert, Button, Group, Modal, MultiSelect, PasswordInput, SegmentedControl, Stack, Switch, Text, TextInput } from '@mantine/core';
 import { useForm } from '@mantine/form';
+import { notifications } from '@mantine/notifications';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { rolesApi } from '../../api/roles';
 import { usersApi } from '../../api/users';
@@ -24,6 +25,8 @@ export function UserFormModal({ opened, user, onClose }: UserFormModalProps) {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+type PasswordMode = 'invite' | 'password';
+
 function UserForm({ user, onDone }: { user: UserDto | null; onDone: () => void }) {
   const queryClient = useQueryClient();
   const isEdit = user !== null;
@@ -35,6 +38,7 @@ function UserForm({ user, onDone }: { user: UserDto | null; onDone: () => void }
       email: user?.email ?? '',
       fullName: user?.fullName ?? '',
       password: '',
+      passwordMode: 'invite' as PasswordMode,
       roleIds: user?.roles.map((r) => r.id) ?? [],
       isActive: user?.isActive ?? true,
     },
@@ -42,7 +46,7 @@ function UserForm({ user, onDone }: { user: UserDto | null; onDone: () => void }
       username: (v) => (isEdit || v.trim() ? null : 'Informe o nome de usuário'),
       email: (v) => (EMAIL_RE.test(v.trim()) ? null : 'Informe um e-mail válido'),
       fullName: (v) => (v.trim() ? null : 'Informe o nome completo'),
-      password: (v) => (isEdit || v ? null : 'Informe a senha inicial'),
+      password: (v, values) => (isEdit || values.passwordMode === 'invite' || v ? null : 'Informe a senha inicial'),
     },
   });
 
@@ -54,12 +58,25 @@ function UserForm({ user, onDone }: { user: UserDto | null; onDone: () => void }
         roleIds: values.roleIds,
         isActive: values.isActive,
       };
-      return isEdit
-        ? usersApi.update(user.id, common)
-        : usersApi.create({ ...common, username: values.username.trim(), password: values.password });
+      if (isEdit) return usersApi.update(user.id, common);
+      const username = values.username.trim();
+      return values.passwordMode === 'invite'
+        ? usersApi.create({ ...common, username, sendInvite: true })
+        : usersApi.create({ ...common, username, password: values.password });
     },
-    onSuccess: async () => {
-      notifySuccess(isEdit ? 'Usuário atualizado.' : 'Usuário criado.');
+    onSuccess: async (saved) => {
+      if (saved.inviteError) {
+        notifications.show({
+          color: 'yellow',
+          title: 'Usuário criado, mas o convite não foi enviado',
+          message: `${saved.inviteError}. Corrija o SMTP em Configurações e use "Reenviar convite".`,
+          autoClose: false,
+        });
+      } else if (!isEdit && saved.invitePending) {
+        notifySuccess(`Usuário criado. Convite enviado para ${saved.email}.`);
+      } else {
+        notifySuccess(isEdit ? 'Usuário atualizado.' : 'Usuário criado.');
+      }
       await queryClient.invalidateQueries({ queryKey: ['users'] });
       onDone();
     },
@@ -85,7 +102,32 @@ function UserForm({ user, onDone }: { user: UserDto | null; onDone: () => void }
         <TextInput label="Nome completo" required {...form.getInputProps('fullName')} />
         <TextInput label="E-mail" type="email" required {...form.getInputProps('email')} />
         {!isEdit && (
-          <PasswordInput label="Senha inicial" required autoComplete="new-password" {...form.getInputProps('password')} />
+          <Stack gap={6}>
+            <Text size="sm" fw={500}>
+              Acesso inicial
+            </Text>
+            <SegmentedControl
+              data={[
+                { value: 'invite', label: 'Enviar convite por e-mail' },
+                { value: 'password', label: 'Definir senha agora' },
+              ]}
+              {...form.getInputProps('passwordMode')}
+            />
+            {form.values.passwordMode === 'invite' ? (
+              <>
+                <Text size="xs" c="dimmed">
+                  O usuário recebe um link, válido por 72 horas, para criar a própria senha.
+                </Text>
+                {form.errors.sendInvite && (
+                  <Alert color="red" variant="light">
+                    {form.errors.sendInvite}
+                  </Alert>
+                )}
+              </>
+            ) : (
+              <PasswordInput label="Senha inicial" required autoComplete="new-password" {...form.getInputProps('password')} />
+            )}
+          </Stack>
         )}
         {roles.isError && (
           <Alert color="yellow" variant="light">

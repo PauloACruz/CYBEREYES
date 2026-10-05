@@ -8,6 +8,7 @@ public static class ErrorCodes
     public const string Unauthenticated = "UNAUTHENTICATED";
     public const string InvalidCredentials = "INVALID_CREDENTIALS";
     public const string InvalidCode = "INVALID_CODE";
+    public const string InvalidToken = "INVALID_TOKEN";
     public const string MfaRequired = "MFA_REQUIRED";
     public const string Forbidden = "FORBIDDEN";
     public const string LockedOut = "LOCKED_OUT";
