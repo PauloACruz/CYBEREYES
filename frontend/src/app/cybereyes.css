@@ -1,0 +1,77 @@
+/*
+ * Tokens semanticos do design system CYBEREYES (tokens.json) como variaveis CSS.
+ * O tema escuro e o principal; o claro troca os mesmos nomes.
+ */
+:root,
+[data-mantine-color-scheme='dark'] {
+  --ce-bg-base: #0a0c0e;
+  --ce-bg-surface: #131418;
+  --ce-bg-raised: #1b1e23;
+  --ce-bg-hover: #22262c;
+  --ce-border-subtle: #24282f;
+  --ce-border-strong: #666d78;
+  --ce-text-primary: #f1f2ee;
+  --ce-text-secondary: #a4aab3;
+  --ce-text-tertiary: #8d939d;
+  --ce-accent: #daa916;
+  --ce-accent-hover: #fdc104;
+  --ce-accent-text: #daa916;
+  --ce-accent-soft: rgba(218, 169, 22, 0.14);
+  --ce-on-accent: #131418;
+  --ce-focus-ring: #fdc104;
+  --ce-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --ce-shadow-md: 0 12px 32px rgba(0, 0, 0, 0.6);
+}
+
+[data-mantine-color-scheme='light'] {
+  --ce-bg-base: #f8f9f6;
+  --ce-bg-surface: #ffffff;
+  --ce-bg-raised: #ffffff;
+  --ce-bg-hover: #eef0ec;
+  --ce-border-subtle: #dde0e4;
+  --ce-border-strong: #868c96;
+  --ce-text-primary: #131418;
+  --ce-text-secondary: #555b65;
+  --ce-text-tertiary: #5f656f;
+  --ce-accent: #daa916;
+  --ce-accent-hover: #c4970f;
+  --ce-accent-text: #7f5f00;
+  --ce-accent-soft: rgba(218, 169, 22, 0.16);
+  --ce-on-accent: #131418;
+  --ce-focus-ring: #7f5f00;
+  --ce-shadow-sm: 0 1px 2px rgba(19, 20, 24, 0.06);
+  --ce-shadow-md: 0 12px 32px rgba(19, 20, 24, 0.14);
+}
+
+body {
+  font-size: 14px;
+  line-height: 20px;
+}
+
+/* Foco de teclado: 2px solido com 2px de afastamento em todo elemento interativo. */
+:focus-visible {
+  outline: 2px solid var(--ce-focus-ring);
+  outline-offset: 2px;
+}
+
+/* Controles usam border-strong; cards e divisores ficam com border-subtle (default-border). */
+.mantine-Input-input:not([data-error]),
+.mantine-Checkbox-input,
+.mantine-Radio-radio {
+  border-color: var(--ce-border-strong);
+}
+
+/* Cabecalho de tabela no estilo label: caixa alta, 12px, 0.08em. */
+.mantine-Table-th {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ce-text-secondary);
+}
+
+/* Dados tecnicos e numeros de metrica com algarismos tabulares. */
+code,
+.mantine-Code-root {
+  font-variant-numeric: tabular-nums;
+}

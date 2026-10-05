@@ -1,48 +1,51 @@
 import {
   createTheme,
   defaultVariantColorsResolver,
-  Title,
   type CSSVariablesResolver,
   type MantineColorsTuple,
   type VariantColorsResolver,
 } from '@mantine/core';
 
-// Tema PCruzTI: preto e dourado. Valores do design system (colors_and_type.css).
+// Tema CYBEREYES: valores do design system (tokens.json). O escuro e o tema principal.
+// Os tokens semanticos tambem ficam como variaveis CSS em cybereyes.css (--ce-*).
 
-/** Escala dourada; o indice 4 (#E2B622) e o dourado principal. */
+/** Escala dourada; o indice 5 (#daa916) e o brand-gold. */
 const gold: MantineColorsTuple = [
-  '#FFF8E1',
-  '#FCEEB6',
-  '#F7DE7E',
-  '#F0CB45',
-  '#E2B622',
-  '#C99A11',
-  '#A37A09',
-  '#8A6708',
-  '#6E5208',
-  '#3A2B05',
+  '#fff8e0',
+  '#fdeeb3',
+  '#fbe07f',
+  '#fdc104',
+  '#e8b512',
+  '#daa916',
+  '#c4970f',
+  '#a17b0b',
+  '#7f5f00',
+  '#4d3a00',
 ];
 
-/** Tons de tinta do design system, do texto (0) ao fundo (9). */
+/** Neutros do tema escuro: texto (0) ate o fundo da pagina (7). */
 const dark: MantineColorsTuple = [
-  '#E6E6E6',
-  '#B5B5B5',
-  '#8A8A8A',
-  '#5A5A5A',
-  '#3A3A3A',
-  '#2E2E2E',
-  '#1A1A1A',
-  '#121212',
-  '#0A0A0A',
-  '#000000',
+  '#f1f2ee',
+  '#c9ccd1',
+  '#a4aab3',
+  '#8d939d',
+  '#666d78',
+  '#22262c',
+  '#131418',
+  '#0a0c0e',
+  '#1b1e23',
+  '#050608',
 ];
 
-/** Preenchimento dourado leva texto escuro (#1A1300): branco sobre dourado nao tem contraste. */
+const SANS = '"Space Grotesk Variable", "Space Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif';
+const MONO = '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+
+/** Preenchimento dourado leva on-accent (#131418): branco sobre dourado nao tem contraste. */
 const variantColorResolver: VariantColorsResolver = (input) => {
   const colors = defaultVariantColorsResolver(input);
   const color = input.color ?? input.theme.primaryColor;
   if (input.variant === 'filled' && (color === 'gold' || color.startsWith('gold.'))) {
-    return { ...colors, color: '#1A1300' };
+    return { ...colors, color: '#131418', hover: 'var(--ce-accent-hover)' };
   }
   return colors;
 };
@@ -50,45 +53,76 @@ const variantColorResolver: VariantColorsResolver = (input) => {
 export const theme = createTheme({
   variantColorResolver,
   primaryColor: 'gold',
-  primaryShade: { light: 6, dark: 4 },
+  primaryShade: { light: 5, dark: 5 },
   colors: { gold, dark },
-  defaultRadius: 'md',
-  radius: { xs: '4px', sm: '6px', md: '10px', lg: '14px', xl: '20px' },
-  fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-  fontFamilyMonospace: '"JetBrains Mono", "SF Mono", "Cascadia Code", monospace',
+  defaultRadius: 'sm',
+  // A marca e angular: 2px em selos, 4px em controles, 8px em cards e modais.
+  radius: { xs: '2px', sm: '4px', md: '8px', lg: '8px', xl: '12px' },
+  fontFamily: SANS,
+  fontFamilyMonospace: MONO,
   headings: {
-    fontFamily: 'Oswald, "Bebas Neue", Impact, sans-serif',
+    fontFamily: SANS,
     fontWeight: '600',
     sizes: {
-      h1: { fontSize: '32px', lineHeight: '1.05', fontWeight: '700' },
-      h2: { fontSize: '28px', lineHeight: '1.1', fontWeight: '700' },
-      h3: { fontSize: '22px', lineHeight: '1.25' },
-      h4: { fontSize: '18px', lineHeight: '1.3' },
+      h1: { fontSize: '28px', lineHeight: '36px' },
+      h2: { fontSize: '20px', lineHeight: '28px' },
+      h3: { fontSize: '16px', lineHeight: '24px' },
+      h4: { fontSize: '14px', lineHeight: '20px' },
     },
   },
   components: {
-    // Titulos de pagina e secao em caixa alta, como a marca; niveis menores ficam em Inter.
-    Title: Title.extend({
-      styles: (_theme, props) => ({
-        root:
-          (props.order ?? 1) <= 2
-            ? { textTransform: 'uppercase', letterSpacing: '0.01em' }
-            : { fontFamily: 'var(--mantine-font-family)', fontWeight: 700 },
-      }),
-    }),
+    Card: { defaultProps: { radius: 'md' } },
+    Paper: { defaultProps: { radius: 'md' } },
+    Modal: { defaultProps: { radius: 'md' } },
+    Badge: { defaultProps: { radius: 'xs' } },
   },
 });
 
+/** Cores de status do design system nas variantes light e filled do Mantine. */
+const STATUS = {
+  teal: ['#3ccfb4', 'rgba(60, 207, 180, 0.14)', '#096d5b', 'rgba(9, 109, 91, 0.12)'],
+  green: ['#3ccfb4', 'rgba(60, 207, 180, 0.14)', '#096d5b', 'rgba(9, 109, 91, 0.12)'],
+  orange: ['#ff9f43', 'rgba(255, 159, 67, 0.14)', '#974a00', 'rgba(151, 74, 0, 0.12)'],
+  red: ['#ff7e73', 'rgba(255, 126, 115, 0.14)', '#ae3126', 'rgba(174, 49, 38, 0.12)'],
+  blue: ['#6cb4ff', 'rgba(108, 180, 255, 0.14)', '#1d5ab0', 'rgba(29, 90, 176, 0.12)'],
+} as const;
+
+function statusVars(mode: 'dark' | 'light'): Record<string, string> {
+  const vars: Record<string, string> = {};
+  for (const [name, [darkText, darkSoft, lightText, lightSoft]] of Object.entries(STATUS)) {
+    vars[`--mantine-color-${name}-light-color`] = mode === 'dark' ? darkText : lightText;
+    vars[`--mantine-color-${name}-light`] = mode === 'dark' ? darkSoft : lightSoft;
+    vars[`--mantine-color-${name}-text`] = mode === 'dark' ? darkText : lightText;
+  }
+  return vars;
+}
+
 export const cssVariablesResolver: CSSVariablesResolver = () => ({
   variables: {},
-  light: {},
+  light: {
+    ...statusVars('light'),
+    '--mantine-color-body': '#f8f9f6',
+    '--mantine-color-text': '#131418',
+    '--mantine-color-dimmed': '#555b65',
+    '--mantine-color-placeholder': '#5f656f',
+    '--mantine-color-default': '#ffffff',
+    '--mantine-color-default-hover': '#eef0ec',
+    '--mantine-color-default-border': '#dde0e4',
+    '--mantine-color-anchor': '#7f5f00',
+    '--mantine-color-gold-light-color': '#7f5f00',
+    '--mantine-color-gold-light': 'rgba(218, 169, 22, 0.16)',
+  },
   dark: {
-    '--mantine-color-body': '#000000',
-    '--mantine-color-text': '#E6E6E6',
-    '--mantine-color-dimmed': '#8A8A8A',
-    '--mantine-color-default': '#1A1A1A',
-    '--mantine-color-default-hover': '#232323',
-    '--mantine-color-default-border': '#2E2E2E',
-    '--mantine-color-placeholder': '#8A8A8A',
+    ...statusVars('dark'),
+    '--mantine-color-body': '#0a0c0e',
+    '--mantine-color-text': '#f1f2ee',
+    '--mantine-color-dimmed': '#a4aab3',
+    '--mantine-color-placeholder': '#8d939d',
+    '--mantine-color-default': '#131418',
+    '--mantine-color-default-hover': '#22262c',
+    '--mantine-color-default-border': '#24282f',
+    '--mantine-color-anchor': '#daa916',
+    '--mantine-color-gold-light-color': '#daa916',
+    '--mantine-color-gold-light': 'rgba(218, 169, 22, 0.14)',
   },
 });

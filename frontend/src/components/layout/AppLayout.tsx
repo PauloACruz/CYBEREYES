@@ -8,7 +8,6 @@ import {
   Group,
   Loader,
   Menu,
-  NavLink,
   ScrollArea,
   Text,
   Tooltip,
@@ -25,7 +24,7 @@ import {
   IconSun,
 } from '@tabler/icons-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { NavLink as RouterNavLink, Outlet, useLocation, useNavigate } from 'react-router';
+import { Outlet, useLocation, useNavigate } from 'react-router';
 import { authApi } from '../../api/auth';
 import { visibleNavItems } from '../../app/navigation';
 import { PATHS } from '../../app/paths';
@@ -34,18 +33,13 @@ import { ConsoleHubContext } from '../../realtime/consoleHubContext';
 import { useConsoleHub } from '../../realtime/useConsoleHub';
 import { BrandMark } from './BrandMark';
 import { ChangePasswordModal } from './ChangePasswordModal';
-import { NavAlertBadge } from './NavAlertBadge';
-import { NavTicketBadge } from './NavTicketBadge';
+import { SideNav } from './SideNav';
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   const first = parts[0]?.charAt(0) ?? '';
   const last = parts.length > 1 ? (parts[parts.length - 1]?.charAt(0) ?? '') : '';
   return (first + last).toUpperCase() || '?';
-}
-
-function isActive(pathname: string, to: string): boolean {
-  return to === PATHS.dashboard ? pathname === to : pathname === to || pathname.startsWith(`${to}/`);
 }
 
 export function AppLayout() {
@@ -71,25 +65,26 @@ export function AppLayout() {
 
   return (
     <AppShell
+      layout="alt"
       header={{ height: 56 }}
-      navbar={{ width: 240, breakpoint: 'sm', collapsed: { mobile: !navOpened } }}
-      padding="lg"
+      navbar={{ width: 248, breakpoint: 'sm', collapsed: { mobile: !navOpened } }}
+      padding="xl"
       styles={{
-        header: { backgroundColor: 'light-dark(var(--mantine-color-white), var(--mantine-color-dark-8))' },
-        navbar: { backgroundColor: 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-7))' },
+        header: { backgroundColor: 'var(--ce-bg-surface)', borderColor: 'var(--ce-border-subtle)' },
+        navbar: { backgroundColor: 'var(--ce-bg-surface)', borderColor: 'var(--ce-border-subtle)' },
+        main: { backgroundColor: 'var(--ce-bg-base)' },
       }}
     >
       <AppShell.Header>
-        <Group h="100%" px="md" justify="space-between" wrap="nowrap">
+        <Group h="100%" px="xl" justify="space-between" wrap="nowrap">
           <Group gap="sm" wrap="nowrap">
             <Burger opened={navOpened} onClick={nav.toggle} hiddenFrom="sm" size="sm" aria-label="Abrir menu" />
-            <BrandMark size={32} />
           </Group>
           <Group gap="xs" wrap="nowrap">
             <Tooltip label={colorScheme === 'dark' ? 'Tema claro' : 'Tema escuro'}>
               <ActionIcon
-                variant="subtle"
-                color="gray"
+                variant="default"
+                size={36}
                 onClick={() => setColorScheme(colorScheme === 'dark' ? 'light' : 'dark')}
                 aria-label="Alternar tema"
               >
@@ -100,7 +95,7 @@ export function AppLayout() {
               <Menu.Target>
                 <UnstyledButton aria-label="Menu do usuário">
                   <Group gap={8} wrap="nowrap">
-                    <Avatar radius="xl" size={30} color="gold" variant="outline">
+                    <Avatar radius="xl" size={32} color="gray" variant="outline">
                       {initials(displayName)}
                     </Avatar>
                     <Text size="sm" fw={500} visibleFrom="xs" maw={160} truncate>
@@ -125,21 +120,15 @@ export function AppLayout() {
         </Group>
       </AppShell.Header>
 
-      <AppShell.Navbar p="sm" component="nav" aria-label="Navegação principal">
+      <AppShell.Navbar p="sm" pt="md" component="nav" aria-label="Navegação principal">
+        <AppShell.Section px={8} pb="md" mb="sm" style={{ borderBottom: '1px solid var(--ce-border-subtle)' }}>
+          <Group justify="space-between" wrap="nowrap">
+            <BrandMark />
+            <Burger opened={navOpened} onClick={nav.close} hiddenFrom="sm" size="sm" aria-label="Fechar menu" />
+          </Group>
+        </AppShell.Section>
         <AppShell.Section grow component={ScrollArea}>
-          {visibleNavItems(me).map((item) => (
-            <NavLink
-              key={item.to}
-              component={RouterNavLink}
-              to={item.to}
-              label={item.label}
-              leftSection={<item.icon size={18} stroke={1.6} />}
-              rightSection={item.alertCounter ? <NavAlertBadge /> : item.ticketCounter ? <NavTicketBadge /> : undefined}
-              active={isActive(pathname, item.to)}
-              onClick={nav.close}
-              style={{ borderRadius: 'var(--mantine-radius-md)' }}
-            />
-          ))}
+          <SideNav items={visibleNavItems(me)} pathname={pathname} onNavigate={nav.close} />
         </AppShell.Section>
       </AppShell.Navbar>
 
