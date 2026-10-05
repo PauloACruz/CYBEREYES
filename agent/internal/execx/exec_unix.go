@@ -28,6 +28,8 @@ func prepare(cmd *exec.Cmd) {
 	cmd.WaitDelay = 5 * time.Second
 }
 
+func setCmdLine(*exec.Cmd, string) {}
+
 type tree struct{}
 
 func track(*exec.Cmd) (*tree, error) { return nil, nil }

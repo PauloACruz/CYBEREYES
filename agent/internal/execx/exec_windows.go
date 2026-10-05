@@ -26,6 +26,12 @@ func prepare(cmd *exec.Cmd) {
 	cmd.WaitDelay = 5 * time.Second
 }
 
+func setCmdLine(cmd *exec.Cmd, line string) {
+	if line != "" {
+		cmd.SysProcAttr.CmdLine = line
+	}
+}
+
 // tree e um Job Object: encerrar o job encerra todos os processos filhos.
 type tree struct{ job windows.Handle }
 
@@ -210,6 +216,7 @@ func runAsUser(ctx context.Context, s Spec, stdout, stderr io.Writer) (Result, e
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 	prepare(cmd)
+	setCmdLine(cmd, s.WinCmdLine)
 	cmd.SysProcAttr.Token = syscall.Token(tok)
 	if err := cmd.Start(); err != nil {
 		return Result{ExitCode: 1}, fmt.Errorf("falha ao executar na sessao do usuario: %w", err)

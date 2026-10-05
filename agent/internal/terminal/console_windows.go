@@ -161,6 +161,9 @@ func startConPTY(cmdline string, cols, rows int) (_ *conPTY, err error) {
 
 	si := windows.StartupInfoEx{ProcThreadAttributeList: attrs.List()}
 	si.Cb = uint32(unsafe.Sizeof(si))
+	// Handles padrao nulos: sem isso o shell herda stdin/stdout do agente (redirecionados no servico)
+	// e escreve fora do pseudoconsole.
+	si.Flags = windows.STARTF_USESTDHANDLES
 	cmd16, err := windows.UTF16PtrFromString(cmdline)
 	if err != nil {
 		return nil, err

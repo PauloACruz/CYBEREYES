@@ -53,6 +53,9 @@ type Spec struct {
 	Timeout time.Duration
 	// AsUser executa na sessao do usuario conectado (Windows: sessao ativa; Unix: usuario do console).
 	AsUser bool
+	// WinCmdLine, no Windows, e a linha de comando crua passada ao processo (sem o escape automatico
+	// do Go, que quebra o cmd.exe). Quando preenchida, Args e ignorado no Windows.
+	WinCmdLine string
 }
 
 // Run executa o processo e espera o fim ou o tempo limite.
@@ -107,6 +110,7 @@ func runProcess(ctx context.Context, s Spec, stdout, stderr io.Writer) (Result, 
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 	prepare(cmd)
+	setCmdLine(cmd, s.WinCmdLine)
 	if err := cmd.Start(); err != nil {
 		return Result{ExitCode: 1}, err
 	}
@@ -152,7 +156,8 @@ func Command(ctx context.Context, shell, command string, timeout time.Duration, 
 			spec.Args = []string{"-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", psUTF8Prefix + command}
 		case "cmd":
 			spec.Path = cmdPath()
-			spec.Args = []string{"/D", "/S", "/C", `"chcp 65001 >NUL & ` + command + `"`}
+			// /S: o cmd tira so as aspas externas e executa o resto como foi digitado.
+			spec.WinCmdLine = `"` + spec.Path + `" /D /S /C "chcp 65001 >NUL & ` + command + `"`
 		default:
 			return Result{ExitCode: 1, Err: fmt.Errorf("shell nao suportado: %s", shell), Stderr: "shell nao suportado: " + shell}
 		}
