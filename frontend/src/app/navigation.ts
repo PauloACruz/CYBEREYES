@@ -39,11 +39,13 @@ export interface NavItem {
 
 export const NAV_ITEMS: readonly NavItem[] = [
   { label: 'Painel', to: PATHS.dashboard, icon: IconHome },
-  { label: 'Agentes', to: PATHS.agents, icon: IconDeviceDesktop, permission: PERMISSIONS.agentsView },
   { label: 'Alertas', to: PATHS.alerts, icon: IconAlertTriangle, permission: PERMISSIONS.alertsView, alertCounter: true },
   { label: 'Chamados', to: PATHS.tickets, icon: IconTicket, permission: PERMISSIONS.ticketsView, ticketCounter: true },
+  { label: 'Agentes', to: PATHS.agents, icon: IconDeviceDesktop, permission: PERMISSIONS.agentsView },
   { label: 'Relatórios', to: PATHS.reports, icon: IconReportAnalytics, permission: PERMISSIONS.reportsView },
   { label: 'Políticas', to: PATHS.policies, icon: IconShieldCheckered, permission: PERMISSIONS.agentsView },
+  { label: 'Scripts', to: PATHS.scripts, icon: IconCode, permission: PERMISSIONS.scriptsView },
+  { label: 'Auditoria', to: PATHS.audit, icon: IconListDetails, permission: PERMISSIONS.auditView },
   {
     label: 'Clientes',
     to: PATHS.clients,
@@ -56,8 +58,6 @@ export const NAV_ITEMS: readonly NavItem[] = [
       { label: 'Documentação', to: PATHS.docs, icon: IconBook2, permission: PERMISSIONS.docsView },
     ],
   },
-  { label: 'Scripts', to: PATHS.scripts, icon: IconCode, permission: PERMISSIONS.scriptsView },
-  { label: 'Auditoria', to: PATHS.audit, icon: IconListDetails, permission: PERMISSIONS.auditView },
   {
     label: 'Configurações',
     to: PATHS.settings,

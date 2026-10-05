@@ -21,6 +21,7 @@ import { PatchPolicyForm, PatchPolicySummary } from '../monitoring/patches/Patch
 import { describeSchedule } from '../monitoring/tasks/schedule';
 import { TaskFormModal } from '../monitoring/tasks/TaskFormModal';
 import { PolicyEnabledBadge, PolicyFormModal } from './PoliciesPage';
+import { PageTitle } from '../../components/PageTitle';
 
 export function PolicyDetailPage() {
   const { id: rawId } = useParams();
@@ -53,17 +54,11 @@ function PolicyDetailView({ policy }: { policy: PolicyDetailDto }) {
         <Text size="sm">{policy.name}</Text>
       </Breadcrumbs>
       <Group justify="space-between" align="flex-start" mb="lg">
-        <Stack gap={4}>
-          <Group gap="sm">
-            <Title order={2}>{policy.name}</Title>
-            <PolicyEnabledBadge enabled={policy.enabled} />
-          </Group>
-          {policy.description && (
-            <Text c="dimmed" size="sm">
-              {policy.description}
-            </Text>
-          )}
-        </Stack>
+        <PageTitle
+          title={policy.name}
+          badges={<PolicyEnabledBadge enabled={policy.enabled} />}
+          description={policy.description || undefined}
+        />
         {canManagePolicy && (
           <Button variant="light" leftSection={<IconPencil size={16} />} onClick={() => setEditing(true)}>
             Editar política

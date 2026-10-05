@@ -10,11 +10,9 @@ import {
   Paper,
   Progress,
   SimpleGrid,
-  Stack,
   Table,
   Tabs,
   Text,
-  Title,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
@@ -80,6 +78,7 @@ import { CareTab } from '../care/CareTab';
 import { CARE_NAME } from '../care/careFormat';
 import { LogsView } from '../logs/LogsView';
 import { SnmpCollectorCard } from '../snmp/SnmpCollectorCard';
+import { PageTitle } from '../../components/PageTitle';
 
 // Abas pesadas (xterm.js e navegador do registro) carregam sob demanda.
 const TerminalTab = lazy(() => import('./actions/TerminalTab').then((m) => ({ default: m.TerminalTab })));
@@ -217,21 +216,25 @@ function AgentDetailView({ agent }: { agent: AgentDetail }) {
         <Text size="sm">{agent.hostname}</Text>
       </Breadcrumbs>
       <Group justify="space-between" align="flex-start" mb="lg" wrap="wrap" gap="sm">
-        <Stack gap={6}>
-          <Group gap="sm">
-            <Title order={2}>{agent.hostname}</Title>
-            <AgentStatusBadge status={agent.status} size="md" />
-            {agent.needsReboot && (
-              <Badge color="yellow" variant="light" leftSection={<IconRefreshAlert size={12} aria-hidden />}>
-                Reinício pendente
-              </Badge>
-            )}
-          </Group>
-          <Text c="dimmed" size="sm">
-            {agent.clientName} / {agent.siteName} · {MONITORING_TYPE_LABEL[agent.monitoringType]} · visto por último{' '}
-            <RelativeTime value={agent.lastSeen} />
-          </Text>
-        </Stack>
+        <PageTitle
+          title={agent.hostname}
+          badges={
+            <>
+              <AgentStatusBadge status={agent.status} size="md" />
+              {agent.needsReboot && (
+                <Badge color="yellow" variant="light" leftSection={<IconRefreshAlert size={12} aria-hidden />}>
+                  Reinício pendente
+                </Badge>
+              )}
+            </>
+          }
+          description={
+            <>
+              {agent.clientName} / {agent.siteName} · {MONITORING_TYPE_LABEL[agent.monitoringType]} · visto por último{' '}
+              <RelativeTime value={agent.lastSeen} />
+            </>
+          }
+        />
         <Group gap="sm">
           <Button variant="light" leftSection={<IconActivity size={16} />} loading={ping.isPending} onClick={() => ping.mutate()}>
             Ping

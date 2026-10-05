@@ -9,11 +9,11 @@ interface AuthLayoutProps {
   children: ReactNode;
 }
 
-/** Login e 2FA: textura de asas com veu de 75% e cartao central com o emblema. */
+/** Login e 2FA: textura de asas com veu de 90% e cartao central com o emblema. */
 export function AuthLayout({ title, subtitle, width = 400, children }: AuthLayoutProps) {
   const scheme = useComputedColorScheme('dark');
   const texture = scheme === 'dark' ? '/brand/textura-asas-escura.webp' : '/brand/textura-asas-clara.webp';
-  const veil = scheme === 'dark' ? 'rgba(10, 12, 14, 0.75)' : 'rgba(248, 249, 246, 0.75)';
+  const veil = scheme === 'dark' ? 'rgba(10, 12, 14, 0.9)' : 'rgba(248, 249, 246, 0.9)';
   return (
     <Box
       mih="100vh"
