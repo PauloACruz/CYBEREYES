@@ -91,7 +91,6 @@ jobs:
           docker build --build-context agent=agent -t $REGISTRY/cybereyes-api:${{ github.sha }} backend
           docker build --build-arg APP_COMMIT=${{ github.sha }} -t $REGISTRY/cybereyes-web:${{ github.sha }} frontend
           docker build -t $REGISTRY/cybereyes-backup:${{ github.sha }} infra/docker/backup
-          docker build -t $REGISTRY/cybereyes-meshcentral:1.2.5 infra/docker/meshcentral
       - name: Publicar imagens
         if: github.event_name == 'push'
         run: |
@@ -100,4 +99,3 @@ jobs:
             docker push $REGISTRY/$img:${{ github.sha }}
             docker push $REGISTRY/$img:latest
           done
-          docker push $REGISTRY/cybereyes-meshcentral:1.2.5

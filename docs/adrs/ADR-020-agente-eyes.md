@@ -27,12 +27,12 @@
    - nao ha mais redirecionamento para o GitHub: sem binario, a rota responde 404 com mensagem clara.
 7. **Instalacao feita pelo proprio EYES** (`eyes install --api ... --site-id ... --auth ...`):
    - copia o binario;
-   - instala o MeshAgent via `/api/v3/meshexe/` nas tres plataformas;
+   - instala o MeshAgent via `/api/v3/meshexe/` nas tres plataformas (substituido na fase 12.8, ver ADR-022): o EYES nao instala mais o MeshAgent;
    - registra o agente;
    - cria o servico: Windows SCM com reinicio automatico, systemd ou OpenRC no Linux, launchd no macOS.
    - Os scripts do servidor so detectam a arquitetura e baixam o binario. Sem Inno Setup, sem dependencia de systemd no script.
    - Reinstalar sobre uma instalacao existente do mesmo servidor **mantem a identidade** do agente (nao cria duplicata).
-   - **MeshAgent sempre junto**, como no Tactical:
+   - **MeshAgent sempre junto**, como no Tactical (substituido na fase 12.8, ver ADR-022): este item e os dois seguintes nao valem mais; o EYES nao instala, nao sincroniza nem reinstala o MeshAgent, e `--nomesh` e aceito sem efeito:
      - o EYES baixa o MeshAgent da plataforma e arquitetura (`/api/v3/meshexe/`), ja vinculado ao grupo do Cybereyes;
      - instala com `-fullinstall` no Windows, `-install --installPath=/opt/cybereyes-mesh` no Linux e `-install` no macOS;
      - informa o node id (`meshagent -nodeid --no-embedded=1`, 96 hex) no registro e no `syncmesh`.
@@ -48,7 +48,7 @@
     - `PATCH taskrunner` aceita `stdout`/`stderr` nao texto;
     - Health Check aceita `score` fracionario;
     - eventos do Care com tipos inesperados nao travam mais a execucao;
-    - `meshreinstall` entrega o MeshAgent da plataforma do agente.
+    - `meshreinstall` entrega o MeshAgent da plataforma do agente (substituido na fase 12.8, ver ADR-022): a rota foi removida.
 
 ## Consequencias
 - O produto deixa de depender de codigo e de releases sob a Tactical RMM License. O backend ja era escrito a partir de especificacao (ADR-005). A validacao juridica pendente do ADR-005 fica restrita ao backend.

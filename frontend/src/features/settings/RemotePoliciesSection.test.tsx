@@ -26,7 +26,6 @@ describe('politicas do acesso remoto nas configuracoes', () => {
         return json({ ...global, consent: 'ask' });
       },
       'GET /api/clients': () => json([{ id: 3, name: 'Contoso', agentCount: 2, sites: [{ id: 7, clientId: 3, name: 'Filial', agentCount: 2 }] }]),
-      'GET /api/mesh/status': () => json({ enabled: false, url: null, deviceGroup: null, groupId: null, lastSync: null, lastError: null, users: 0 }),
       'GET /api/ticket-queues': () => json([]),
       'GET /api/tickets/sla': () => json([]),
       'GET /api/tickets/incident-settings': () => json({ enabled: true, severities: ['error'], priority: 'high', queueId: null, resolveWithAlert: true }),

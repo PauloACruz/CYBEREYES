@@ -6,7 +6,6 @@ import { PageHeader } from '../../components/PageHeader';
 import { KeystoreSection } from './KeystoreSection';
 import { LogAlertRulesSection } from './LogAlertRulesSection';
 import { LogsSection } from './LogsSection';
-import { MeshSection } from './MeshSection';
 import { NotificationsSection } from './NotificationsSection';
 import { RemotePoliciesSection } from './RemotePoliciesSection';
 import { SelfServiceSection } from './SelfServiceSection';
@@ -24,7 +23,6 @@ export function SettingsPage() {
         <KeystoreSection />
         <UrlActionsSection />
         <RemotePoliciesSection />
-        <MeshSection />
         <SsoSection />
         <TicketsSection />
         <SelfServiceSection />

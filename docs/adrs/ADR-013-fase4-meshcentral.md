@@ -1,6 +1,8 @@
 # ADR-013: Decisoes tecnicas da fase 4 (acesso remoto com MeshCentral)
 
-- **Status**: Aprovado
+> **Nota (fase 12.8)**: este ADR foi substituido pelo ADR-022 (`docs/adrs/ADR-022-acesso-remoto-proprio.md`). O MeshCentral, o MeshAgent e a integracao descrita abaixo foram removidos do Cybereyes; o acesso remoto agora e proprio, embutido no EYES e na API (contrato em `docs/remoto/contrato-remoto.md`). O texto abaixo fica como registro historico.
+
+- **Status**: Substituido pelo ADR-022 (fase 12.8)
 - **Data**: 2026-10-01
 
 ## Decisoes

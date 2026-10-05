@@ -24,11 +24,6 @@ upstream cybereyes_nats {
     server nats:9235 resolve;
 }
 
-upstream cybereyes_mesh {
-    zone cybereyes_mesh 64k;
-    server meshcentral:4443 resolve;
-}
-
 ssl_protocols TLSv1.2 TLSv1.3;
 ssl_prefer_server_ciphers on;
 ssl_ciphers EECDH+AESGCM:EDH+AESGCM;
@@ -57,7 +52,7 @@ server {
     ssl_certificate_key /etc/nginx/certs/${CYBEREYES_HOST}/privkey.pem;
 
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
-    # O MeshCentral abre em nova aba (window.open), nunca em iframe: frame-src e frame-ancestors ficam 'none'.
+    # O visualizador de acesso remoto abre em janela propria da mesma origem, nunca em iframe: frame-src e frame-ancestors ficam 'none'.
     # style-src precisa de 'unsafe-inline' porque o Mantine e o Monaco injetam estilos em tempo de execucao.
     add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' wss://${CYBEREYES_HOST}; worker-src 'self' blob:; frame-src 'none'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'" always;
     add_header X-Content-Type-Options "nosniff" always;
@@ -133,31 +128,5 @@ server {
         proxy_pass http://cybereyes_web;
         proxy_http_version 1.1;
         proxy_set_header Connection "";
-    }
-}
-
-server {
-    listen 443 ssl;
-    http2 on;
-    server_name ${MESH_HOST};
-
-    ssl_certificate     /etc/nginx/certs/${MESH_HOST}/fullchain.pem;
-    ssl_certificate_key /etc/nginx/certs/${MESH_HOST}/privkey.pem;
-
-    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
-
-    proxy_read_timeout 330s;
-    proxy_send_timeout 330s;
-
-    location / {
-        proxy_pass http://cybereyes_mesh;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade           $http_upgrade;
-        proxy_set_header Connection        $connection_upgrade;
-        proxy_set_header Host              $host;
-        proxy_set_header X-Real-IP         $remote_addr;
-        proxy_set_header X-Forwarded-Host  $host:$server_port;
-        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
     }
 }

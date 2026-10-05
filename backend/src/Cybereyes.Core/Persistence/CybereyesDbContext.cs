@@ -143,7 +143,6 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
             e.Property(a => a.Hostname).HasMaxLength(255);
             e.Property(a => a.MonitoringType).HasMaxLength(30);
             e.Property(a => a.Description).HasMaxLength(255);
-            e.Property(a => a.MeshNodeId).HasMaxLength(255);
             e.Property(a => a.GoArch).HasMaxLength(32);
             e.Property(a => a.Plat).HasMaxLength(32);
             e.Property(a => a.Version).HasMaxLength(64);

@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Cybereyes.Api.Infrastructure;
-using Cybereyes.Api.Rmm.Mesh;
 using Cybereyes.Core.Audit;
 using Cybereyes.Core.Identity;
 using Cybereyes.Core.Persistence;
@@ -17,9 +16,9 @@ public static class RoleEndpoints
 
         group.MapGet("/", ListAsync);
         group.MapGet("/permissions", () => TypedResults.Ok(Permissions.Catalog));
-        group.MapPost("/", CreateAsync).RequestsMeshSync();
-        group.MapPut("/{id:guid}", UpdateAsync).RequestsMeshSync();
-        group.MapDelete("/{id:guid}", DeleteAsync).RequestsMeshSync();
+        group.MapPost("/", CreateAsync);
+        group.MapPut("/{id:guid}", UpdateAsync);
+        group.MapDelete("/{id:guid}", DeleteAsync);
 
         app.MapGet("/api/roles/options", OptionsAsync).WithTags("Papeis")
             .RequireAuthorization(Policies.Permission(Permissions.UsersManage));

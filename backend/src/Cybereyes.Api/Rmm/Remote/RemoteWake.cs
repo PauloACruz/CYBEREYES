@@ -33,7 +33,7 @@ public sealed record WakeNic(string Mac, IPAddress Address, int Prefix)
 
 /// <summary>
 /// Wake-on-LAN pelo EYES (contrato do acesso remoto, secao 3): a API escolhe um agente online do mesmo site com placa na
-/// mesma rede do alvo e manda o comando "wol" com os MACs e os broadcasts. Substitui o envio pelo MeshCentral.
+/// mesma rede do alvo e manda o comando "wol" com os MACs e os broadcasts.
 /// </summary>
 public static class RemoteWake
 {

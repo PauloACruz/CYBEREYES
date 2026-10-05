@@ -38,7 +38,7 @@ public sealed partial class AgentTests(ApiFixture fixture)
         http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Token", installerToken);
         var response = await http.PostAsJsonAsync("/api/v3/newagent/", new
         {
-            agent_id = agentId, hostname, site = siteId, monitoring_type = "workstation", mesh_node_id = "", description = "", goarch = "amd64", plat = "linux",
+            agent_id = agentId, hostname, site = siteId, monitoring_type = "workstation", description = "", goarch = "amd64", plat = "linux",
         });
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<NewAgentBody>();
@@ -100,7 +100,7 @@ public sealed partial class AgentTests(ApiFixture fixture)
 
         using var agent = AgentClient(token);
         using var config = JsonDocument.Parse(await agent.GetStringAsync($"/api/v3/{agentId}/config/"));
-        foreach (var key in new[] { "checkin_hello", "checkin_agentinfo", "checkin_winsvc", "checkin_pubip", "checkin_disks", "checkin_sw", "checkin_wmi", "checkin_syncmesh" })
+        foreach (var key in new[] { "checkin_hello", "checkin_agentinfo", "checkin_winsvc", "checkin_pubip", "checkin_disks", "checkin_sw", "checkin_wmi" })
         {
             Assert.True(config.RootElement.GetProperty(key).GetInt32() > 0, key);
         }

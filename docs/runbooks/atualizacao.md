@@ -1,7 +1,7 @@
 # Runbook: atualizacao e reversao
 
 ## Antes de atualizar (sempre)
-1. Anote a versao atual: `grep -E '^(VERSION|AGENT_VERSION|MESHCENTRAL_VERSION)=' infra/docker/.env`.
+1. Anote a versao atual: `grep -E '^(VERSION|AGENT_VERSION)=' infra/docker/.env`.
 2. Leia as notas da versao nova: migracoes de banco, variaveis novas no `.env.example`, mudancas no `docker-compose.yml`.
 3. Faca um backup manual e confira que terminou:
    ```bash
@@ -50,10 +50,13 @@ docker compose exec -T postgres psql -U cybereyes -d cybereyes -Atc \
   'select "MigrationId" from "__EFMigrationsHistory" order by 1 desc limit 3'
 ```
 
-## Atualizar o MeshCentral
-1. Backup (o `mesh_data` entra no conjunto).
-2. Mude `MESHCENTRAL_VERSION` no `.env` e `docker compose up -d meshcentral` (a imagem `cybereyes-meshcentral:<versao>` precisa existir no registro ou ser construida com `docker compose build meshcentral`).
-3. Reverter: versao anterior no `.env` e, se o MeshCentral alterou o banco interno, restaurar o `mesh_data` com `restore.sh` (que tambem restaura o PostgreSQL do mesmo conjunto).
+## Atualizacao que remove o MeshCentral (fase 12.8)
+O MeshCentral saiu do Cybereyes na fase 12.8 (ADR-022); o acesso remoto agora e do proprio EYES e da API. Na primeira atualizacao para uma versao sem MeshCentral:
+1. Siga "Antes de atualizar" e "Atualizar o servidor" normalmente; o `git pull` traz o compose e o template do Nginx sem o servico `meshcentral` e sem o servidor do `MESH_HOST`.
+2. Retire do `.env` as variaveis `MESH_HOST`, `MESH_*` e `MESHCENTRAL_VERSION` (o `diff` com o `.env.example` mostra as que sobraram).
+3. Suba com `docker compose up -d --remove-orphans` para parar e remover o conteiner antigo do `meshcentral`, e reconstrua o Nginx (`docker compose build nginx && docker compose up -d nginx`).
+4. Confira o acesso remoto novo: abra a tela de um agente de teste pelo console (EYES 3.1.0 ou mais novo, ver `incidentes.md`).
+5. Fora do compose: remova o registro DNS e o certificado do `MESH_HOST` (`certs/<MESH_HOST>/`, se o certificado era proprio). Os volumes antigos (`docker volume ls | grep mesh_`) nao entram mais no backup; nenhuma estacao de producao usou o MeshAgent, entao nao ha dados a preservar (RFC-001, secao 10). Apague-os com `docker volume rm` quando a equipe decidir, seguindo o checklist da secao 14 do RFC-001.
 
 ## Versao do agente (EYES)
 - O EYES e compilado junto com a imagem da API a partir de `agent/` (`agent/VERSION`, ver ADR-020). Atualizar a API para um commit com versao nova do EYES ja passa a distribuir a versao nova; `AGENT_VERSION` vazio no `.env` usa a versao embutida.

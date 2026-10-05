@@ -31,18 +31,18 @@ Respostas de sucesso sao a string JSON `"ok"` (com aspas), como no Django. Erros
 | `GET /api/v3/{id}/checkrunner/` e `/runchecks/` | agente | `{agent, check_interval, checks: []}` (checks na fase 3) |
 | `PATCH /api/v3/checkrunner/` | agente | `"ok"` (resultado de checks na fase 3) |
 | `POST /api/v3/checkin/` | agente | `"ok"` |
-| `POST /api/v3/syncmesh/` | agente | grava `mesh_node_id` |
+| `POST /api/v3/syncmesh/` | agente | grava `mesh_node_id` (substituido na fase 12.8, ver ADR-022): rota removida |
 | `POST /api/v3/choco/` | agente | grava `choco_installed` |
 | `POST /api/v3/software/` | agente | grava inventario de software |
 | `PUT/PATCH/POST /api/v3/winupdates/`, `POST /api/v3/superseded/` | agente | `"ok"` sem efeito (fase 3) |
 | `GET/PATCH /api/v3/{pk}/{id}/taskrunner/` | agente | 404 / `"ok"` (fase 3) |
 | `PATCH /api/v3/{pk}/{id}/histresult/` | agente | `"ok"` (fase 2) |
-| `POST /api/v3/meshexe/`, `GET /api/v3/{id}/meshreinstall/` | instalacao / agente | binario do MeshAgent (fase 4, ver `fase4-mesh.md`) |
+| `POST /api/v3/meshexe/`, `GET /api/v3/{id}/meshreinstall/` | instalacao / agente | binario do MeshAgent (fase 4, ver `fase4-mesh.md`) (substituido na fase 12.8, ver ADR-022): rotas removidas |
 | `PATCH /api/v4/{id}/{pk}/chocoresult/` | agente | `"ok"` (fase 3) |
 
-`config` devolve, sorteando a cada chamada: `checkin_hello` 30 a 60, `checkin_agentinfo` 200 a 400, `checkin_winsvc` 2400 a 3000, `checkin_pubip` 300 a 500, `checkin_disks` 1000 a 2000, `checkin_sw` 2800 a 3500, `checkin_wmi` 3000 a 4000, `checkin_syncmesh` 800 a 1200, `limit_data` false, `install_nushell` false, `install_deno` false e os demais textos vazios.
+`config` devolve, sorteando a cada chamada: `checkin_hello` 30 a 60, `checkin_agentinfo` 200 a 400, `checkin_winsvc` 2400 a 3000, `checkin_pubip` 300 a 500, `checkin_disks` 1000 a 2000, `checkin_sw` 2800 a 3500, `checkin_wmi` 3000 a 4000 (`checkin_syncmesh` saiu na fase 12.8), `limit_data` false, `install_nushell` false, `install_deno` false e os demais textos vazios.
 
-`newagent` recebe `{agent_id, hostname, site, monitoring_type, mesh_node_id, description, goarch, plat}`.
+`newagent` recebe `{agent_id, hostname, site, monitoring_type, mesh_node_id, description, goarch, plat}`. O `mesh_node_id` (substituido na fase 12.8, ver ADR-022) nao e mais enviado pelo EYES e a coluna `MeshNodeId` foi removida.
 
 ## 3. NATS
 
@@ -109,7 +109,7 @@ Mesmo padrao da fase 0 (cookie, 2FA, ProblemDetails com `code`).
 | DELETE | `/api/agents/{id}` | 204 (`agents.manage`) |
 
 `AgentListItem`: `{ id, agentId, hostname, clientId, clientName, siteId, siteName, monitoringType, plat, operatingSystem, status, lastSeen, version, loggedInUsername, lastLoggedInUser, publicIp, needsReboot, description }`.
-`AgentDetail`: campos acima mais `goArch, totalRam (GB), bootTime, meshNodeId, disks (array JSON), services (array JSON), wmi (JSON), checkInterval, offlineTime, overdueTime, createdAt`.
+`AgentDetail`: campos acima mais `goArch, totalRam (GB), bootTime, meshNodeId (substituido na fase 12.8, ver ADR-022), disks (array JSON), services (array JSON), wmi (JSON), checkInterval, offlineTime, overdueTime, createdAt`.
 `status`: `online`, `offline` ou `overdue`. `monitoringType`: `server` ou `workstation`.
 
 ### Instalacao (`agents.install`)

@@ -6,15 +6,14 @@ Meta (ver `.team-context.md`): RPO < 24 h, RTO < 2 h.
 | Item | Como | Arquivo no conjunto |
 |---|---|---|
 | Banco PostgreSQL | `pg_dump -Fc` (copia consistente com o banco ligado) | `postgres.dump` |
-| Dados do MeshCentral (configuracao, banco interno NeDB, certificados do servidor e dos agentes Mesh) | `tar` do volume `<projeto>_mesh_data` montado somente leitura | `mesh_data.tar.gz` |
-| Arquivos do MeshCentral | `tar` do volume `<projeto>_mesh_files` | `mesh_files.tar.gz` |
 | `.env` (opcional, desligado por padrao) | copia, so com cifragem ligada | `env` |
 | Lista do dump, versao e data | gerados | `postgres.list`, `manifest.txt`, `SHA256SUMS` |
 
-Com o projeto Compose padrao (`name: cybereyes`), os volumes reais sao `cybereyes_postgres_data`, `cybereyes_mesh_data` e `cybereyes_mesh_files`.
+Com o projeto Compose padrao (`name: cybereyes`), o volume real do banco e `cybereyes_postgres_data`.
+
+Desde a fase 12.8 (ADR-022) o MeshCentral nao existe mais e os volumes `mesh_data`, `mesh_files` e `mesh_shared` sairam do backup. Conjuntos feitos antes disso ainda podem trazer `mesh_data.tar.gz` e `mesh_files.tar.gz`; esses arquivos nao sao mais usados. O destino dos volumes antigos na VPS esta em `atualizacao.md` ("Atualizacao que remove o MeshCentral").
 
 Fora do backup, de proposito:
-- `mesh_shared`: guarda so a chave de token que o MeshCentral regrava a partir do `mesh_data`.
 - `redis_data`: o Redis so faz o backplane do SignalR; nada nele precisa sobreviver.
 - `nats_auth`: a API regrava o arquivo de usuarios do NATS a partir do banco.
 - `letsencrypt`: o Certbot emite de novo na VPS nova (ou use `certs/` com certificado proprio).
@@ -33,14 +32,13 @@ Variaveis no `.env`:
 | `TZ` | `America/Sao_Paulo` | fuso do horario acima |
 | `BACKUP_KEEP_DAYS` | `14` | apaga conjuntos com mais de N dias (`0` desliga) |
 | `BACKUP_HOST_DIR` | `./backups` (em `infra/docker/`) | pasta do servidor onde ficam os conjuntos |
-| `BACKUP_PASSPHRASE` | vazia | se definida, cifra `postgres.dump`, os `.tar.gz` e o `env` com `openssl enc -aes-256-cbc -pbkdf2 -iter 200000` |
+| `BACKUP_PASSPHRASE` | vazia | se definida, cifra `postgres.dump` e o `env` com `openssl enc -aes-256-cbc -pbkdf2 -iter 200000` |
 | `BACKUP_INCLUDE_ENV` | `false` | `true` copia o `.env` (recusado sem `BACKUP_PASSPHRASE`) |
 
 Cada execucao cria `backups/cybereyes-AAAAMMDD-HHMMSS/` (primeiro como `.partial`; so ganha o nome final se tudo deu certo). O script:
 1. roda `pg_dump -Fc` e valida o arquivo com `pg_restore --list` (falha se nao houver dados de nenhuma tabela);
-2. arquiva os volumes do MeshCentral (avisa e segue se um volume nao estiver montado);
-3. cifra, se `BACKUP_PASSPHRASE` existir;
-4. grava `SHA256SUMS`, aplica a retencao e atualiza `backups/.last-success` com a data UTC.
+2. cifra, se `BACKUP_PASSPHRASE` existir;
+3. grava `SHA256SUMS`, aplica a retencao e atualiza `backups/.last-success` com a data UTC.
 
 Qualquer erro encerra com codigo diferente de zero e mensagem `ERRO:` no log; no modo diario o servico registra a falha e tenta de novo no proximo horario.
 
@@ -72,16 +70,15 @@ backup/restore.sh backups/cybereyes-20261001-023000
 BACKUP_PASSPHRASE='...' backup/restore.sh --yes backups/cybereyes-20261001-023000
 ```
 
-Opcoes: `-p/--project` (padrao `cybereyes`), `--env-file` (padrao `infra/docker/.env`), `--no-mesh`, `--no-start`. Arquivos extras do Compose podem ir em `COMPOSE_FILE`.
+Opcoes: `-p/--project` (padrao `cybereyes`), `--env-file` (padrao `infra/docker/.env`), `--no-start`. Arquivos extras do Compose podem ir em `COMPOSE_FILE`.
 
 Ordem do que o script faz:
 1. confere `SHA256SUMS`;
-2. decifra (se preciso) em uma pasta temporaria e valida o dump com `pg_restore --list` e os `.tar.gz` com `gzip -t`. Senha errada ou arquivo ruim param aqui, **antes** de tocar no stack;
-3. para `api`, `nginx`, `meshcentral` e `backup`;
+2. decifra (se preciso) em uma pasta temporaria e valida o dump com `pg_restore --list`. Senha errada ou arquivo ruim param aqui, **antes** de tocar no stack;
+3. para `api`, `nginx` e `backup`;
 4. sobe o `postgres` e espera ele responder por TCP (no primeiro boot o servidor temporario do initdb so responde pelo socket);
 5. apaga e recria o banco `cybereyes` (`DROP DATABASE ... WITH (FORCE)`) e roda `pg_restore --no-owner --exit-on-error`;
-6. esvazia e restaura `mesh_data` e `mesh_files` (criando os volumes com os rotulos do Compose se ainda nao existirem), deixa a raiz dos volumes com o dono `1000` (usuario `node` da imagem do MeshCentral) e apaga `mesh_shared/mesh_token` para o MeshCentral regravar a chave que corresponde ao `mesh_data` restaurado;
-7. sobe o stack (`docker compose up -d`), a menos que `--no-start` seja usado.
+6. sobe o stack (`docker compose up -d`), a menos que `--no-start` seja usado.
 
 A copia do `.env` dentro do conjunto **nao** e aplicada. Para recupera-la:
 ```bash
@@ -111,7 +108,7 @@ Executado neste ambiente de desenvolvimento, antes da renomeacao para Cybereyes 
 | Restauracao sem cifragem em projeto novo (banco vazio, primeiro boot do PostgreSQL) | 4,6 s |
 | Restauracao cifrada sobre o projeto anterior, com a API rodando | 4,2 s; API (2 replicas) saudavel 12,8 s depois de subir |
 | `/health` da API restaurada (via `wget` dentro da rede do projeto) | `{"status":"Healthy"}`; migrate: "No migrations were applied" |
-| Volumes do MeshCentral: backup de um MeshCentral inicializado (11,8 MB compactado) e restauracao cifrada em um terceiro projeto | 23 arquivos com hash identico, dono `1000:1000`; MeshCentral subiu sem gerar certificados novos |
+| Volumes do MeshCentral (historico, removidos na fase 12.8): backup de um MeshCentral inicializado (11,8 MB compactado) e restauracao cifrada em um terceiro projeto | 23 arquivos com hash identico, dono `1000:1000`; MeshCentral subiu sem gerar certificados novos |
 
 Contagem de linhas, origem x restaurado:
 
@@ -134,7 +131,6 @@ Carga sintetica para estimar o tempo com volume maior: banco de 486 MB (2 milhoe
 Leitura do RTO: com os dados atuais a restauracao em si leva segundos. Na VPS nova o tempo e dominado por preparar a maquina, instalar o Docker, baixar as imagens, copiar o backup e propagar o DNS. A meta de 2 h parece folgada, mas **o ensaio completo em VPS nova ainda nao foi feito**; faca-o antes da entrada em producao e registre o tempo aqui.
 
 ## Limites conhecidos
-- O MeshCentral continua rodando durante o `tar` do `mesh_data`; uma escrita no meio do arquivo pode ficar parcial no backup. Para um backup a frio, pare o servico antes (`docker compose stop meshcentral`, rode o backup manual, `docker compose start meshcentral`).
 - A cifragem e AES-256-CBC sem autenticacao (o formato pedido de `openssl enc`). O `SHA256SUMS` fica no mesmo conjunto: detecta corrupcao, nao adulteracao proposital.
 - O backup nao copia nada para fora da VPS.
 - RPO de ate 24 h (um backup por dia). WAL continuo fica para depois, como no `.team-context.md`.

@@ -47,13 +47,11 @@ public static class InstallerEndpoints
         app.MapGet("/api/agent/download/{plat}/{goarch}", Download).AllowAnonymous().ExcludeFromDescription();
     }
 
-    private static string? MeshUrl(Mesh.MeshClient mesh, Mesh.MeshState state) => mesh.DistributesAgent && state.GroupId is not null ? mesh.BaseUrl : null;
-
     public static string PublicUrl(HttpContext ctx, IConfiguration config) =>
         (config["App:PublicUrl"] is { Length: > 0 } url ? url : $"{ctx.Request.Scheme}://{ctx.Request.Host}").TrimEnd('/');
 
     private static async Task<IResult> CreateInstallerAsync(InstallerRequest request, HttpContext ctx, IConfiguration config,
-        ClaimsPrincipal principal, CybereyesDbContext db, IAuditService audit, TimeProvider time, Mesh.MeshClient mesh, Mesh.MeshState state, CancellationToken ct)
+        ClaimsPrincipal principal, CybereyesDbContext db, IAuditService audit, TimeProvider time, CancellationToken ct)
     {
         var site = await db.Sites.AsNoTracking().FirstOrDefaultAsync(s => s.Id == request.SiteId, ct);
         if (site is null)
@@ -66,7 +64,7 @@ public static class InstallerEndpoints
         db.InstallerTokens.Add(new InstallerToken { TokenHash = AgentSecrets.Hash(token), ExpiresAt = expires, CreatedBy = principal.Identity?.Name ?? "?" });
         await db.SaveChangesAsync(ct);
 
-        var parameters = new InstallParameters(PublicUrl(ctx, config), site.ClientId, site.Id, token, request.AgentType, MeshUrl(mesh, state) is not null);
+        var parameters = new InstallParameters(PublicUrl(ctx, config), site.ClientId, site.Id, token, request.AgentType);
         var command = request.Plat switch
         {
             "linux" => InstallScripts.LinuxCommand(parameters),
@@ -142,7 +140,7 @@ public static class InstallerEndpoints
     }
 
     private static async Task<IResult> DeployScriptAsync(Guid uid, string plat, HttpContext ctx, IConfiguration config, CybereyesDbContext db,
-        IDataProtectionProvider protection, TimeProvider time, Mesh.MeshClient mesh, Mesh.MeshState state, CancellationToken ct)
+        IDataProtectionProvider protection, TimeProvider time, CancellationToken ct)
     {
         var deployment = await db.Deployments.AsNoTracking().Include(d => d.Site)
             .FirstOrDefaultAsync(d => d.Uid == uid && d.ExpiresAt > time.GetUtcNow(), ct);
@@ -152,8 +150,7 @@ public static class InstallerEndpoints
         }
 
         var token = protection.CreateProtector(DataProtectionNames.DeploymentTokenPurpose).Unprotect(deployment.ProtectedToken);
-        var parameters = new InstallParameters(PublicUrl(ctx, config), deployment.Site!.ClientId, deployment.SiteId, token, deployment.MonitoringType,
-            MeshUrl(mesh, state) is not null);
+        var parameters = new InstallParameters(PublicUrl(ctx, config), deployment.Site!.ClientId, deployment.SiteId, token, deployment.MonitoringType);
         return plat switch
         {
             "linux" => Results.Text(InstallScripts.Linux(parameters.ApiUrl, parameters), "text/x-shellscript"),

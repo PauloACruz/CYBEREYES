@@ -90,17 +90,17 @@ docker compose logs --tail 50 certbot
 - Certificado proprio: troque os arquivos em `certs/<host>/` e recarregue o Nginx.
 - Se nenhum certificado existir, o Nginx usa um autoassinado de 30 dias: os agentes nao aceitam, o que derruba todos de uma vez.
 
-## MeshCentral fora
-Sintoma: "Acesso remoto" falha no console; `https://MESH_HOST` com 502.
+## Acesso remoto nao conecta
+Sintoma: a janela do acesso remoto (`/acesso-remoto/:agentId`) nao mostra a tela, fica conectando ou fecha logo; ou a aba "Arquivos" nao abre. Desde a fase 12.8 o acesso remoto e do proprio EYES e da API (ADR-022); nao ha mais MeshCentral nem `MESH_HOST` para conferir.
 
-```bash
-docker compose ps meshcentral
-docker compose logs --tail 50 meshcentral
-docker compose up -d meshcentral
-```
-- `Permission denied` em `meshcentral-data`: a raiz do volume precisa pertencer ao uid 1000 (`node`). Corrija com `docker run --rm -v cybereyes_mesh_data:/d postgres:17-alpine chown 1000:1000 /d` e suba de novo.
-- O console continua funcionando sem o MeshCentral; so o acesso remoto para.
-- Depois de restaurar o `mesh_data`, a chave de token em `mesh_shared` precisa ser regravada (o `restore.sh` ja faz isso apagando `mesh_shared/mesh_token`; o MeshCentral grava de novo na partida).
+1. Leia o erro que o console mostra (`code` do contrato, `docs/remoto/contrato-remoto.md`, secao 2): `AGENT_OFFLINE` (agente desconectado do NATS, ver "NATS fora e agentes offline em massa"), `REMOTE_UNSUPPORTED` (EYES abaixo de 3.1.0 ou sistema sem suporte na v1, como Linux com Wayland), `SESSION_LIMIT`, `NO_INTERACTIVE_SESSION` (sem usuario conectado e a politica nao permite a tela de login), `REMOTE_DISABLED` (`Remote:Enabled` desligado na API), `AGENT_TIMEOUT` ou 403 (sem permissao ou recurso desligado pela politica).
+2. Agente online e versao: confira no console que o agente esta `online` e com EYES 3.1.0 ou mais novo; atualize pelo menu Acoes ("Atualizar EYES") se preciso.
+3. Permissoes e politica: tela e area de transferencia pedem `agents.remote`; arquivos pedem `agents.files`. Confira a politica efetiva (global, cliente e site) em Configuracoes > Acesso remoto.
+4. Caminho do Nginx: o relay WebSocket usa `wss://CYBEREYES_HOST/api/remote/relay/...` e passa pela `location /api/remote/` do template do Nginx (com `Upgrade` e sem buffer). Se a sessao e criada mas a tela nao chega, confira o template (`infra/docker/nginx/templates`) e `docker compose logs --tail 50 nginx | grep /api/remote/`. Proxy ou firewall do site que bloqueie WebSocket afeta o acesso remoto da mesma forma que o NATS.
+5. Logs da API: `docker compose logs --tail 200 api | grep -i remote`.
+6. O console e o terminal do EYES continuam funcionando mesmo com o acesso remoto parado. O historico das sessoes fica em Relatorios > Acessos remotos.
+
+Wake-on-LAN (`POST /api/agents/{id}/wake`, permissao `agents.control`): o pacote sai de um EYES vizinho, online, do mesmo site e com placa na mesma rede do alvo (EYES 3.1.0 ou mais novo). Resposta 409 quer dizer que o alvo nao tem placa no inventario ou que nao ha vizinho assim online.
 
 ## SMTP falhando
 Sintoma: alertas por e-mail nao chegam; `emailSent: false` nos alertas.

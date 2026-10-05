@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Cybereyes.Api.Infrastructure;
 using Cybereyes.Api.Rmm;
-using Cybereyes.Api.Rmm.Mesh;
 using Cybereyes.Api.Rmm.Monitoring;
 using Cybereyes.Core.Audit;
 using Cybereyes.Core.Identity;
@@ -22,12 +21,12 @@ public static class UserEndpoints
 
         group.MapGet("/", ListAsync).RequireAuthorization(view);
         group.MapGet("/{id:guid}", GetAsync).RequireAuthorization(view);
-        group.MapPost("/", CreateAsync).RequireAuthorization(manage).RequestsMeshSync();
-        group.MapPut("/{id:guid}", UpdateAsync).RequireAuthorization(manage).RequestsMeshSync();
+        group.MapPost("/", CreateAsync).RequireAuthorization(manage);
+        group.MapPut("/{id:guid}", UpdateAsync).RequireAuthorization(manage);
         group.MapPost("/{id:guid}/reset-password", ResetPasswordAsync).RequireAuthorization(manage);
         group.MapPost("/{id:guid}/invite", ResendInviteAsync).RequireAuthorization(manage);
         group.MapPost("/{id:guid}/reset-2fa", ResetTwoFactorAsync).RequireAuthorization(manage);
-        group.MapDelete("/{id:guid}", DeleteAsync).RequireAuthorization(manage).RequestsMeshSync();
+        group.MapDelete("/{id:guid}", DeleteAsync).RequireAuthorization(manage);
     }
 
     private static async Task<IResult> ListAsync(CybereyesDbContext db, int? page, int? pageSize, string? search, CancellationToken ct)

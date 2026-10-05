@@ -24,7 +24,6 @@ export type ErrorCode =
   | 'RATE_LIMITED'
   | 'AGENT_TIMEOUT'
   | 'AGENT_BUSY'
-  | 'MESH_DISABLED'
   | 'VAULT_DISABLED'
   | 'SSO_PROVIDER_ERROR'
   | 'SSO_INVALID_STATE'
@@ -313,7 +312,6 @@ export interface AgentDetail extends AgentListItem {
   /** Em GB. */
   totalRam: number | null;
   bootTime: string | null;
-  meshNodeId: string | null;
   /** JSON enviado pelo agente; validar antes de usar. */
   disks: unknown;
   services: unknown;
@@ -960,30 +958,6 @@ export interface SaveGlobalSettingsRequest extends Omit<GlobalSettingsDto, 'smtp
   smtpPassword?: string;
 }
 
-// Acesso remoto com MeshCentral (docs/api/fase4-mesh.md)
-
-export type RemoteView = 'control' | 'terminal' | 'files';
-
-export interface RemoteAccessDto {
-  hostname: string;
-  control: string;
-  terminal: string;
-  files: string;
-}
-
-export interface MeshSyncResult {
-  lastSync: string | null;
-  lastError: string | null;
-  users: number;
-}
-
-export interface MeshStatusDto extends MeshSyncResult {
-  enabled: boolean;
-  url: string | null;
-  deviceGroup: string | null;
-  groupId: string | null;
-}
-
 // Acesso remoto proprio (docs/remoto/contrato-remoto.md)
 
 export type RemoteChannel = 'desktop' | 'files';
@@ -1127,7 +1101,6 @@ export interface TicketAgentDto {
   operatingSystem: string | null;
   loggedInUsername: string | null;
   publicIp: string | null;
-  meshNodeId: string | null;
 }
 
 export interface TicketDetail extends TicketListItem {

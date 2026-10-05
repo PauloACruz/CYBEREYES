@@ -3,12 +3,11 @@ using System.Text;
 
 namespace Cybereyes.Api.Rmm;
 
-public sealed record InstallParameters(string ApiUrl, int ClientId, int SiteId, string Token, string AgentType, bool Mesh = false);
+public sealed record InstallParameters(string ApiUrl, int ClientId, int SiteId, string Token, string AgentType);
 
 /// <summary>
-/// Scripts de instalacao do EYES para Linux, macOS e Windows. O proprio EYES registra o agente,
-/// instala o MeshAgent (pelo /api/v3/meshexe/) e cria o servico do sistema; os scripts so
-/// escolhem a arquitetura, baixam o binario e chamam "eyes install".
+/// Scripts de instalacao do EYES para Linux, macOS e Windows. O proprio EYES registra o agente e cria o
+/// servico do sistema; os scripts so escolhem a arquitetura, baixam o binario e chamam "eyes install".
 /// </summary>
 public static class InstallScripts
 {
@@ -21,9 +20,9 @@ public static class InstallScripts
     public static string Linux(string apiUrl, InstallParameters? embedded = null)
     {
         var defaults = embedded is null
-            ? "CLIENT_ID=\"\"\nSITE_ID=\"\"\nTOKEN=\"\"\nAGENT_TYPE=\"auto\"\nNOMESH=0"
+            ? "CLIENT_ID=\"\"\nSITE_ID=\"\"\nTOKEN=\"\"\nAGENT_TYPE=\"auto\""
             : string.Create(CultureInfo.InvariantCulture,
-                $"CLIENT_ID=\"{embedded.ClientId}\"\nSITE_ID=\"{embedded.SiteId}\"\nTOKEN=\"{embedded.Token}\"\nAGENT_TYPE=\"{embedded.AgentType}\"\nNOMESH={(embedded.Mesh ? 0 : 1)}");
+                $"CLIENT_ID=\"{embedded.ClientId}\"\nSITE_ID=\"{embedded.SiteId}\"\nTOKEN=\"{embedded.Token}\"\nAGENT_TYPE=\"{embedded.AgentType}\"");
         return LinuxTemplate.Replace("__API_URL__", apiUrl, StringComparison.Ordinal)
             .Replace("__DEFAULTS__", defaults, StringComparison.Ordinal)
             .ReplaceLineEndings("\n");
@@ -38,10 +37,6 @@ public static class InstallScripts
         {
             sb.Append(CultureInfo.InvariantCulture, $" --agent-type {p.AgentType}");
         }
-        if (!p.Mesh)
-        {
-            sb.Append(" --nomesh");
-        }
         return sb.ToString();
     }
 
@@ -50,7 +45,7 @@ public static class InstallScripts
     {
         var arch = goarch ?? "$(uname -m | sed 's/x86_64/amd64/')";
         return string.Create(CultureInfo.InvariantCulture,
-            $"curl -fsSL -o /tmp/eyes \"{p.ApiUrl}/api/agent/download/darwin/{arch}\" && chmod +x /tmp/eyes && sudo /tmp/eyes install --api {p.ApiUrl} --client-id {p.ClientId} --site-id {p.SiteId} --agent-type {Concrete(p.AgentType)} --auth {p.Token}{(p.Mesh ? string.Empty : " --nomesh")} && rm -f /tmp/eyes");
+            $"curl -fsSL -o /tmp/eyes \"{p.ApiUrl}/api/agent/download/darwin/{arch}\" && chmod +x /tmp/eyes && sudo /tmp/eyes install --api {p.ApiUrl} --client-id {p.ClientId} --site-id {p.SiteId} --agent-type {Concrete(p.AgentType)} --auth {p.Token} && rm -f /tmp/eyes");
     }
 
     /// <summary>Script PowerShell para Windows. Sem goarch, detecta amd64, arm64 ou 386.</summary>
@@ -67,7 +62,7 @@ public static class InstallScripts
             $eyes = Join-Path $env:TEMP ('eyes-setup-' + [guid]::NewGuid().ToString('N') + '.exe')
             Invoke-WebRequest -UseBasicParsing -Uri ('{{p.ApiUrl}}/api/agent/download/windows/' + $arch) -OutFile $eyes
             try {
-                & $eyes install --api {{p.ApiUrl}} --client-id {{p.ClientId}} --site-id {{p.SiteId}} --agent-type {{Concrete(p.AgentType)}} --auth {{p.Token}}{{(p.Mesh ? string.Empty : " --nomesh")}}
+                & $eyes install --api {{p.ApiUrl}} --client-id {{p.ClientId}} --site-id {{p.SiteId}} --agent-type {{Concrete(p.AgentType)}} --auth {{p.Token}}
                 if ($LASTEXITCODE -ne 0) { throw "Falha na instalacao do EYES (codigo $LASTEXITCODE)" }
             } finally {
                 Remove-Item $eyes -Force -ErrorAction SilentlyContinue
@@ -80,7 +75,7 @@ public static class InstallScripts
     private const string LinuxTemplate = """
         #!/usr/bin/env bash
         # Instalador do EYES (agente Cybereyes) para Linux.
-        # Uso: curl -fsSL <servidor>/api/install/linux.sh | sudo bash -s -- --client-id N --site-id N --auth TOKEN [--agent-type auto|server|workstation] [--nomesh] [--insecure]
+        # Uso: curl -fsSL <servidor>/api/install/linux.sh | sudo bash -s -- --client-id N --site-id N --auth TOKEN [--agent-type auto|server|workstation] [--insecure]
         set -euo pipefail
 
         API_URL="__API_URL__"
@@ -97,7 +92,7 @@ public static class InstallScripts
                 --auth) TOKEN="$2"; shift 2 ;;
                 --agent-type) AGENT_TYPE="$2"; shift 2 ;;
                 --insecure) INSECURE=1; shift ;;
-                --nomesh) NOMESH=1; shift ;;
+                --nomesh) shift ;; # aceito por compatibilidade com comandos antigos; sem efeito
                 *) fail "parametro desconhecido: $1" ;;
             esac
         done
@@ -139,7 +134,6 @@ public static class InstallScripts
         CURL_OPTS="-fsSL"
         FLAGS=()
         if [ "$INSECURE" -eq 1 ]; then CURL_OPTS="-fsSLk"; FLAGS+=(--insecure); fi
-        if [ "$NOMESH" -eq 1 ]; then FLAGS+=(--nomesh); fi
 
         TMP="$(mktemp -d)"
         trap 'rm -rf "$TMP"' EXIT

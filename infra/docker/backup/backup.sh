@@ -1,5 +1,5 @@
 #!/bin/sh
-# Backup do Cybereyes: PostgreSQL (pg_dump -Fc), volumes do MeshCentral e, opcionalmente, o .env.
+# Backup do Cybereyes: PostgreSQL (pg_dump -Fc) e, opcionalmente, o .env.
 #
 # Uso (dentro do conteiner "backup", que ja tem as variaveis e os volumes montados):
 #   backup.sh            executa um backup agora
@@ -11,7 +11,6 @@
 #   BACKUP_KEEP_DAYS    apaga conjuntos com mais de N dias (padrao 14; 0 desliga)
 #   BACKUP_PASSPHRASE   se definida, cifra os arquivos com openssl enc -aes-256-cbc -pbkdf2
 #   BACKUP_INCLUDE_ENV  true copia o .env (exige BACKUP_PASSPHRASE; padrao false)
-#   MESH_DATA_DIR, MESH_FILES_DIR  volumes do MeshCentral montados (somente leitura)
 #   ENV_FILE            caminho do .env montado (padrao /config/.env)
 set -eu
 
@@ -21,8 +20,6 @@ BACKUP_TIME="${BACKUP_TIME:-02:30}"
 BACKUP_INCLUDE_ENV="${BACKUP_INCLUDE_ENV:-false}"
 BACKUP_PREFIX="${BACKUP_PREFIX:-cybereyes}"
 BACKUP_PASSPHRASE="${BACKUP_PASSPHRASE:-}"
-MESH_DATA_DIR="${MESH_DATA_DIR:-/volumes/mesh_data}"
-MESH_FILES_DIR="${MESH_FILES_DIR:-/volumes/mesh_files}"
 ENV_FILE="${ENV_FILE:-/config/.env}"
 PBKDF2_ITER=200000
 
@@ -33,17 +30,6 @@ encrypt() {
     openssl enc -aes-256-cbc -pbkdf2 -iter "$PBKDF2_ITER" -salt -pass env:BACKUP_PASSPHRASE \
         -in "$1" -out "$1.enc" || fail "falha ao cifrar $(basename "$1")"
     rm -f "$1"
-}
-
-archive_dir() {
-    name="$1"
-    dir="$2"
-    if [ ! -d "$dir" ]; then
-        log "AVISO: $dir nao encontrado, $name fica fora deste backup"
-        return 0
-    fi
-    tar --numeric-owner -czf "$work/$name.tar.gz" -C "$dir" . || fail "falha ao arquivar $name"
-    log "$name arquivado ($(du -h "$work/$name.tar.gz" | cut -f1))"
 }
 
 run_backup() {
@@ -68,9 +54,6 @@ run_backup() {
     tables=$(grep -c ' TABLE DATA ' "$work/postgres.list" || true)
     [ "${tables:-0}" -gt 0 ] || fail "o dump nao contem dados de nenhuma tabela"
     log "postgres.dump ok ($(du -h "$work/postgres.dump" | cut -f1), $tables tabelas com dados)"
-
-    archive_dir mesh_data "$MESH_DATA_DIR"
-    archive_dir mesh_files "$MESH_FILES_DIR"
 
     case "$BACKUP_INCLUDE_ENV" in
         true|1|yes) cp "$ENV_FILE" "$work/env" && log ".env incluido" ;;

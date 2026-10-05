@@ -132,7 +132,7 @@ func (f *fakeAPI) route(r request) (int, any) {
 
 	// Rotas de instalacao: token de instalacao.
 	switch key {
-	case "GET installer", "POST installer", "POST newagent", "POST meshexe":
+	case "GET installer", "POST installer", "POST newagent":
 		if ver != "v3" {
 			return f.notFound(r)
 		}
@@ -147,10 +147,8 @@ func (f *fakeAPI) route(r request) (int, any) {
 				return 400, "Invalid data"
 			}
 			return 200, "ok"
-		case "POST newagent":
-			return f.newAgent(r)
 		default:
-			return 400, "Unable to connect to mesh to get group id information"
+			return f.newAgent(r)
 		}
 	}
 
@@ -171,7 +169,7 @@ func (f *fakeAPI) route(r request) (int, any) {
 		return f.notFound(r)
 	}
 	switch key {
-	case "POST checkin", "POST syncmesh", "POST choco", "PUT winupdates", "PATCH winupdates", "POST superseded",
+	case "POST checkin", "POST choco", "PUT winupdates", "PATCH winupdates", "POST superseded",
 		"POST snmp/results", "POST snmp/traps":
 		return 200, "ok"
 	case "POST software":
@@ -219,8 +217,8 @@ func (f *fakeAPI) route(r request) (int, any) {
 				"checkin_hello": 30 + randInt(30), "checkin_agentinfo": 200 + randInt(200),
 				"checkin_winsvc": 2400 + randInt(600), "checkin_pubip": 300 + randInt(200),
 				"checkin_disks": 1000 + randInt(1000), "checkin_sw": 2800 + randInt(700),
-				"checkin_wmi": 3000 + randInt(1000), "checkin_syncmesh": 800 + randInt(400),
-				"limit_data": false, "install_nushell": false, "install_nushell_version": "",
+				"checkin_wmi": 3000 + randInt(1000),
+				"limit_data":  false, "install_nushell": false, "install_nushell_version": "",
 				"install_nushell_url": "", "nushell_enable_config": false, "install_deno": false,
 				"install_deno_version": "", "install_deno_url": "", "deno_default_permissions": "",
 			}
@@ -232,8 +230,6 @@ func (f *fakeAPI) route(r request) (int, any) {
 			return 200, map[string]any{"enabled": true, "min_level": "warning", "windows_logs": []string{"System", "Application"}, "max_per_cycle": 500}
 		case "snmp":
 			return 200, map[string]any{"enabled": false, "trap_port": 162, "devices": []any{}}
-		case "meshreinstall":
-			return 400, "Unable to connect to mesh to get group id information"
 		case "update":
 			return 200, map[string]any{"version": "0.0.0", "sha256": "", "auto_update": false}
 		}

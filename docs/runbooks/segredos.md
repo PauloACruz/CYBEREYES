@@ -10,7 +10,6 @@
 | Chaves do Data Protection | banco, tabela `data_protection_keys` (sem cifragem propria) | cookie de sessao, senha do SMTP, tokens das implantacoes, estado do login SSO | sessoes caem; senha SMTP e implantacoes precisam ser refeitas |
 | `BACKUP_PASSPHRASE` | `.env` e cofre de senhas da equipe | cifragem dos backups | **backups cifrados com ela ficam ilegiveis** |
 | `ADMIN_PASSWORD` | `.env` | `migrate`, so quando o banco nao tem nenhum usuario | sem impacto depois da instalacao |
-| Chave de token do MeshCentral | volume `mesh_shared` (`mesh_token`), derivada do `mesh_data` | `api` para abrir o MeshCentral sem segundo login | regravada pelo MeshCentral na partida |
 | Senhas dos agentes no NATS | banco (hash) e `users.conf` | cada agente | regravadas pela API |
 
 Regras:
@@ -91,5 +90,5 @@ Uma ferramenta de recifragem (ler com a chave antiga, gravar com a nova, com ide
 ## BACKUP_PASSPHRASE
 Trocar e simples (`.env` e `docker compose up -d backup`), mas os conjuntos antigos continuam exigindo a senha antiga. Guarde a senha antiga no cofre ate o ultimo backup cifrado com ela sair da retencao, inclusive na copia externa.
 
-## Usuario e senha do administrador interno do MeshCentral
-Gerados pelo proprio conteiner na primeira partida e guardados so dentro do `mesh_data`; a API nao usa essa senha (usa a chave de token). Nao ha rotacao prevista.
+## MeshCentral (removido na fase 12.8)
+A chave de token do MeshCentral (`mesh_shared`) e o administrador interno do MeshCentral (`mesh_data`) deixaram de existir com a remocao do MeshCentral (ADR-022). O acesso remoto proprio nao tem segredo fixo no `.env`: os tokens de cada sessao valem 60 s para conectar, sao de uso unico e a API guarda so o SHA-256 (`docs/remoto/contrato-remoto.md`, secao 1). Os volumes antigos, se ainda existirem na VPS, seguem o passo 5 de "Atualizacao que remove o MeshCentral" em `atualizacao.md`.

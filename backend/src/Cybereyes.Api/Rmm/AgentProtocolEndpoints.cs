@@ -26,8 +26,6 @@ public static class AgentProtocolEndpoints
         installer.MapGet("/installer/", () => Ok);
         installer.MapPost("/installer/", CheckInstallerVersion);
         installer.MapPost("/newagent/", NewAgentAsync);
-        installer.MapPost("/meshexe/", (JsonElement body, Mesh.MeshClient mesh, Mesh.MeshState state, IHttpClientFactory http, CancellationToken ct) =>
-            Mesh.MeshEndpoints.DownloadAsync(mesh, state, http, Text(body, "plat") ?? string.Empty, Text(body, "goarch") ?? string.Empty, ct));
 
         var agent = app.MapGroup("/api/v3").RequireAuthorization(Policies.Agent).ExcludeFromDescription();
         agent.MapGet("/{agentId}/config/", Config);
@@ -37,7 +35,6 @@ public static class AgentProtocolEndpoints
         agent.MapPatch("/checkrunner/", Monitoring.MonitoringProtocol.CheckResultAsync);
         agent.MapPost("/traytoken/", Tickets.Tray.IssueTokenAsync);
         agent.MapPost("/checkin/", Monitoring.MonitoringProtocol.CheckinAsync);
-        agent.MapPost("/syncmesh/", SyncMeshAsync);
         agent.MapPost("/choco/", ChocoAsync);
         agent.MapPost("/software/", SoftwareAsync);
         agent.MapPut("/winupdates/", Monitoring.MonitoringProtocol.WinUpdatesPutAsync);
@@ -47,18 +44,6 @@ public static class AgentProtocolEndpoints
         agent.MapGet("/{pk:int}/{agentId}/taskrunner/", Monitoring.MonitoringProtocol.TaskGetAsync);
         agent.MapPatch("/{pk:int}/{agentId}/taskrunner/", Monitoring.MonitoringProtocol.TaskResultAsync);
         agent.MapPatch("/{pk:int}/{agentId}/histresult/", HistoryResultAsync);
-        agent.MapGet("/{agentId}/meshreinstall/", async (ClaimsPrincipal p, CybereyesDbContext db, Mesh.MeshClient mesh, Mesh.MeshState state, IHttpClientFactory http, CancellationToken ct) =>
-        {
-            var pk = AgentPk(p);
-            var agent = await db.Agents.Where(a => a.Id == pk).Select(a => new { a.Plat, a.GoArch }).FirstOrDefaultAsync(ct);
-            var plat = agent?.Plat ?? "windows";
-            var arch = agent?.GoArch ?? "amd64";
-            if (plat == "windows" && arch != "amd64")
-            {
-                arch = "386";
-            }
-            return await Mesh.MeshEndpoints.DownloadAsync(mesh, state, http, plat, arch, ct);
-        });
         app.MapPatch("/api/v4/{agentId}/{pk:long}/chocoresult/", Monitoring.MonitoringProtocol.ChocoResultAsync).RequireAuthorization(Policies.Agent).ExcludeFromDescription();
     }
 
@@ -108,7 +93,6 @@ public static class AgentProtocolEndpoints
             SiteId = siteId,
             MonitoringType = MonitoringType.IsValid(monitoringType) ? monitoringType! : MonitoringType.Server,
             Description = Truncate(Text(body, "description"), 255),
-            MeshNodeId = Truncate(Text(body, "mesh_node_id"), 255),
             GoArch = Truncate(Text(body, "goarch"), 32),
             Plat = Truncate(Text(body, "plat"), 32) ?? "windows",
             LastSeen = time.GetUtcNow(),
@@ -145,7 +129,6 @@ public static class AgentProtocolEndpoints
             ["checkin_disks"] = Between(1000, 2000),
             ["checkin_sw"] = Between(2800, 3500),
             ["checkin_wmi"] = Between(3000, 4000),
-            ["checkin_syncmesh"] = Between(800, 1200),
             ["limit_data"] = false,
             ["install_nushell"] = false,
             ["install_nushell_version"] = string.Empty,
@@ -156,14 +139,6 @@ public static class AgentProtocolEndpoints
             ["install_deno_url"] = string.Empty,
             ["deno_default_permissions"] = string.Empty,
         });
-    }
-
-    private static async Task<IResult> SyncMeshAsync(JsonElement body, ClaimsPrincipal principal, CybereyesDbContext db, CancellationToken ct)
-    {
-        var nodeId = Truncate(Text(body, "nodeid"), 255);
-        var pk = AgentPk(principal);
-        await db.Agents.Where(a => a.Id == pk && a.MeshNodeId != nodeId).ExecuteUpdateAsync(s => s.SetProperty(a => a.MeshNodeId, nodeId), ct);
-        return Ok;
     }
 
     private static async Task<IResult> ChocoAsync(JsonElement body, ClaimsPrincipal principal, CybereyesDbContext db, CancellationToken ct)

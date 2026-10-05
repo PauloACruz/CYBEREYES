@@ -480,6 +480,7 @@ Tamanho relativo: **P** (pequeno), **M** (medio) e **G** (grande), comparados en
 | 12.5 | concluida: canal files no EYES e na API (navegar, criar, renomear, apagar, envio em blocos com retomada e SHA-256, download com Range e zip, `remote_transfers` e auditoria), arrastar e soltar na tela, painel e aba "Arquivos", arquivos copiados e colados no Windows; E2E com o EYES real. Pendentes: CF_HDROP e pastas redirecionadas em Windows real (piloto, secao 5) | `docs/remoto/fase12-5.md` |
 | 12.6 | codigo concluido: cursor no Linux pelo XFixes; macOS sem CGO (purego) com captura por `CGDisplayCreateImage`, `CGEventPost`, `NSPasteboard` e remote-helper como o usuario do console; aviso e pedido de acesso pela caixa do sistema no Linux e no macOS quando nao ha eyes-tray. Mudanca: ScreenCaptureKit trocado por `CGDisplayCreateImage` na v1. Pendentes: macOS real (S6, D-07) e Linux real com GNOME e KDE (piloto, secao 6) | `docs/remoto/fase12-6.md` |
 | 12.7 | concluida: Wake-on-LAN pelo EYES (comando `wol`, MAC das placas no Linux e no macOS, vizinho online da mesma rede escolhido pela API), Terminal e Arquivos no menu de acesso remoto, politicas em Configuracoes, aba "Acessos remotos" em Relatorios com sessoes e transferencias. Pendente: WoL em rede real (piloto, secao 7) | `docs/remoto/fase12-7.md` |
+| 12.8 | remocao concluida no repositorio (API, banco, agente, console, infra, CI e documentacao, checklist da secao 14). Pendentes fora do repositorio: o piloto em homologacao (`docs/remoto/roteiro-piloto.md`) e a limpeza da VPS (DNS, certificado e volumes do MeshCentral) | `docs/remoto/fase12-8.md` |
 
 ---
 
@@ -578,13 +579,13 @@ Consequencia aceita: ate o fim da fase 12.8, as estacoes que entrarem no Cyberey
 | Infra | servico `meshcentral`, volumes `mesh_data`, `mesh_files` e `mesh_shared` e variaveis `Mesh__*` em `infra/docker/docker-compose.yml`; `infra/docker/meshcentral/`; servidor do `MESH_HOST` e upstream `cybereyes_mesh` no template do Nginx; filtro do envsubst no `nginx/Dockerfile`; `MESH_HOST` no `certbot/run.sh`; volumes do MeshCentral em `backup/backup.sh` e `backup/restore.sh`; `MESH_*` e `MESHCENTRAL_VERSION` no `.env.example` |
 | CI | build e publicacao da imagem `cybereyes-meshcentral` em `.github/workflows/ci.yml` |
 | Documentacao | `README.md`, `.team-context.md`, `docs/PLANO.md`, ADR-004 e ADR-013 (substituidos), `docs/api/fase4-mesh.md` (substituido pelo contrato novo), runbooks de instalacao, atualizacao, incidentes, segredos, backup e migracao, e as secoes do MeshAgent em `docs/agente/contrato-eyes.md` |
-| VPS | registro DNS e certificado do `MESH_HOST`; volumes antigos depois do prazo de D-09 |
+| VPS | registro DNS e certificado do `MESH_HOST`; volumes antigos `mesh_*` (sem dados a preservar, secao 10) |
 
 ---
 
 ## 15. Proximos passos
 
-1. Etapa 0: servidor deixa de oferecer o MeshAgent.
-2. Fase 12.0: contrato de fio (`docs/remoto/contrato-remoto.md`) e levantamento dos sistemas operacionais das 400 estacoes (D-02).
-3. Decidir D-05 e a parte de LGPD do D-04 durante a fase 12.0.
-4. Fase 12.1: provas tecnicas S1 a S6, com relatorio de seguir ou parar.
+1. Executar o piloto em homologacao com o roteiro `docs/remoto/roteiro-piloto.md` (Windows 10 e 11, macOS, Linux com GNOME e KDE, navegadores do tecnico e Wake-on-LAN) e registrar os resultados.
+2. Corrigir o que o piloto apontar (por exemplo: ScreenCaptureKit no macOS, mapeamento de Cmd para Ctrl, prazo da politica `SoftwareSASGeneration`).
+3. Atualizar a VPS (runbook de atualizacao) e remover DNS, certificado e volumes do MeshCentral.
+4. Com o piloto aprovado, iniciar a migracao das 400 estacoes (`docs/runbooks/migracao-400-estacoes.md`).

@@ -250,8 +250,8 @@ func checkRegistration(t *testing.T, h *harness, dataDir string) {
 	if body["monitoring_type"] != "server" || body["description"] != "smoke" {
 		t.Errorf("newagent: monitoring_type/description = %v/%v", body["monitoring_type"], body["description"])
 	}
-	if s, _ := body["mesh_node_id"].(string); s != "" {
-		t.Errorf("newagent sem MeshAgent deveria mandar mesh_node_id vazio, veio %q", s)
+	if _, ok := body["mesh_node_id"]; ok {
+		t.Errorf("newagent nao deveria mandar mesh_node_id (o MeshAgent saiu na fase 12.8)")
 	}
 	data, err := os.ReadFile(filepath.Join(dataDir, "eyes.json"))
 	if err != nil {

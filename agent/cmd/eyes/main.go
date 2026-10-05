@@ -63,7 +63,7 @@ func usage() {
 
 Uso:
   eyes install --api URL --client-id N --site-id N --agent-type server|workstation --auth TOKEN
-               [--desc TEXTO] [--nomesh] [--insecure] [--proxy URL] [--api-key]
+               [--desc TEXTO] [--insecure] [--proxy URL] [--api-key]
   eyes uninstall [--keep-mesh]
   eyes service     (executado pelo servico do sistema)
   eyes run         (primeiro plano, para diagnostico)

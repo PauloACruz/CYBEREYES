@@ -1,7 +1,7 @@
 #!/bin/sh
 # Recarrega o Nginx quando um certificado muda (emissao ou renovacao).
 fingerprint() {
-    for host in "$CYBEREYES_HOST" "$MESH_HOST"; do
+    for host in "$CYBEREYES_HOST"; do
         readlink -f "/etc/nginx/certs/$host/fullchain.pem"
         md5sum "/etc/nginx/certs/$host/fullchain.pem" 2>/dev/null
     done

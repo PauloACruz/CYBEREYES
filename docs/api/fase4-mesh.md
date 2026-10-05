@@ -1,5 +1,7 @@
 # Contrato de API - Fase 4 (acesso remoto com MeshCentral)
 
+> **Substituido (fase 12.8)**: este contrato foi substituido por `docs/remoto/contrato-remoto.md` (ADR-022). O MeshCentral saiu do Cybereyes e as rotas abaixo (`/api/mesh/*`, `/api/agents/{id}/remote`, `/api/agents/{id}/mesh/recover` e as rotas do agente `meshexe`, `meshreinstall` e `syncmesh`) nao existem mais. O Wake-on-LAN continua em `POST /api/agents/{id}/wake`, agora enviado por um EYES vizinho. O restante deste documento fica como registro historico.
+
 Mesmo padrao das fases anteriores (cookie com 2FA, camelCase, ProblemDetails com `code`, auditoria em toda acao).
 
 ## Permissao nova

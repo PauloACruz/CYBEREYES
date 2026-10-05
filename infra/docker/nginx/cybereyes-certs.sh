@@ -4,7 +4,7 @@
 # (permite o Nginx subir antes da primeira emissao do Let's Encrypt).
 set -eu
 
-for host in "$CYBEREYES_HOST" "$MESH_HOST"; do
+for host in "$CYBEREYES_HOST"; do
     custom="/etc/nginx/custom-certs/$host"
     letsencrypt="/etc/letsencrypt/live/$host"
     selfsigned="/etc/nginx/selfsigned/$host"

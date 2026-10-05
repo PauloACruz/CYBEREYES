@@ -32,8 +32,6 @@ type Config struct {
 	Insecure bool `json:"insecure,omitempty"`
 	// Proxy HTTP opcional para REST e NATS.
 	Proxy string `json:"proxy,omitempty"`
-	// NoMesh indica que a instalacao foi feita sem o MeshAgent.
-	NoMesh bool `json:"no_mesh,omitempty"`
 }
 
 // ErrNotInstalled indica que o arquivo de configuracao nao existe.

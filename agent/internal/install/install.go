@@ -55,11 +55,12 @@ func parse(args []string) (Options, error) {
 	fs.StringVar(&o.Auth, "auth", "", "token de instalacao")
 	fs.BoolVar(&o.APIKey, "api-key", false, "--auth e uma chave de API (X-API-KEY)")
 	fs.StringVar(&o.Desc, "desc", "", "descricao do agente")
-	fs.BoolVar(&o.NoMesh, "nomesh", false, "nao instalar o MeshAgent")
+	// --nomesh continua aceito por compatibilidade com comandos antigos; o EYES nao instala mais o MeshAgent.
+	fs.BoolVar(&o.NoMesh, "nomesh", false, "sem efeito (o MeshAgent nao e mais instalado)")
 	fs.BoolVar(&o.Insecure, "insecure", false, "nao verificar o certificado TLS (laboratorio)")
 	fs.StringVar(&o.Proxy, "proxy", "", "proxy HTTP")
 	fs.BoolVar(&o.Silent, "silent", false, "sem mensagens de progresso")
-	fs.BoolVar(&o.NoService, "no-service", false, "somente registrar (sem servico nem MeshAgent)")
+	fs.BoolVar(&o.NoService, "no-service", false, "somente registrar (sem servico)")
 	fs.StringVar(&o.NatsURL, "nats-url", "", "endereco do NATS (padrao wss://<host>/natsws)")
 	if err := fs.Parse(args); err != nil {
 		return o, err
@@ -80,9 +81,7 @@ func Install(args []string) error {
 	if err != nil {
 		return err
 	}
-	if o.NoService {
-		o.NoMesh = true
-	} else if !isAdmin() {
+	if !o.NoService && !isAdmin() {
 		return errors.New("execute como administrador (Windows) ou root (Linux e macOS)")
 	}
 	say := func(format string, a ...any) {
@@ -128,18 +127,8 @@ func Install(args []string) error {
 		say("Instalacao existente encontrada: mantendo o agente %s", existing.AgentID)
 		cfg.Insecure, cfg.Proxy, cfg.NatsURL = o.Insecure, o.Proxy, o.NatsURL
 	} else {
-		cfg = &config.Config{API: o.API, ClientID: o.ClientID, SiteID: o.SiteID, AgentType: o.AgentType, Insecure: o.Insecure, Proxy: o.Proxy, NoMesh: o.NoMesh, NatsURL: o.NatsURL}
+		cfg = &config.Config{API: o.API, ClientID: o.ClientID, SiteID: o.SiteID, AgentType: o.AgentType, Insecure: o.Insecure, Proxy: o.Proxy, NatsURL: o.NatsURL}
 		cfg.AgentID = NewAgentID()
-	}
-
-	meshNode := ""
-	if !o.NoMesh {
-		say("Instalando o MeshAgent (acesso remoto)...")
-		if node, err := installMesh(ctx, inst, say); err != nil {
-			say("Aviso: MeshAgent nao instalado: %v", err)
-		} else {
-			meshNode = node
-		}
 	}
 
 	if !reuse {
@@ -154,7 +143,6 @@ func Install(args []string) error {
 			"hostname":        host,
 			"site":            strconv.Itoa(o.SiteID),
 			"monitoring_type": o.AgentType,
-			"mesh_node_id":    meshNode,
 			"description":     o.Desc,
 			"goarch":          runtime.GOARCH,
 			"plat":            runtime.GOOS,
@@ -170,12 +158,6 @@ func Install(args []string) error {
 	if err := cfg.Save(); err != nil {
 		return fmt.Errorf("falha ao gravar a configuracao: %w", err)
 	}
-	if meshNode != "" {
-		if c, err := api.New(cfg.API, cfg.Token, opts); err == nil {
-			_ = c.Post(ctx, "/api/v3/syncmesh/", map[string]string{"nodeid": meshNode}, nil)
-		}
-	}
-
 	if o.NoService {
 		say("Agente %s registrado (sem servico). Configuracao em %s", cfg.AgentID, config.File())
 		return nil
@@ -195,43 +177,6 @@ func identityValid(ctx context.Context, c *config.Config, opts api.Options) bool
 		return false
 	}
 	return client.Get(ctx, "/api/v3/"+c.AgentID+"/config/", nil) == nil
-}
-
-// installMesh instala o MeshAgent do grupo do Cybereyes. Um MeshAgent ja instalado so e mantido se
-// apontar para o mesmo servidor e grupo; um de outro servidor (por exemplo do Tactical) e substituido.
-func installMesh(ctx context.Context, inst *api.Client, say func(string, ...any)) (string, error) {
-	file, err := mesh.Download(ctx, inst, "POST", "/api/v3/meshexe/", map[string]string{"plat": runtime.GOOS, "goarch": runtime.GOARCH})
-	if err != nil {
-		return "", err
-	}
-	defer os.Remove(file)
-	if mesh.Binary() != "" {
-		want, have := mesh.EmbeddedSettings(file), mesh.InstalledSettings()
-		if want.Valid() && have.Valid() && want.Same(have) {
-			if node, err := mesh.NodeID(ctx); err == nil {
-				say("MeshAgent do Cybereyes ja instalado.")
-				return node, nil
-			}
-		}
-		say("Substituindo o MeshAgent existente (servidor %q) pelo do Cybereyes...", have.Server)
-		if err := mesh.Uninstall(ctx); err != nil {
-			say("Aviso: falha ao remover o MeshAgent anterior: %v", err)
-		}
-	}
-	if err := mesh.Install(ctx, file); err != nil {
-		return "", err
-	}
-	// O MeshAgent gera o certificado do no na primeira partida.
-	var last error
-	for i := 0; i < 20; i++ {
-		node, err := mesh.NodeID(ctx)
-		if err == nil {
-			return node, nil
-		}
-		last = err
-		time.Sleep(3 * time.Second)
-	}
-	return "", last
 }
 
 func stopExisting() error {
@@ -309,7 +254,7 @@ func NewAgentID() string {
 	return string(b)
 }
 
-// Uninstall remove o servico, a configuracao e o binario. --keep-mesh preserva o MeshAgent.
+// Uninstall remove o servico, a configuracao e o binario e, de instalacoes antigas, o MeshAgent (--keep-mesh preserva).
 func Uninstall(args []string) error {
 	fs := flag.NewFlagSet("uninstall", flag.ContinueOnError)
 	keepMesh := fs.Bool("keep-mesh", false, "manter o MeshAgent")

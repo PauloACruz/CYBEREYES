@@ -133,7 +133,7 @@ docker compose ps
 curl -fsS "https://$(sed -n 's/^CYBEREYES_HOST=//p' .env)/health"
 ```
 - **Banco**: o `restore.sh` cria o banco `cybereyes` com o dono `cybereyes` e restaura com `pg_restore --no-owner`. As migrations nao tem `GRANT` nem `OWNER`, entao o dono antigo do dump nao importa (ensaiado, ver "Validacao"). Num conjunto cifrado, passe a senha para o processo como root: `sudo BACKUP_PASSPHRASE='...' backup/restore.sh ...`.
-- **MeshCentral**:
+- **MeshCentral** (substituido na fase 12.8, ver ADR-022): os passos abaixo so valem para versoes anteriores a remocao do MeshCentral; depois dela, ignore as variaveis `MESH_*` e siga `docs/runbooks/atualizacao.md`.
   - Para os MeshAgents ja instalados continuarem no acesso remoto, mantenha no `.env` `MESH_USER=wincare` e `MESH_DEVICE_GROUP=WinCare`, a conta e o grupo que existem no `mesh_data` restaurado.
   - A API procura o grupo pelo nome e cria outro, vazio, se nao achar: com o padrao novo, os tecnicos so ganhariam direitos no grupo novo. Para trocar o nome do grupo depois, renomeie-o no MeshCentral e so entao mude `MESH_DEVICE_GROUP`.
   - O entrypoint novo procura o marcador `.cybereyes-admin`. Como ele nao existe no `mesh_data` antigo, o entrypoint roda de novo `--createaccount` e `--adminaccount` com o `MESH_USER`.
