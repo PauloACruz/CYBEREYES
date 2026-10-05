@@ -18,6 +18,7 @@ import { AssetStatusBadge, AssetTypeLabel } from './AssetBadges';
 import { notifyPersonDeleteError } from './personActions';
 import { PersonFormModal } from './PersonFormModal';
 import { Field, Missing, SheetCard } from './sheetDisplay';
+import { PageTitle } from '../../components/PageTitle';
 
 export function PersonDetailPage() {
   const { id: rawId } = useParams();
@@ -68,17 +69,15 @@ function PersonDetailView({ person }: { person: PersonDetail }) {
         <Text size="sm">{person.name}</Text>
       </Breadcrumbs>
       <Group justify="space-between" align="flex-start" mb="lg" wrap="wrap" gap="sm">
-        <Stack gap={6}>
-          <Group gap="sm">
-            <Title order={2}>{person.name}</Title>
+        <PageTitle
+          title={person.name}
+          badges={
             <Badge variant="light" color={person.active ? 'teal' : 'gray'}>
               {person.active ? 'Ativa' : 'Inativa'}
             </Badge>
-          </Group>
-          <Text c="dimmed" size="sm">
-            {[person.clientName, person.department, person.jobTitle].filter(Boolean).join(' · ')}
-          </Text>
-        </Stack>
+          }
+          description={[person.clientName, person.department, person.jobTitle].filter(Boolean).join(' · ') || undefined}
+        />
         {canManage && (
           <Group gap="sm">
             <Button leftSection={<IconPencil size={16} />} onClick={editModal.open}>

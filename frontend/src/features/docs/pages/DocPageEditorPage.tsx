@@ -20,6 +20,7 @@ import { applyServerErrors } from '../../../lib/forms';
 import { useClients } from '../../clients/useClients';
 import { toId } from '../../inventory/inventoryFormat';
 import { MarkdownView } from './MarkdownView';
+import { PageTitle } from '../../../components/PageTitle';
 
 const MAX_BODY = 200_000;
 
@@ -98,12 +99,14 @@ function DocPageView({ page }: { page: DocPageDetail }) {
     <>
       <PageBreadcrumbs title={page.title} />
       <Group justify="space-between" align="flex-start" mb="lg" wrap="wrap" gap="sm">
-        <Stack gap={4}>
-          <Title order={2}>{page.title}</Title>
-          <Text size="sm" c="dimmed">
-            {page.clientName ? `${page.clientName} · ` : ''}Atualizada em {formatDateTime(page.updatedAt)} por {page.updatedBy}
-          </Text>
-        </Stack>
+        <PageTitle
+          title={page.title}
+          description={
+            <>
+              {page.clientName ? `${page.clientName} · ` : ''}Atualizada em {formatDateTime(page.updatedAt)} por {page.updatedBy}
+            </>
+          }
+        />
         {canManage && (
           <Group gap="sm">
             <Button leftSection={<IconPencil size={16} />} onClick={() => setEditing(true)}>
