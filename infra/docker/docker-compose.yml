@@ -135,7 +135,10 @@ services:
   web:
     <<: [*restart, *hardening]
     image: ${REGISTRY:-ghcr.io/pauloacruz}/cybereyes-web:${VERSION:-latest}
-    build: ../../frontend
+    build:
+      context: ../../frontend
+      args:
+        APP_COMMIT: ${APP_COMMIT:-dev}
     cap_add: [CHOWN, SETUID, SETGID]
     read_only: true
     tmpfs:

@@ -5,6 +5,9 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY . .
+# Commit exibido no rodape do console (o contexto da imagem nao tem .git).
+ARG APP_COMMIT=dev
+ENV APP_COMMIT=$APP_COMMIT
 RUN npm run build
 
 FROM nginx:1.28-alpine AS runtime

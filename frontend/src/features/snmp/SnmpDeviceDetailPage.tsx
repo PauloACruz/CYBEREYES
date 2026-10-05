@@ -1,4 +1,4 @@
-import { Alert, Anchor, Breadcrumbs, Button, Center, Grid, Group, Loader, Paper, SimpleGrid, Stack, Tabs, Text, Title } from '@mantine/core';
+import { Alert, Anchor, Breadcrumbs, Button, Center, Grid, Group, Loader, Paper, SimpleGrid, Tabs, Text } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { IconAlertTriangle, IconCpu, IconFileText, IconNetwork, IconPencil, IconTrash } from '@tabler/icons-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -23,6 +23,7 @@ import { SensorsTab } from './SensorsTab';
 import { SnmpDeviceFormModal } from './SnmpDeviceFormModal';
 import { SnmpStatusBadge } from './SnmpStatusBadge';
 import { TRAP_SEVERITY_OPTIONS } from './snmpFormat';
+import { PageTitle } from '../../components/PageTitle';
 
 const rttFormat = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 });
 
@@ -100,16 +101,16 @@ function SnmpDeviceView({ device }: { device: SnmpDeviceDetail }) {
         <Text size="sm">{device.name}</Text>
       </Breadcrumbs>
       <Group justify="space-between" align="flex-start" mb="lg" wrap="wrap" gap="sm">
-        <Stack gap={6}>
-          <Group gap="sm">
-            <Title order={2}>{device.name}</Title>
-            <SnmpStatusBadge status={device.status} size="md" />
-          </Group>
-          <Text c="dimmed" size="sm">
-            {device.host}:{device.port} · SNMP {device.version} · {device.clientName}
-            {device.enabled ? '' : ' · coleta desativada'}
-          </Text>
-        </Stack>
+        <PageTitle
+          title={device.name}
+          badges={<SnmpStatusBadge status={device.status} size="md" />}
+          description={
+            <>
+              {device.host}:{device.port} · SNMP {device.version} · {device.clientName}
+              {device.enabled ? '' : ' · coleta desativada'}
+            </>
+          }
+        />
         {canManage && (
           <Group gap="sm">
             <Button leftSection={<IconPencil size={16} />} onClick={editModal.open}>

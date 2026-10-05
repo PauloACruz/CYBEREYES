@@ -1,4 +1,4 @@
-import { Badge, Card, Group, SimpleGrid, Text, ThemeIcon, Title } from '@mantine/core';
+import { Badge, Box, Card, Group, SimpleGrid, Text, ThemeIcon } from '@mantine/core';
 import { IconClipboardList, type Icon } from '@tabler/icons-react';
 import { PERMISSIONS } from '../../api/types';
 import { hasPermission } from '../../auth/permissions';
@@ -6,6 +6,7 @@ import { useMe } from '../../auth/useMe';
 import { AgentStats } from './AgentStats';
 import { AlertStats } from './AlertStats';
 import { TicketStats } from './TicketStats';
+import { PageTitle } from '../../components/PageTitle';
 
 interface ComingSoonCard {
   title: string;
@@ -23,10 +24,9 @@ export function DashboardPage() {
 
   return (
     <>
-      <Title order={2}>Olá, {firstName}!</Title>
-      <Text c="dimmed" mt={4} mb="xl">
-        Bem-vindo ao CYBEREYES.
-      </Text>
+      <Box mb="xl">
+        <PageTitle title={`Olá, ${firstName}!`} description="Bem-vindo ao CYBEREYES." />
+      </Box>
       {hasPermission(me, PERMISSIONS.agentsView) && <AgentStats />}
       {hasPermission(me, PERMISSIONS.alertsView) && <AlertStats />}
       {hasPermission(me, PERMISSIONS.ticketsView) && <TicketStats />}

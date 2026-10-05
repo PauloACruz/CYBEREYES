@@ -14,7 +14,6 @@ import {
   Stack,
   Text,
   TextInput,
-  Title,
   Tooltip,
   useComputedColorScheme,
 } from '@mantine/core';
@@ -64,6 +63,7 @@ import {
   type DiagramEdge,
   type DiagramNodeKind,
 } from './diagramModel';
+import { PageTitle } from '../../../components/PageTitle';
 
 const nodeTypes: NodeTypes = { device: DeviceNodeView };
 
@@ -219,9 +219,11 @@ function DiagramEditor({ diagram }: { diagram: DiagramDetail }) {
         <Text size="sm">{diagram.name}</Text>
       </Breadcrumbs>
       <Group justify="space-between" align="flex-end" mb="sm" wrap="wrap" gap="sm">
-        <Stack gap={4}>
-          {canManage ? (
-            <TextInput
+        <PageTitle
+          title={diagram.name}
+          heading={
+            canManage ? (
+              <TextInput
               aria-label="Nome do diagrama"
               value={name}
               onChange={(e) => {
@@ -234,13 +236,14 @@ function DiagramEditor({ diagram }: { diagram: DiagramDetail }) {
               w={360}
               error={name.trim() ? undefined : 'Informe o nome'}
             />
-          ) : (
-            <Title order={2}>{diagram.name}</Title>
-          )}
-          <Text size="sm" c="dimmed">
-            {diagram.clientName} · atualizado em {formatDateTime(diagram.updatedAt)} por {diagram.updatedBy}
-          </Text>
-        </Stack>
+            ) : undefined
+          }
+          description={
+            <>
+              {diagram.clientName} · atualizado em {formatDateTime(diagram.updatedAt)} por {diagram.updatedBy}
+            </>
+          }
+        />
         {canManage ? (
           <Group gap="sm">
             {dirty && (

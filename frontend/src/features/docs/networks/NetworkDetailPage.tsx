@@ -19,6 +19,7 @@ import { IpKindBadge } from '../../inventory/AssetBadges';
 import { Field, Missing } from '../../inventory/sheetDisplay';
 import { IpRecordFormModal, type IpPrefill } from './IpRecordFormModal';
 import { NetworkFormModal } from './NetworkFormModal';
+import { PageTitle } from '../../../components/PageTitle';
 
 export function NetworkDetailPage() {
   const { id: rawId } = useParams();
@@ -72,24 +73,28 @@ function NetworkDetailView({ network }: { network: NetworkDetail }) {
         <Text size="sm">{network.name}</Text>
       </Breadcrumbs>
       <Group justify="space-between" align="flex-start" mb="lg" wrap="wrap" gap="sm">
-        <Stack gap={6}>
-          <Group gap="sm">
-            <Title order={2}>{network.name}</Title>
-            <Badge variant="light" size="lg" ff="monospace" tt="none">
-              {network.cidr}
-            </Badge>
-            {network.vlanId && (
-              <Badge variant="outline" size="lg" tt="none">
-                VLAN {network.vlanId}
-                {network.vlanName ? ` (${network.vlanName})` : ''}
+        <PageTitle
+          title={network.name}
+          badges={
+            <>
+              <Badge variant="light" size="lg" ff="monospace" tt="none">
+                {network.cidr}
               </Badge>
-            )}
-          </Group>
-          <Text c="dimmed" size="sm">
-            {network.clientName}
-            {network.siteName ? ` / ${network.siteName}` : ''}
-          </Text>
-        </Stack>
+              {network.vlanId && (
+                <Badge variant="outline" size="lg" tt="none">
+                  VLAN {network.vlanId}
+                  {network.vlanName ? ` (${network.vlanName})` : ''}
+                </Badge>
+              )}
+            </>
+          }
+          description={
+            <>
+              {network.clientName}
+              {network.siteName ? ` / ${network.siteName}` : ''}
+            </>
+          }
+        />
         {canManage && (
           <Group gap="sm">
             <Button variant="default" leftSection={<IconPencil size={16} />} onClick={editModal.open}>
