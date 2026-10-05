@@ -135,7 +135,7 @@ Referencia de arquitetura e decisoes: `.team-context.md`.
 - Etapa 0, imediata: o servidor deixa de oferecer o MeshAgent. Servidor limpo: o MeshCentral sai antes da migracao das 400 estacoes, sem convivencia em producao.
 - Visualizador no navegador; sem aviso ao usuario por padrao (avisar ou perguntar ligados em Configuracoes); binarios sem assinatura no inicio.
 - Etapas: especificacao (12.0), provas tecnicas (12.1), fundacao (12.2), tela no Windows (12.3), area de transferencia (12.4), arquivos (12.5), Linux e macOS (12.6), o resto do MeshCentral (12.7), piloto, corte e remocao (12.8).
-- **Entrega**: aprovada em 2026-10-05 (ADR-022); proxima etapa: Etapa 0 e especificacao (12.0).
+- **Entrega**: aprovada em 2026-10-05 (ADR-022). Etapa 0 concluida (servidor sem oferecer o MeshAgent); 12.0 concluida (`docs/remoto/contrato-remoto.md`, pendencias em `docs/remoto/fase12-0.md`); proxima: provas tecnicas (12.1).
 
 ## Servidor (estimativa inicial, validar com teste de carga)
 VPS com 4 vCPU, 8 GB de RAM e 160 GB de SSD para 400 estacoes, incluindo MeshCentral e logs. Esta e uma estimativa minha, sem medicao; o volume de logs e o fator que mais pode exigir aumento de disco.

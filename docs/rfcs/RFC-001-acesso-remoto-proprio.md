@@ -347,6 +347,8 @@ sequenceDiagram
 
 ### 4.11 Contratos (rascunho; a versao final fica em `docs/remoto/contrato-remoto.md`)
 
+> A versao normativa esta em `docs/remoto/contrato-remoto.md` (fase 12.0). Diferenca principal em relacao ao rascunho abaixo: o canal `files` liga a API ao EYES, e o navegador usa so REST para arquivos.
+
 REST do console:
 
 | Metodo | Rota | Permissao | Resposta |
