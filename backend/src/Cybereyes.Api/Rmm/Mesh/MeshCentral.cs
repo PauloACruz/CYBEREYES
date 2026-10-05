@@ -28,6 +28,12 @@ public sealed class MeshSettings
     /// <summary>Endereco interno usado pela API (ex.: http://meshcentral:4443, na rede do Docker). Vazio usa o publico.</summary>
     public string? InternalUrl { get; set; }
 
+    /// <summary>
+    /// Oferece o MeshAgent nas instalacoes e nas rotas meshexe/meshreinstall. Desligado por padrao desde o ADR-022
+    /// (servidor limpo: nenhuma estacao recebe o MeshAgent); true so para desfazer a Etapa 0 do RFC-001.
+    /// </summary>
+    public bool DistributeAgent { get; set; }
+
     public bool Enabled => !string.IsNullOrWhiteSpace(Url);
 }
 
@@ -85,6 +91,9 @@ public sealed class MeshClient(IOptions<MeshSettings> options, TimeProvider time
     private byte[]? key;
 
     public bool Enabled => options.Value.Enabled && LoadKey() is not null;
+
+    /// <summary>O MeshAgent so e oferecido com a integracao ligada e <see cref="MeshSettings.DistributeAgent"/>.</summary>
+    public bool DistributesAgent => options.Value.DistributeAgent && Enabled;
 
     public byte[]? LoadKey()
     {

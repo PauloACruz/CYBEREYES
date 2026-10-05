@@ -224,7 +224,7 @@ Declaradas em `Api/Rmm/AgentProtocolEndpoints.cs:25-30`.
 |---|---|---|
 | `GET /api/v3/installer/` | | 200 `"ok"`; 401 com token invalido ou expirado |
 | `POST /api/v3/installer/` | `{ "version": str }` | 200 `"ok"`; 400 `"Invalid data"` sem `version` `str`; 400 `"Old installer detected (version X ). Latest version is Y Please generate a new installer from the RMM"` quando `version < Agent:LatestVersion` (`:61-74`) |
-| `POST /api/v3/meshexe/` | `{ "plat": str, "goarch": str }` (str ou numero aceito) | 200 binario `application/octet-stream` (nome `meshagent`); 400 string JSON (`"Unable to connect to mesh to get group id information"`, `"Arch not supported"`, `"Unable to download mesh agent: HTTP n"`) (`Api/Rmm/Mesh/MeshServices.cs:165-184`) |
+| `POST /api/v3/meshexe/` | `{ "plat": str, "goarch": str }` (str ou numero aceito) | 200 binario `application/octet-stream` (nome `meshagent`); 400 string JSON (`"MeshAgent is no longer distributed"` desde o ADR-022, `"Unable to connect to mesh to get group id information"`, `"Arch not supported"`, `"Unable to download mesh agent: HTTP n"`) (`Api/Rmm/Mesh/MeshServices.cs:165-184`) |
 | `POST /api/v3/newagent/` | ver abaixo | 200 `{ "pk": int, "token": str(40 hex) }`; 400 string JSON |
 
 Regras do `POST /api/v3/installer/`:

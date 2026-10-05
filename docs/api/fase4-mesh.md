@@ -46,3 +46,6 @@ Cada abertura de acesso remoto gera o registro de auditoria `agent.remote-sessio
 | `Mesh__Username` | `cybereyes` | Administrador interno do MeshCentral |
 | `Mesh__TokenKeyFile` | `/mesh/mesh_token` | Arquivo com a chave de token (ou `Mesh__TokenKey` com o valor) |
 | `Mesh__DeviceGroup` | `Cybereyes` | Nome do grupo de dispositivos |
+| `Mesh__DistributeAgent` | `false` | Oferece o MeshAgent nas instalacoes e em `meshexe`/`meshreinstall`. Desligado por padrao desde o ADR-022 |
+
+> **ADR-022 (servidor limpo)**: o MeshAgent deixou de ser oferecido. Os comandos de instalacao saem com `--nomesh` e `meshexe`/`meshreinstall` respondem 400 `"MeshAgent is no longer distributed"`. O acesso remoto passa a ser o modulo proprio da RFC-001; o MeshCentral sai na fase 12.8.

@@ -164,7 +164,11 @@ public static class MeshEndpoints
 
     public static async Task<IResult> DownloadAsync(MeshClient mesh, MeshState state, IHttpClientFactory http, string plat, string goarch, CancellationToken ct)
     {
-        if (!mesh.Enabled || state.GroupId is null)
+        if (!mesh.DistributesAgent)
+        {
+            return Results.Json("MeshAgent is no longer distributed", statusCode: StatusCodes.Status400BadRequest);
+        }
+        if (state.GroupId is null)
         {
             return Results.Json("Unable to connect to mesh to get group id information", statusCode: StatusCodes.Status400BadRequest);
         }

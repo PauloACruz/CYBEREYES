@@ -5,6 +5,8 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using Cybereyes.Api.Rmm;
 using Cybereyes.Api.Rmm.Mesh;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Options;
 
 namespace Cybereyes.Api.Tests;
 
@@ -76,6 +78,27 @@ public sealed class MeshTokenTests
         Assert.Contains("install --api https://rmm.x --client-id 1 --site-id 2 --agent-type server --auth abc", script, StringComparison.Ordinal);
         Assert.DoesNotContain("--nomesh", script, StringComparison.Ordinal);
         Assert.DoesNotContain("TacticalAgent", script, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    public void DistributesAgent_OnlyWhenTurnedOn(bool distribute, bool expected)
+    {
+        var mesh = new MeshClient(Options.Create(new MeshSettings { Url = "https://mesh.x", TokenKey = new string('a', 160), DistributeAgent = distribute }), TimeProvider.System);
+
+        Assert.True(mesh.Enabled);
+        Assert.Equal(expected, mesh.DistributesAgent);
+    }
+
+    [Fact]
+    public async Task Download_WithoutDistribution_Returns400BeforeCallingMeshCentral()
+    {
+        var mesh = new MeshClient(Options.Create(new MeshSettings { Url = "https://mesh.x", TokenKey = new string('a', 160) }), TimeProvider.System);
+
+        var result = await MeshEndpoints.DownloadAsync(mesh, new MeshState { GroupId = "G" }, null!, "windows", "amd64", CancellationToken.None);
+
+        Assert.Equal(StatusCodes.Status400BadRequest, Assert.IsAssignableFrom<IStatusCodeHttpResult>(result).StatusCode);
     }
 
     private sealed class FixedTime(DateTimeOffset now) : TimeProvider

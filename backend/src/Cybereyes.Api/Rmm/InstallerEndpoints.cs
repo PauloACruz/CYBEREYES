@@ -47,7 +47,7 @@ public static class InstallerEndpoints
         app.MapGet("/api/agent/download/{plat}/{goarch}", Download).AllowAnonymous().ExcludeFromDescription();
     }
 
-    private static string? MeshUrl(Mesh.MeshClient mesh, Mesh.MeshState state) => mesh.Enabled && state.GroupId is not null ? mesh.BaseUrl : null;
+    private static string? MeshUrl(Mesh.MeshClient mesh, Mesh.MeshState state) => mesh.DistributesAgent && state.GroupId is not null ? mesh.BaseUrl : null;
 
     public static string PublicUrl(HttpContext ctx, IConfiguration config) =>
         (config["App:PublicUrl"] is { Length: > 0 } url ? url : $"{ctx.Request.Scheme}://{ctx.Request.Host}").TrimEnd('/');
