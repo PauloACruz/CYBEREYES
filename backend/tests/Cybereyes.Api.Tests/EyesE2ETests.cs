@@ -61,7 +61,7 @@ public sealed class EyesE2ETests(ApiFixture fixture)
         {
             var doc = JsonDocument.Parse(await admin.GetStringAsync($"/api/agents/{pk}"));
             var r = doc.RootElement;
-            if (r.GetProperty("version").GetString() == "3.0.1" && r.GetProperty("operatingSystem").ValueKind == JsonValueKind.String
+            if (r.GetProperty("version").GetString() == "3.0.3" && r.GetProperty("operatingSystem").ValueKind == JsonValueKind.String
                 && r.GetProperty("disks").ValueKind == JsonValueKind.Array && r.GetProperty("status").GetString() == "online")
             {
                 return doc;

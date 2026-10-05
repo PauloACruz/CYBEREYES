@@ -19,7 +19,9 @@ Plano de migracao gradual: piloto com 10 maquinas e depois ondas por site.
 ## 2. Pre-requisitos (antes do piloto)
 - [ ] Servidor de producao instalado (`instalacao.md`), backup diario funcionando e uma restauracao ensaiada (`backup-restauracao.md`).
 - [ ] API atualizada com o EYES embutido (`AGENT_VERSION` vazio); download conferido para `windows-amd64` e `linux-amd64` (e `386`/`arm64` se houver no parque), ver `atualizacao.md`.
-- [ ] Confirmar a distribuicao do `eyes-tray` (app de bandeja) com inicio automatico por sessao (ADR-008 e ADR-020; o empacotamento ainda esta pendente). Sem isso, a comunicacao sobre o app de bandeja fica para uma onda posterior.
+- [ ] App de bandeja (`eyes-tray`): com o EYES 3.0.3 ou mais novo, o servico do agente instala e inicia o app no Windows e no Linux (ADR-020 e ADR-022). Conferir que `GET /api/agent/download/windows/amd64?component=tray` e `GET /api/agent/download/linux/amd64?component=tray` respondem 200.
+  - Estacoes Linux: o agente instala a WebKitGTK 4.1 pelo gerenciador de pacotes (apt, dnf, zypper ou pacman), entao precisam alcancar o repositorio da distribuicao. Distribuicoes atendidas: Ubuntu 22.04 ou mais novo, Debian 12, Fedora, openSUSE Leap 15.6 e Arch.
+  - macOS: o app nao e distribuido pelo EYES; a comunicacao sobre o app de bandeja nao vale para Macs.
 - [ ] Clientes e sites criados no Cybereyes espelhando os do Tactical.
 - [ ] Scripts, checks, politicas, modelos de alerta, SMTP e webhook recriados; janela de patches revisada.
 - [ ] Tecnicos com usuario, papel e 2FA no Cybereyes.
@@ -69,7 +71,7 @@ Criterios de saida (todos):
 - [ ] 10 de 10 maquinas online no Cybereyes e ausentes do Tactical.
 - [ ] Nenhuma maquina ficou sem agente (nem no Tactical nem no Cybereyes).
 - [ ] Checks, alertas por e-mail, execucao de script, terminal, acesso remoto pelo MeshCentral, Health Check e coleta de logs funcionando em pelo menos uma maquina de cada tipo.
-- [ ] App de bandeja: um usuario abriu chamado e conversou com o tecnico (se o instalador ja incluir o app).
+- [ ] App de bandeja: um usuario abriu chamado pela propria maquina, acompanhou o andamento e conversou com o tecnico (pelo menos uma estacao Windows e uma Linux, se houver no piloto).
 - [ ] O metodo de instalacao pelo executor do Tactical funcionou sem intervencao em pelo menos 8 de 10 (senao, ajustar o script antes das ondas).
 - [ ] Desempenho do servidor estavel (`docker stats`, latencia do console).
 - [ ] Reversao ensaiada em 1 maquina (secao 7).
@@ -104,7 +106,7 @@ Criterios de saida:
 - [ ] Acesso remoto abre pelo console.
 - [ ] Health Check executa.
 - [ ] Logs de sistema chegando, se a coleta estiver ativa.
-- [ ] App de bandeja visivel na sessao do usuario, se aplicavel.
+- [ ] App de bandeja visivel na sessao do usuario (Windows e Linux; no Linux tambem o atalho "EYES" no menu de aplicativos).
 - [ ] A maquina sumiu da lista de online do Tactical.
 
 ## 7. Reversao e limpeza
@@ -127,9 +129,9 @@ Mensagem modelo (e-mail ou intranet, 2 dias uteis antes da onda):
 >
 > Duvidas: [contato da TI].
 
-No dia seguinte a onda, mandar um lembrete curto com uma imagem do icone e como abrir um chamado. Se o app de bandeja ainda nao estiver no instalador, retire o segundo paragrafo.
+No dia seguinte a onda, mandar um lembrete curto com uma imagem do icone e como abrir um chamado. Para Macs, retire o segundo paragrafo (o app de bandeja nao e distribuido no macOS). No Linux, se a area de trabalho nao mostrar icones de bandeja (como o GNOME sem a extensao AppIndicator), o usuario abre o app pelo atalho "EYES" no menu de aplicativos.
 
-Em [nome do app de bandeja], use o nome que o app da versao instalada mostra no icone, no menu e nas notificacoes. O nome vem do binario do app (repositorio do agente), nao do servidor: ate um release novo do agente ele continua "WinCare", e nao Cybereyes (ver ADR-019).
+Em [nome do app de bandeja], use "EYES": e o nome que o app mostra no icone, na janela, nas notificacoes e no atalho do menu (ADR-020). O nome vem do binario do app, nao do servidor.
 
 ## 9. Riscos
 | Risco | Mitigacao |
