@@ -1,0 +1,83 @@
+name: Agente EYES
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "agent/**"
+      - ".github/workflows/agent.yml"
+  pull_request:
+    paths:
+      - "agent/**"
+      - ".github/workflows/agent.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agent-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+    working-directory: agent
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: agent/go.mod
+          cache-dependency-path: agent/go.sum
+      - name: gofmt
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "::error::Arquivos fora do gofmt:"
+            echo "$unformatted"
+            exit 1
+          fi
+      - name: go vet (linux, windows, darwin)
+        run: |
+          for os in linux windows darwin; do
+            echo "== GOOS=$os"
+            GOOS=$os go vet ./...
+            GOOS=$os go vet -tags smoke ./smoke/...
+          done
+      - run: go test ./...
+      - name: build.sh (todas as plataformas)
+        run: ./build.sh "$RUNNER_TEMP/dist"
+
+  # Teste de fumaca: compila o EYES, sobe NATS e REST falsos e confere o agente real.
+  # TestService instala o servico de verdade (exige administrador/root).
+  smoke:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    env:
+      EYES_SMOKE_SERVICE: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: agent/go.mod
+          cache-dependency-path: agent/go.sum
+      - name: Baixar modulos
+        run: go mod download
+      - name: Smoke (Linux e macOS, como root)
+        if: runner.os != 'Windows'
+        # O sudo troca o PATH (secure_path): repassa o PATH e os caches do Go do usuario.
+        run: |
+          sudo -E env "PATH=$PATH" "HOME=$HOME" \
+            "GOPATH=$(go env GOPATH)" "GOCACHE=$(go env GOCACHE)" "GOMODCACHE=$(go env GOMODCACHE)" \
+            EYES_SMOKE_SERVICE=1 \
+            go test -count=1 -tags smoke -v -timeout 20m ./smoke/...
+      - name: Smoke (Windows, administrador)
+        if: runner.os == 'Windows'
+        run: go test -count=1 -tags smoke -v -timeout 20m ./smoke/...

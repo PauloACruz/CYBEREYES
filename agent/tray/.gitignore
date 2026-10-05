@@ -1,0 +1,6 @@
+/eyes-tray
+/eyes-tray.exe
+/bin/
+frontend/node_modules/
+frontend/dist/*
+!frontend/dist/.gitkeep

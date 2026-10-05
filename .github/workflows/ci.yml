@@ -23,6 +23,11 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
+      # Go compila o EYES real para o teste de ponta a ponta (EyesE2ETests).
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: agent/go.mod
+          cache-dependency-path: agent/go.sum
       - run: dotnet restore
       - name: Pacotes NuGet vulneraveis
         run: |
@@ -76,7 +81,7 @@ jobs:
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
       - name: Build das imagens
         run: |
-          docker build -t $REGISTRY/cybereyes-api:${{ github.sha }} backend
+          docker build --build-context agent=agent -t $REGISTRY/cybereyes-api:${{ github.sha }} backend
           docker build --build-arg APP_COMMIT=${{ github.sha }} -t $REGISTRY/cybereyes-web:${{ github.sha }} frontend
           docker build -t $REGISTRY/cybereyes-backup:${{ github.sha }} infra/docker/backup
           docker build -t $REGISTRY/cybereyes-meshcentral:1.2.5 infra/docker/meshcentral

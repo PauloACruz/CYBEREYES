@@ -56,6 +56,11 @@ export const agentActionsApi = {
     api.delete(`${base(id)}/registry/values`, { query: { path, name } }),
 
   reboot: (id: number) => api.post(`${base(id)}/reboot`),
+  /** Atualiza o EYES para a versao distribuida pelo servidor (o agente reinicia o servico). */
+  updateAgent: (id: number) => api.post<{ version: string }>(`${base(id)}/update`),
+  /** Atualiza os agentes online desatualizados (todos, ou so os ids informados). */
+  updateAgents: (agentIds?: number[]) => api.post<{ version: string; sent: number }>('/api/agents/update', { agentIds: agentIds ?? null }),
+  agentVersion: () => api.get<{ version: string; autoUpdate: boolean }>('/api/agents/version'),
   shutdown: (id: number) => api.post(`${base(id)}/shutdown`),
   refresh: (id: number) => api.post(`${base(id)}/refresh`),
   urlAction: (id: number, actionId: number) => api.get<UrlResponse>(`${base(id)}/url-actions/${actionId}`),

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button, Group, Loader, Menu, Modal, Stack, Text, TextInput } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { IconChevronDown, IconExternalLink, IconFirstAidKit, IconPlugConnected, IconPower, IconRefresh, IconRotateClockwise } from '@tabler/icons-react';
+import { IconChevronDown, IconCloudDownload, IconExternalLink, IconFirstAidKit, IconPlugConnected, IconPower, IconRefresh, IconRotateClockwise } from '@tabler/icons-react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { agentActionsApi } from '../../../api/agentActions';
 import { meshApi } from '../../../api/mesh';
@@ -37,6 +37,10 @@ export function AgentActionsMenu({ agent, canControl }: AgentActionsMenuProps) {
   const recoverMesh = useMutation({
     mutationFn: () => meshApi.recover(agent.id),
     onSuccess: () => notifySuccess('Recuperação do MeshAgent solicitada.'),
+  });
+  const updateAgent = useMutation({
+    mutationFn: () => agentActionsApi.updateAgent(agent.id),
+    onSuccess: (r) => notifySuccess(`${agent.hostname} está atualizando o EYES para ${r.version}; o agente reconecta em instantes.`),
   });
   const openUrl = useMutation({
     mutationFn: async (action: UrlActionDto) => {
@@ -80,7 +84,15 @@ export function AgentActionsMenu({ agent, canControl }: AgentActionsMenuProps) {
       onConfirm: () => recoverMesh.mutate(),
     });
 
-  const busy = reboot.isPending || refresh.isPending || openUrl.isPending || wake.isPending || recoverMesh.isPending;
+  const confirmUpdate = () =>
+    confirmAction({
+      title: 'Atualizar EYES',
+      message: `Atualizar o agente de ${agent.hostname} (versão ${agent.version}) para a versão distribuída pelo servidor? O serviço reinicia sozinho.`,
+      confirmLabel: 'Atualizar',
+      onConfirm: () => updateAgent.mutate(),
+    });
+
+  const busy = reboot.isPending || refresh.isPending || openUrl.isPending || wake.isPending || recoverMesh.isPending || updateAgent.isPending;
 
   return (
     <>
@@ -106,6 +118,11 @@ export function AgentActionsMenu({ agent, canControl }: AgentActionsMenuProps) {
               </Menu.Item>
               <Menu.Item leftSection={<IconPlugConnected size={16} />} onClick={() => wake.mutate()}>
                 Wake-on-LAN
+              </Menu.Item>
+              <Menu.Divider />
+              <Menu.Label>Agente</Menu.Label>
+              <Menu.Item leftSection={<IconCloudDownload size={16} />} onClick={confirmUpdate}>
+                Atualizar EYES
               </Menu.Item>
               <Menu.Divider />
               <Menu.Label>MeshCentral</Menu.Label>

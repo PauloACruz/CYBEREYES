@@ -52,7 +52,7 @@ echo "VAULT_KEY=$(openssl rand -base64 32)"
 echo "BACKUP_PASSPHRASE=$(openssl rand -base64 32)"
 echo "ADMIN_PASSWORD=$(openssl rand -base64 18)"
 ```
-Preencha no `.env`: `CYBEREYES_HOST`, `MESH_HOST`, `ACME_EMAIL`, `ADMIN_USERNAME`, `ADMIN_EMAIL`, os valores acima, `REGISTRY`, `VERSION`, `AGENT_VERSION` e o bloco de backup (`TZ`, `BACKUP_TIME`, `BACKUP_KEEP_DAYS`).
+Preencha no `.env`: `CYBEREYES_HOST`, `MESH_HOST`, `ACME_EMAIL`, `ADMIN_USERNAME`, `ADMIN_EMAIL`, os valores acima, `REGISTRY`, `VERSION` (deixe `AGENT_VERSION` vazio para distribuir o EYES compilado na imagem da API) e o bloco de backup (`TZ`, `BACKUP_TIME`, `BACKUP_KEEP_DAYS`).
 
 Guarde uma copia do `.env` no cofre de senhas da equipe **antes** da primeira subida. `VAULT_KEY` e `BACKUP_PASSPHRASE` nao podem ser recuperadas se forem perdidas (ver `segredos.md`).
 

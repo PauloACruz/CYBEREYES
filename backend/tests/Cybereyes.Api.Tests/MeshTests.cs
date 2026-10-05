@@ -51,24 +51,31 @@ public sealed class MeshTokenTests
         Assert.Equal(expected, MeshEndpoints.AgentDownloadUrl("https://mesh.x", "G$1@", plat, goarch));
 
     [Fact]
-    public async Task LinuxScript_WithMesh_KeepsGroupIdLiteral()
+    public async Task LinuxScript_DelegatesMeshToEyes()
     {
-        var script = InstallScripts.Linux("https://rmm.x", null, "https://mesh.x", "ab$HOME@cd");
+        var script = InstallScripts.Linux("https://rmm.x", new InstallParameters("https://rmm.x", 1, 2, "abc", "auto", Mesh: false));
 
-        Assert.Contains("MESH_URL='https://mesh.x/meshagents?id=ab$HOME@cd&installflags=2&meshinstall='", script, StringComparison.Ordinal);
+        Assert.Contains("NOMESH=1", script, StringComparison.Ordinal);
+        Assert.Contains("FLAGS+=(--nomesh)", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("meshagents", script, StringComparison.Ordinal);
         var path = Path.GetTempFileName();
         await File.WriteAllTextAsync(path, script);
-        using (var syntax = Process.Start("bash", ["-n", path]))
-        {
-            await syntax.WaitForExitAsync();
-            Assert.Equal(0, syntax.ExitCode);
-        }
-        var start = new ProcessStartInfo("bash", ["-c", $"eval \"$(grep '^MESH_URL=' '{path}')\"; printf '%s' \"$MESH_URL\""]) { RedirectStandardOutput = true };
-        using var process = Process.Start(start)!;
-        var output = await process.StandardOutput.ReadToEndAsync();
-        await process.WaitForExitAsync();
+        using var syntax = Process.Start("bash", ["-n", path]);
+        await syntax.WaitForExitAsync();
         File.Delete(path);
-        Assert.Equal("https://mesh.x/meshagents?id=ab$HOME@cd&installflags=2&meshinstall=", output);
+        Assert.Equal(0, syntax.ExitCode);
+    }
+
+    [Fact]
+    public void WindowsScript_DetectsArchitecture_AndRunsEyesInstall()
+    {
+        var script = InstallScripts.Windows(new InstallParameters("https://rmm.x", 1, 2, "abc", "server", Mesh: true));
+
+        Assert.Contains("Is64BitOperatingSystem", script, StringComparison.Ordinal);
+        Assert.Contains("/api/agent/download/windows/' + $arch", script, StringComparison.Ordinal);
+        Assert.Contains("install --api https://rmm.x --client-id 1 --site-id 2 --agent-type server --auth abc", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("--nomesh", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("TacticalAgent", script, StringComparison.Ordinal);
     }
 
     private sealed class FixedTime(DateTimeOffset now) : TimeProvider

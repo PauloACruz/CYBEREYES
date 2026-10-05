@@ -310,16 +310,16 @@ public static class CareEndpoints
         var catalog = await svc.CatalogAsync(agent, ct);
         foreach (var module in catalog?["modules"]?.AsArray() ?? [])
         {
-            var moduleKey = module?["key"]?.GetValue<string>();
+            var moduleKey = CareJson.Str(module?["key"]);
             foreach (var task in module?["tasks"]?.AsArray() ?? [])
             {
-                var key = task?["key"]?.GetValue<string>();
+                var key = CareJson.Str(task?["key"]);
                 if (moduleKey is null || key is null || task?["selfService"]?.GetValueKind() != JsonValueKind.True ||
                     !settings.SelfServiceTasks.Contains($"{moduleKey}.{key}"))
                 {
                     continue;
                 }
-                result.Add((moduleKey, key, task["label"]?.GetValue<string>() ?? key, task["description"]?.GetValue<string>() ?? string.Empty));
+                result.Add((moduleKey, key, CareJson.Str(task["label"]) ?? key, CareJson.Str(task["description"]) ?? string.Empty));
             }
         }
         return result;
@@ -392,7 +392,7 @@ public static class CareEndpoints
         var dto = (await svc.ToDtosAsync([run], ct))[0];
         var messages = (await db.CareRunEvents.AsNoTracking().Where(e => e.RunId == runId && e.Type == "log").OrderBy(e => e.Seq).Select(e => e.Data)
                 .Take(200).ToListAsync(ct))
-            .Select(d => JsonNode.Parse(d)?["message"]?.GetValue<string>()).OfType<string>().ToList();
+            .Select(d => CareJson.Str(JsonNode.Parse(d)?["message"])).OfType<string>().ToList();
         return TypedResults.Ok(new { runId, dto.Status, dto.Progress, label = $"{run.Module}.{string.Join(", ", run.Tasks)}", messages });
     }
 }

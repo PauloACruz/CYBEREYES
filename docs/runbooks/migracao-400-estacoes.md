@@ -12,14 +12,14 @@ Plano de migracao gradual: piloto com 10 maquinas e depois ondas por site.
    - Linux: `curl -fsSL 'https://CYBEREYES_HOST/api/deploy/<uid>/linux' | sudo bash`
    - macOS: `curl -fsSL 'https://CYBEREYES_HOST/api/deploy/<uid>/darwin' | sudo bash`
 
-   Ela e criada no console (Implantacoes) ou por `POST /api/deployments` `{ siteId, agentType: "auto"|"server"|"workstation", goArch?, expiresAt }`, com a permissao `agents.install`. O script do Windows baixa `/api/agent/download/windows/<arch>` (versao de `AGENT_VERSION`), roda o instalador com `/VERYSILENT` e registra o agente no site da implantacao. Apagar a implantacao invalida o token.
+   Ela e criada no console (Implantacoes) ou por `POST /api/deployments` `{ siteId, agentType: "auto"|"server"|"workstation", goArch?, expiresAt }`, com a permissao `agents.install`. O script do Windows detecta a arquitetura, baixa o EYES em `/api/agent/download/windows/<arch>` e roda `eyes.exe install`, que instala o MeshAgent, registra o agente no site da implantacao e cria o servico `eyes` (ADR-020). Apagar a implantacao invalida o token.
 4. **[verificado no codigo]** Nao ha importacao de configuracao do Tactical: clientes, sites, scripts, checks, politicas, modelos de alerta e tarefas precisam ser criados no Cybereyes antes das ondas.
 5. **[verificado]** Os agentes falam com o servidor so por HTTPS 443 (REST e `wss://CYBEREYES_HOST/natsws`). O certificado precisa ser valido (Let's Encrypt ou proprio); com o autoassinado temporario do Nginx os agentes nao conectam.
 
 ## 2. Pre-requisitos (antes do piloto)
 - [ ] Servidor de producao instalado (`instalacao.md`), backup diario funcionando e uma restauracao ensaiada (`backup-restauracao.md`).
-- [ ] Tags `v2.12.0` e `v2.13.0` publicadas no `rmmagentwincare` e `AGENT_VERSION=2.13.0` no `.env` (ver `atualizacao.md`); arquivos do release conferidos para `windows-amd64` e `linux-amd64` (e `386`/`arm64` se houver no parque).
-- [ ] Confirmar se o instalador do Windows do release ja inclui o `wincare-tray` com inicio automatico por sessao (ADR-008 preve o mesmo instalador; a fase 5 deixou o empacotamento para depois). Sem isso, a comunicacao sobre o app de bandeja fica para uma onda posterior.
+- [ ] API atualizada com o EYES embutido (`AGENT_VERSION` vazio); download conferido para `windows-amd64` e `linux-amd64` (e `386`/`arm64` se houver no parque), ver `atualizacao.md`.
+- [ ] Confirmar a distribuicao do `eyes-tray` (app de bandeja) com inicio automatico por sessao (ADR-008 e ADR-020; o empacotamento ainda esta pendente). Sem isso, a comunicacao sobre o app de bandeja fica para uma onda posterior.
 - [ ] Clientes e sites criados no Cybereyes espelhando os do Tactical.
 - [ ] Scripts, checks, politicas, modelos de alerta, SMTP e webhook recriados; janela de patches revisada.
 - [ ] Tecnicos com usuario, papel e 2FA no Cybereyes.
@@ -98,12 +98,12 @@ Criterios de saida:
 
 ## 6. Checklist por maquina
 - [ ] Aparece online no site certo, com hostname, SO e usuario logado corretos.
-- [ ] Versao do agente igual a `AGENT_VERSION`.
+- [ ] Versao do agente igual a distribuida pela API (`GET /api/agents/version`).
 - [ ] Checks da politica aplicados e com resultado.
 - [ ] Execucao de um script simples (por exemplo `hostname`) devolve saida.
 - [ ] Acesso remoto abre pelo console.
-- [ ] Health Check executa (agente 2.12.0 ou superior).
-- [ ] Logs de sistema chegando (agente 2.13.0 ou superior), se a coleta estiver ativa.
+- [ ] Health Check executa.
+- [ ] Logs de sistema chegando, se a coleta estiver ativa.
 - [ ] App de bandeja visivel na sessao do usuario, se aplicavel.
 - [ ] A maquina sumiu da lista de online do Tactical.
 

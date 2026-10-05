@@ -140,7 +140,7 @@ public sealed class CareService(CybereyesDbContext db, IAgentRpc rpc, IHubContex
         {
             return;
         }
-        var seq = evt?["seq"]?.GetValueKind() == JsonValueKind.Number ? evt["seq"]!.GetValue<int>() : 0;
+        var seq = CareJson.Int(evt?["seq"]) ?? 0;
         var type = evt?["type"]?.GetValueKind() == JsonValueKind.String ? evt["type"]!.GetValue<string>() : null;
         if (evt is null || seq <= 0 || type is null)
         {
@@ -170,7 +170,7 @@ public sealed class CareService(CybereyesDbContext db, IAgentRpc rpc, IHubContex
         await console.Clients.Group(ConsoleGroup(runId)).SendAsync("careEvent", runId, evt, ct);
         if (type == "done" && run.Status == CareRunStatus.Running)
         {
-            var status = evt["status"]?.GetValue<string>() ?? CareRunStatus.Error;
+            var status = CareJson.Str(evt["status"]) ?? CareRunStatus.Error;
             if (!CareRunStatus.Final.Contains(status))
             {
                 status = CareRunStatus.Error;
@@ -225,7 +225,7 @@ public sealed class CareService(CybereyesDbContext db, IAgentRpc rpc, IHubContex
         var lastLog = await db.CareRunEvents.AsNoTracking().Where(e => e.RunId == run.RunId && e.Type == "log").OrderByDescending(e => e.Seq)
             .Select(e => e.Data).FirstOrDefaultAsync(ct);
         string? message = null;
-        if (lastLog is not null && JsonNode.Parse(lastLog)?["message"]?.GetValue<string>() is { } m)
+        if (lastLog is not null && CareJson.Str(JsonNode.Parse(lastLog)?["message"]) is { } m)
         {
             message = m;
         }
@@ -248,11 +248,11 @@ public sealed class CareService(CybereyesDbContext db, IAgentRpc rpc, IHubContex
             foreach (var data in events[run.RunId])
             {
                 var node = JsonNode.Parse(data);
-                if (node?["type"]?.GetValue<string>() == "progress" && node["value"]?.GetValueKind() == JsonValueKind.Number)
+                if (node is not null && CareJson.Str(node["type"]) == "progress" && node["value"]?.GetValueKind() == JsonValueKind.Number)
                 {
                     progress = Math.Max(progress, Math.Clamp((int)node["value"]!.GetValue<double>(), 0, 100));
                 }
-                else if (node?["key"]?.GetValue<string>() is { } key && node["status"]?.GetValue<string>() is { } st)
+                else if (node is not null && CareJson.Str(node["key"]) is { } key && CareJson.Str(node["status"]) is { } st)
                 {
                     tasks[key] = st;
                 }
@@ -290,9 +290,9 @@ public sealed class CareService(CybereyesDbContext db, IAgentRpc rpc, IHubContex
             return null;
         }
 
-        var score = Math.Clamp(report["score"]!.GetValue<int>(), 0, 100);
-        var grade = report["grade"]?.GetValue<string>() ?? "critico";
-        var collected = DateTimeOffset.TryParse(report["collectedAt"]?.GetValue<string>(), CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var at)
+        var score = Math.Clamp(CareJson.Int(report["score"]) ?? 0, 0, 100);
+        var grade = CareJson.Str(report["grade"]) ?? "critico";
+        var collected = DateTimeOffset.TryParse(CareJson.Str(report["collectedAt"]), CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var at)
             ? at
             : time.GetUtcNow();
         var row = await db.AgentHealth.FirstOrDefaultAsync(h => h.AgentId == agent.Id, ct);

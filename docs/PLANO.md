@@ -123,6 +123,12 @@ Referencia de arquitetura e decisoes: `.team-context.md`.
 - Fora desta fase: o nome que o app de bandeja e os textos locais do agente exibem nas estacoes, que so muda com um release novo do agente (ver ADR-019).
 - **Entrega**: renomeacao concluida; identidade visual configuravel em andamento.
 
+### Fase 11: Agente proprio EYES
+- Agente reescrito do zero em `agent/` (ADR-020), sem codigo do Tactical, a partir da especificacao `docs/agente/contrato-eyes.md`; contrato `/api/v3` + NATS mantido.
+- Binario unico para Windows, Linux e macOS; instalacao, MeshAgent e servico feitos pelo proprio EYES; binarios compilados junto com a imagem da API; atualizacao remota e automatica.
+- App de bandeja trazido para `agent/tray` como `eyes-tray`.
+- **Entrega**: em andamento.
+
 ## Servidor (estimativa inicial, validar com teste de carga)
 VPS com 4 vCPU, 8 GB de RAM e 160 GB de SSD para 400 estacoes, incluindo MeshCentral e logs. Esta e uma estimativa minha, sem medicao; o volume de logs e o fator que mais pode exigir aumento de disco.
 
