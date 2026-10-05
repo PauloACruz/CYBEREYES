@@ -41,6 +41,13 @@ jobs:
             exit 1
           fi
       - run: dotnet build --no-restore -c Release
+      # Tela X11 virtual para o teste do acesso remoto com o EYES real (RemoteE2ETests, RFC-001).
+      - name: Xvfb e xdotool
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q xvfb xdotool
+          Xvfb :99 -screen 0 1280x800x24 &
+          echo "DISPLAY=:99" >> "$GITHUB_ENV"
       - run: dotnet test --no-build -c Release --collect:"XPlat Code Coverage"
 
   frontend:

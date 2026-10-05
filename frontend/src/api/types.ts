@@ -32,7 +32,17 @@ export type ErrorCode =
   | 'SSO_USER_NOT_FOUND'
   | 'SSO_USER_DISABLED'
   | 'SSO_DOMAIN_NOT_ALLOWED'
-  | 'PASSWORD_LOGIN_DISABLED';
+  | 'PASSWORD_LOGIN_DISABLED'
+  | 'REMOTE_DISABLED'
+  | 'AGENT_OFFLINE'
+  | 'REMOTE_UNSUPPORTED'
+  | 'SESSION_LIMIT'
+  | 'NO_INTERACTIVE_SESSION'
+  | 'AGENT_ERROR'
+  | 'SESSION_ENDED'
+  | 'FILE_EXISTS'
+  | 'FILE_TOO_LARGE'
+  | 'INVALID_PATH';
 
 export interface Paged<T> {
   items: T[];
@@ -577,6 +587,7 @@ export const PERMISSIONS = {
   agentsRun: 'agents.run',
   agentsControl: 'agents.control',
   agentsRemote: 'agents.remote',
+  agentsFiles: 'agents.files',
   scriptsView: 'scripts.view',
   scriptsManage: 'scripts.manage',
   checksManage: 'checks.manage',
@@ -971,6 +982,69 @@ export interface MeshStatusDto extends MeshSyncResult {
   url: string | null;
   deviceGroup: string | null;
   groupId: string | null;
+}
+
+// Acesso remoto proprio (docs/remoto/contrato-remoto.md)
+
+export type RemoteChannel = 'desktop' | 'files';
+export type RemoteSessionState = 'starting' | 'waiting-consent' | 'active' | 'ended';
+export type RemoteConsentMode = 'none' | 'notify' | 'ask';
+
+export interface CreateRemoteSessionRequest {
+  channels: RemoteChannel[];
+  viewOnly?: boolean;
+  ticketId?: number | null;
+}
+
+export interface RemoteSessionDto {
+  sessionId: string;
+  agentId: number;
+  hostname: string;
+  user: string;
+  channels: RemoteChannel[];
+  viewOnly: boolean;
+  state: RemoteSessionState;
+  consent: RemoteConsentMode;
+  startedAt: string;
+  endedAt: string | null;
+  endReason: string | null;
+  /** So na criacao. */
+  relayUrl: string | null;
+  /** So na criacao: token de uso unico do visualizador. */
+  viewerToken: string | null;
+  expiresAt: string | null;
+  ticketId: number | null;
+  firstFrameAt: string | null;
+  bytesToViewer: number;
+  bytesToAgent: number;
+  clipboardToRemote: number;
+  clipboardToLocal: number;
+}
+
+export interface RemoteSessionPage {
+  items: RemoteSessionDto[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export type RemotePolicyScope = 'global' | 'client' | 'site';
+
+export interface RemotePolicyDto {
+  scope: RemotePolicyScope;
+  scopeId: number;
+  consent: RemoteConsentMode | null;
+  consentTimeoutSeconds: number | null;
+  allowAtLoginScreen: boolean | null;
+  clipboardToRemote: boolean | null;
+  clipboardToLocal: boolean | null;
+  filesUpload: boolean | null;
+  filesDownload: boolean | null;
+  maxFileMb: number | null;
+  idleMinutes: number | null;
+  maxHours: number | null;
+  updatedAt: string | null;
+  updatedBy: string | null;
 }
 
 // Chamados e incidentes (docs/api/fase5-chamados.md)

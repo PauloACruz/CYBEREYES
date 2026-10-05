@@ -467,6 +467,15 @@ Tamanho relativo: **P** (pequeno), **M** (medio) e **G** (grande), comparados en
 | S5 Linux | X11 com `jezek/xgb`: captura, XTEST e selecoes no Xvfb do CI. Wayland: portal ScreenCast e RemoteDesktop com PipeWire, ou DRM; o que exige CGO? | X11 funcionando no CI e decisao D-06 tomada |
 | S6 macOS | ScreenCaptureKit e `CGEventPost` com `ebitengine/purego` sem CGO; permissoes de Gravacao de Tela e Acessibilidade; o que acontece com as permissoes a cada atualizacao de um binario sem assinatura | caminho viavel e decisao D-07 tomada |
 
+### 7.2 Andamento
+
+| Fase | Situacao | Onde ver |
+|---|---|---|
+| Etapa 0 | concluida: o servidor nao distribui mais o MeshAgent | `docs/api/fase4-mesh.md` |
+| 12.0 | concluida | `docs/remoto/contrato-remoto.md`, `docs/remoto/fase12-0.md` |
+| 12.1 | concluida (S2, S3, S4 e S5 medidos; S1 e S6 dependem de maquinas reais) | `docs/remoto/provas-12.1.md` |
+| 12.2 | concluida no CI: sessao, tokens, relay com encaminhamento entre replicas, politicas, auditoria, EYES 3.1.0 com `remote_start`, `remote_stop` e remote-helper X11, visualizador no console. O teste `RemoteE2ETests` sobe o EYES real sob Xvfb e confere HELLO, blocos JPEG, ACK, movimento do ponteiro (xdotool) e o fim da sessao. Pendentes desta fase: a prova numa maquina Windows de teste (vai junto com a 12.3) e o Playwright do console (o visualizador esta coberto por testes do vitest com WebSocket simulado) | `docs/remoto/fase12-2.md` |
+
 ---
 
 ## 8. Estrategia de testes

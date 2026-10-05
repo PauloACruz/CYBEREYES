@@ -76,10 +76,28 @@ server {
     proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
 
+    # Acesso remoto (ADR-022): relay WebSocket e transferencia de arquivos em streaming. Os cabecalhos
+    # X-Remote-* sao internos (encaminhamento entre replicas da API) e nunca podem vir de fora.
+    location /api/remote/ {
+        proxy_pass http://cybereyes_api;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade    $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_set_header X-Remote-Forward   "";
+        proxy_set_header X-Remote-Principal "";
+        proxy_buffering off;
+        proxy_request_buffering off;
+        client_max_body_size 2M;
+        proxy_read_timeout 330s;
+        proxy_send_timeout 330s;
+    }
+
     location ~ ^/(api|openapi)/ {
         proxy_pass http://cybereyes_api;
         proxy_http_version 1.1;
         proxy_set_header Connection "";
+        proxy_set_header X-Remote-Forward   "";
+        proxy_set_header X-Remote-Principal "";
         proxy_connect_timeout 3s;
         proxy_next_upstream error timeout http_502 http_503;
         proxy_next_upstream_tries 2;
@@ -94,6 +112,8 @@ server {
     location /hubs/ {
         proxy_pass http://cybereyes_api;
         proxy_http_version 1.1;
+        proxy_set_header X-Remote-Forward   "";
+        proxy_set_header X-Remote-Principal "";
         proxy_set_header Upgrade    $http_upgrade;
         proxy_set_header Connection $connection_upgrade;
         proxy_read_timeout 330s;

@@ -28,6 +28,7 @@ public static class Permissions
     public const string PatchesManage = "patches.manage";
     public const string SoftwareManage = "software.manage";
     public const string AgentsRemote = "agents.remote";
+    public const string AgentsFiles = "agents.files";
     public const string TicketsView = "tickets.view";
     public const string TicketsManage = "tickets.manage";
     public const string InventoryView = "inventory.view";
@@ -66,7 +67,8 @@ public static class Permissions
         new(AlertsManage, "Alertas", "Resolver e silenciar alertas, editar templates"),
         new(PatchesManage, "Atualizacoes", "Aprovar e instalar atualizacoes do Windows"),
         new(SoftwareManage, "Software", "Instalar software nos agentes"),
-        new(AgentsRemote, "Agentes", "Acesso remoto pelo MeshCentral (tela, terminal e arquivos)"),
+        new(AgentsRemote, "Agentes", "Acesso remoto a tela e area de transferencia"),
+        new(AgentsFiles, "Agentes", "Navegar e transferir arquivos das maquinas"),
         new(TicketsView, "Chamados", "Ver chamados, conversas, anexos e apontamentos"),
         new(TicketsManage, "Chamados", "Criar, atribuir, responder e apontar horas em chamados"),
         new(InventoryView, "Inventario", "Ver ativos, pessoas e fichas das maquinas"),

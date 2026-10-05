@@ -148,6 +148,7 @@ Mesmas regras da secao 4 do contrato do EYES: mapa msgpack com `func`; `payload`
 | `remote_stop` | publish | | `session_id`, `reason` (`"user"`, `"technician"`, `"permission"`, `"timeout"`, `"server"`) | |
 | `wol` | request | 15 s | `macs` (texto JSON, lista de `"AA:BB:CC:DD:EE:FF"`), `broadcast` (texto JSON, lista de enderecos IPv4 de broadcast) | `"ok"` ou `"error: <motivo>"` |
 
+- O EYES usa o **caminho** de `relay_url` sobre o endereco da API configurado nele (`https` vira `wss`): so conecta ao servidor que ja conhece, mesmo que o servidor anuncie outro nome.
 - `remote_start` responde **antes** do consentimento. O resultado do consentimento chega pelo relay (quadro `CONSENT`).
 - Motivos padronizados de erro em `remote_start`: `unsupported`, `busy` (limite local), `no session` (sem usuario e sem tela de login permitida), `policy` (recurso desligado no agente).
 - `wol`: o EYES envia o pacote magico (6 bytes `0xFF` seguidos de 16 repeticoes do MAC) por UDP para cada broadcast, nas portas 7 e 9. A API escolhe o agente que envia: online, mesmo site e com interface na mesma sub-rede do alvo, pelo inventario.

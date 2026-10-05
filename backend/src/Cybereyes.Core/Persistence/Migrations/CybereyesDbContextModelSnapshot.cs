@@ -2156,6 +2156,225 @@ namespace Cybereyes.Core.Persistence.Migrations
                     b.ToTable("policies", (string)null);
                 });
 
+            modelBuilder.Entity("Cybereyes.Core.Rmm.RemotePolicy", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool?>("AllowAtLoginScreen")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool?>("ClipboardToLocal")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool?>("ClipboardToRemote")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Consent")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<int?>("ConsentTimeoutSeconds")
+                        .HasColumnType("integer");
+
+                    b.Property<bool?>("FilesDownload")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool?>("FilesUpload")
+                        .HasColumnType("boolean");
+
+                    b.Property<int?>("IdleMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("MaxFileMb")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("MaxHours")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<int>("ScopeId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Scope", "ScopeId")
+                        .IsUnique();
+
+                    b.ToTable("remote_policies", (string)null);
+                });
+
+            modelBuilder.Entity("Cybereyes.Core.Rmm.RemoteSession", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("AgentId")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("BytesToAgent")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("BytesToViewer")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Channels")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<int>("ClipboardToLocal")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ClipboardToRemote")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ConsentMode")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("ConsentResult")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("EndReason")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTimeOffset?>("EndedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("FirstFrameAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SessionId")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTimeOffset>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<int?>("TicketId")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<bool>("ViewOnly")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("ViewerIp")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SessionId")
+                        .IsUnique();
+
+                    b.HasIndex("State");
+
+                    b.HasIndex("AgentId", "StartedAt");
+
+                    b.HasIndex("UserId", "StartedAt");
+
+                    b.ToTable("remote_sessions", (string)null);
+                });
+
+            modelBuilder.Entity("Cybereyes.Core.Rmm.RemoteTransfer", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("AgentId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Direction")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("Error")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTimeOffset?>("FinishedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("RemotePath")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("SessionId")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("Sha256")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SessionId");
+
+                    b.HasIndex("AgentId", "StartedAt");
+
+                    b.ToTable("remote_transfers", (string)null);
+                });
+
             modelBuilder.Entity("Cybereyes.Core.Rmm.Script", b =>
                 {
                     b.Property<int>("Id")
@@ -3691,6 +3910,24 @@ namespace Cybereyes.Core.Persistence.Migrations
                 });
 
             modelBuilder.Entity("Cybereyes.Core.Rmm.PendingAction", b =>
+                {
+                    b.HasOne("Cybereyes.Core.Rmm.Agent", null)
+                        .WithMany()
+                        .HasForeignKey("AgentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Cybereyes.Core.Rmm.RemoteSession", b =>
+                {
+                    b.HasOne("Cybereyes.Core.Rmm.Agent", null)
+                        .WithMany()
+                        .HasForeignKey("AgentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Cybereyes.Core.Rmm.RemoteTransfer", b =>
                 {
                     b.HasOne("Cybereyes.Core.Rmm.Agent", null)
                         .WithMany()

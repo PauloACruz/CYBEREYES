@@ -1,0 +1,219 @@
+// Package remote implementa o acesso remoto do EYES (RFC-001, ADR-022; contrato em docs/remoto/contrato-remoto.md):
+// o servico recebe remote_start pelo NATS, inicia o "eyes remote-helper" na sessao grafica do usuario e atende o
+// canal de arquivos; o remote-helper captura a tela, aplica a entrada e sincroniza a area de transferencia pelo relay.
+package remote
+
+import (
+	"bufio"
+	"context"
+	"encoding/json"
+	"errors"
+	"io"
+	"log/slog"
+	"net/url"
+	"os"
+	"os/exec"
+	"regexp"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/pauloacruz/cybereyes/agent/internal/env"
+	"github.com/pauloacruz/cybereyes/agent/internal/rpc"
+)
+
+// MaxSessions e o limite de sessoes simultaneas no agente (contrato, secao 10).
+const MaxSessions = 2
+
+var (
+	errUnsupported = errors.New("acesso remoto nao suportado nesta sessao")
+	errNoSession   = errors.New("sem usuario conectado")
+	sessionIDRe    = regexp.MustCompile(`^[0-9a-f]{32}$`)
+)
+
+// target e a sessao grafica onde o remote-helper roda.
+type target struct {
+	Env  []string
+	User string
+	// Session e o identificador da sessao no sistema (Windows: id da sessao do terminal).
+	Session uint32
+}
+
+// Manager guarda as sessoes ativas no servico.
+type Manager struct {
+	e        *env.Env
+	mu       sync.Mutex
+	sessions map[string]context.CancelFunc
+	launch   func(ctx context.Context, t target, p HelperParams, log *slog.Logger) error
+	find     func(allowLogin bool) (target, error)
+}
+
+// Register registra remote_start e remote_stop.
+func Register(e *env.Env) error {
+	m := &Manager{e: e, sessions: map[string]context.CancelFunc{}, launch: launchHelper, find: findDesktop}
+	e.Reg.HandleTimeout("remote_start", 15*time.Second, m.start)
+	e.Reg.Handle("remote_stop", m.stop)
+	return nil
+}
+
+func (m *Manager) start(_ context.Context, req rpc.Request) any {
+	p := req.Payload()
+	id := p.Str("session_id")
+	relay := p.Str("relay_url")
+	relay, ok := relayOnAPI(relay, m.e.Cfg.API)
+	if !sessionIDRe.MatchString(id) || !ok || p.Str("token") == "" {
+		return "error: pedido invalido"
+	}
+	policy, err := ParsePolicy(p.Str("policy"))
+	if err != nil {
+		return "error: politica invalida"
+	}
+	channels := strings.Split(p.Str("channels"), ",")
+	params := HelperParams{
+		SessionID: id, RelayURL: relay, Token: p.Str("token"), AgentToken: m.e.Cfg.Token, ViewOnly: p.Bool("view_only"),
+		Policy: policy, Insecure: m.e.Cfg.Insecure, Proxy: m.e.Cfg.Proxy,
+	}
+	technician := p.Str("technician")
+
+	m.mu.Lock()
+	if len(m.sessions) >= MaxSessions {
+		m.mu.Unlock()
+		return "error: busy"
+	}
+	if _, dup := m.sessions[id]; dup {
+		m.mu.Unlock()
+		return "error: sessao ja iniciada"
+	}
+	var t target
+	if contains(channels, "desktop") {
+		t, err = m.find(policy.AllowAtLoginScreen)
+		switch {
+		case errors.Is(err, errUnsupported):
+			m.mu.Unlock()
+			return "error: unsupported"
+		case err != nil:
+			m.mu.Unlock()
+			return "error: no session"
+		}
+	}
+	ctx, cancel := context.WithTimeout(m.e.Ctx, time.Duration(max(1, policy.MaxHours))*time.Hour)
+	m.sessions[id] = cancel
+	m.mu.Unlock()
+
+	log := m.e.Log.With("sessao_remota", id)
+	log.Info("acesso remoto iniciado", "tecnico", technician, "canais", channels, "somente_visualizacao", params.ViewOnly)
+	var wg sync.WaitGroup
+	if contains(channels, "desktop") {
+		wg.Add(1)
+		m.e.Go("remote-desktop", func(context.Context) {
+			defer wg.Done()
+			if err := m.runDesktop(ctx, t, params, technician); err != nil && ctx.Err() == nil {
+				log.Warn("sessao de tela encerrada com erro", "erro", err)
+			}
+		})
+	}
+	if contains(channels, "files") {
+		wg.Add(1)
+		m.e.Go("remote-files", func(context.Context) {
+			defer wg.Done()
+			if err := runFiles(ctx, params, m.e.Log); err != nil && ctx.Err() == nil {
+				log.Warn("canal de arquivos encerrado com erro", "erro", err)
+			}
+		})
+	}
+	go func() {
+		wg.Wait()
+		m.end(id)
+		log.Info("acesso remoto encerrado")
+	}()
+	return "ok"
+}
+
+// runDesktop aplica o consentimento e inicia o remote-helper na sessao grafica.
+func (m *Manager) runDesktop(ctx context.Context, t target, p HelperParams, technician string) error {
+	stop, err := consent(ctx, m.e, t, p, technician)
+	if err != nil {
+		return err
+	}
+	defer stop()
+	return m.launch(ctx, t, p, m.e.Log.With("sessao_remota", p.SessionID))
+}
+
+func (m *Manager) stop(_ context.Context, req rpc.Request) any {
+	m.end(req.Payload().Str("session_id"))
+	return "ok"
+}
+
+func (m *Manager) end(id string) {
+	m.mu.Lock()
+	cancel, ok := m.sessions[id]
+	delete(m.sessions, id)
+	m.mu.Unlock()
+	if ok {
+		cancel()
+	}
+}
+
+// relayOnAPI usa o caminho de relay_url sobre o endereco da API configurado no agente (contrato, secao 3): o EYES so
+// conecta ao servidor que ja conhece, mesmo que o servidor anuncie outro nome.
+func relayOnAPI(relay, apiBase string) (string, bool) {
+	r, err := url.Parse(relay)
+	if err != nil || !strings.HasPrefix(r.Path, "/api/remote/relay/") || strings.Contains(r.Path, "..") {
+		return "", false
+	}
+	a, err := url.Parse(apiBase)
+	if err != nil || a.Host == "" {
+		return "", false
+	}
+	scheme := "wss"
+	if a.Scheme == "http" {
+		scheme = "ws"
+	}
+	return scheme + "://" + a.Host + strings.TrimRight(a.Path, "/") + r.Path, true
+}
+
+func contains(list []string, v string) bool {
+	for _, x := range list {
+		if strings.TrimSpace(x) == v {
+			return true
+		}
+	}
+	return false
+}
+
+// runHelperProcess executa o binario atual como "eyes remote-helper" com os parametros pela entrada padrao.
+func runHelperProcess(ctx context.Context, cmd *exec.Cmd, p HelperParams, log func(line string)) error {
+	data, err := json.Marshal(p)
+	if err != nil {
+		return err
+	}
+	cmd.Stdin = strings.NewReader(string(data))
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return err
+	}
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	go forwardLines(stderr, log)
+	done := make(chan error, 1)
+	go func() { done <- cmd.Wait() }()
+	select {
+	case err := <-done:
+		return err
+	case <-ctx.Done():
+		_ = cmd.Process.Kill()
+		<-done
+		return nil
+	}
+}
+
+func forwardLines(r io.Reader, log func(string)) {
+	sc := bufio.NewScanner(r)
+	for sc.Scan() {
+		log(sc.Text())
+	}
+}
+
+// Executable e o caminho do binario atual (trocado nos testes).
+var Executable = os.Executable

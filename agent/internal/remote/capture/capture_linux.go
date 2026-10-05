@@ -10,6 +10,8 @@ import (
 	"github.com/jezek/xgb"
 	"github.com/jezek/xgb/randr"
 	"github.com/jezek/xgb/xproto"
+
+	_ "github.com/pauloacruz/cybereyes/agent/internal/remote/x11util"
 )
 
 // x11 captura pelo protocolo X11 (GetImage na janela raiz), em Go puro.

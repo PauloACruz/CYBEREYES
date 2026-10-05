@@ -261,7 +261,7 @@ function MachineCard({ ticket, me }: { ticket: TicketDetail; me: MeDto | undefin
           <Field label="IP público">{orMissing(agent.publicIp)}</Field>
           {canRemote && (
             <div>
-              <RemoteAccessMenu agent={agent} />
+              <RemoteAccessMenu agent={agent} ticketId={ticket.id} />
             </div>
           )}
         </Stack>

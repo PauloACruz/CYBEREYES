@@ -24,6 +24,16 @@ export const routes: RouteObject[] = [
     element: <RequireAuth />,
     children: [
       {
+        // Janela propria do visualizador, sem o layout do console.
+        element: <RequirePermission permission={PERMISSIONS.agentsRemote} />,
+        children: [
+          {
+            path: `${PATHS.remote}/:agentId`,
+            lazy: () => import('../features/remote/RemoteViewerPage').then((m) => ({ Component: m.RemoteViewerPage })),
+          },
+        ],
+      },
+      {
         element: <AppLayout />,
         children: [
           { index: true, element: <DashboardPage /> },
