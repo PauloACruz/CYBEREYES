@@ -46,9 +46,22 @@ Este roteiro valida em maquinas reais o que o CI nao alcanca: Windows (prova S1)
 | 3.1 | Aba "Acessos remotos" do agente | cada sessao com inicio, tecnico, tipo, duracao e motivo do fim |
 | 3.2 | Acesso aberto pela barra lateral do chamado | a sessao aparece em "Acessos remotos" do chamado |
 
-## 4. Itens das fases seguintes
+## 4. Area de transferencia (fase 12.4)
 
-As fases 12.4 a 12.7 acrescentam aqui os roteiros de area de transferencia, arquivos, Linux, macOS e Wake-on-LAN.
+| # | Passo | Esperado |
+|---|---|---|
+| 4.1 | Copiar um texto no Bloco de Notas da estacao Windows | o texto fica na area de transferencia do tecnico em ate 1 s, sem clique (Chrome e Edge); colar no computador do tecnico funciona |
+| 4.2 | Copiar um texto no computador do tecnico e apertar Ctrl+V dentro da tela | o texto local e colado na estacao (Chrome, Edge e Firefox) |
+| 4.3 | Repetir 4.2 com Cmd+V no Safari (Mac do tecnico) | o texto e colado. Conferir o que a estacao Windows recebe: o Cmd segue como tecla Windows, entao a combinacao pode virar Win+V; se acontecer, registrar para mapear Cmd para Ctrl no visualizador |
+| 4.4 | Copiar com acentos, emoji e varias linhas | o texto chega igual nos dois sentidos |
+| 4.5 | Politica com `clipboardToRemote` desligado | Ctrl+V nao cola o texto local; copiar na estacao continua chegando |
+| 4.6 | Politica com `clipboardToLocal` desligado | copiar na estacao nao chega; Ctrl+V continua colando |
+| 4.7 | Somente visualizar | o texto do tecnico nunca chega a estacao |
+| 4.8 | Texto acima de 1 MiB | nao e sincronizado e nada trava |
+
+## 5. Itens das fases seguintes
+
+As fases 12.5 a 12.7 acrescentam aqui os roteiros de arquivos, Linux, macOS e Wake-on-LAN.
 
 ## Registro
 

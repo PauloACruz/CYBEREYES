@@ -12,9 +12,9 @@ describe('entrada do visualizador', () => {
     expect(wheelUnits(-3, 1)).toBe(-120);
   });
 
-  it('deixa Ctrl+V para o evento paste', () => {
-    expect(shouldCapture({ code: 'KeyV', ctrlKey: true, metaKey: false })).toBe(false);
-    expect(shouldCapture({ code: 'KeyV', ctrlKey: false, metaKey: false })).toBe(true);
-    expect(shouldCapture({ code: 'Tab', ctrlKey: false, metaKey: false })).toBe(true);
+  it('captura toda tecla com posicao fisica', () => {
+    expect(shouldCapture({ code: 'KeyV' })).toBe(true);
+    expect(shouldCapture({ code: 'Tab' })).toBe(true);
+    expect(shouldCapture({ code: '' })).toBe(false);
   });
 });

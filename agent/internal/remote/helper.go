@@ -314,6 +314,10 @@ func (s *desktopSession) handle(ctx context.Context, frame []byte) error {
 	case proto.PeerGone:
 		return io.EOF
 	case proto.Clipboard:
+		// Somente visualizacao: nada do visualizador chega a estacao (contrato, secao 5.2).
+		if s.params.ViewOnly {
+			return nil
+		}
 		return s.clip.FromViewer(frame)
 	default:
 		return s.handleInput(frame)

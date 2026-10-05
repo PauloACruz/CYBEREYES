@@ -18,9 +18,10 @@ export function wheelUnits(delta: number, mode: number): number {
   return Math.round(units);
 }
 
-/** Teclas que o navegador nao deve tratar (o foco fica na tela remota). */
-export function shouldCapture(event: Pick<KeyboardEvent, 'code' | 'ctrlKey' | 'metaKey'>): boolean {
-  // Ctrl+V e Cmd+V seguem para o navegador gerar o evento paste (area de transferencia automatica).
-  if (event.code === 'KeyV' && (event.ctrlKey || event.metaKey)) return false;
+/**
+ * Teclas que o navegador nao deve tratar (o foco fica na tela remota). O Ctrl+V com a area de transferencia
+ * ligada e tratado no visualizador: o texto local vai antes das teclas.
+ */
+export function shouldCapture(event: Pick<KeyboardEvent, 'code'>): boolean {
   return event.code !== '';
 }

@@ -1,8 +1,9 @@
 import { Alert, Badge, Box, Button, Center, Group, Loader, SegmentedControl, Select, Stack, Switch, Text, Tooltip } from '@mantine/core';
-import { IconKeyboard, IconMaximize, IconPlugConnectedX, IconScreenShare } from '@tabler/icons-react';
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type WheelEvent } from 'react';
+import { IconClipboardCheck, IconKeyboard, IconMaximize, IconPlugConnectedX, IconScreenShare } from '@tabler/icons-react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type PointerEvent, type WheelEvent } from 'react';
 import { useParams, useSearchParams } from 'react-router';
-import { FRAME, type FrameEndFrame, type HelloBody, type RemoteDisplay, type TileFrame } from './protocol';
+import { ClipboardBridge } from './clipboard';
+import { FRAME, type ClipboardBody, type FrameEndFrame, type HelloBody, type RemoteDisplay, type TileFrame } from './protocol';
 import { shouldCapture, toRemotePoint, wheelUnits } from './inputMap';
 import { useRemoteSession, type SessionStatus } from './useRemoteSession';
 
@@ -60,6 +61,16 @@ export function RemoteViewerPage() {
   const [consent, setConsent] = useState<string | null>(null);
   const [agentError, setAgentError] = useState<string | null>(null);
   const [firstFrame, setFirstFrame] = useState(false);
+  // Area de transferencia automatica (contrato, secao 6): o envio passa pela conexao atual.
+  const outbox = useRef<(body: ClipboardBody) => void>(() => undefined);
+  const bridgeRef = useRef<ClipboardBridge | null>(null);
+  // So nos eventos e efeitos (nunca durante a renderizacao).
+  const bridge = () => {
+    bridgeRef.current ??= new ClipboardBridge((body) => outbox.current(body));
+    return bridgeRef.current;
+  };
+  // Ctrl+V: espera o evento paste para mandar o texto antes das teclas.
+  const paste = useRef<{ waiting: boolean; ignoreUp: boolean; timer: number | undefined }>({ waiting: false, ignoreUp: false, timer: undefined });
 
   const onTile = useCallback((tile: TileFrame) => {
     const bytes = new Uint8Array(tile.jpeg.length);
@@ -90,6 +101,7 @@ export function RemoteViewerPage() {
 
   const { status, connection } = useRemoteSession(agentId, options, {
     onHello: (h) => {
+      bridge().enabled = h.features.includes('clipboard-text');
       setHello(h);
       setDisplays(h.displays);
       setActiveDisplay(h.active);
@@ -101,12 +113,18 @@ export function RemoteViewerPage() {
     onTile,
     onFrameEnd,
     onConsent: setConsent,
-    onClipboard: () => undefined,
+    onClipboard: (body) => void bridge().fromRemote(body),
     onFilesCopied: () => undefined,
     onError: (_code, message) => setAgentError(message),
   });
 
   const connected = status.kind === 'open' && status.phase === 'connected';
+
+  useEffect(() => {
+    outbox.current = (body) => {
+      if (!viewOnly) connection.current?.sendJson(FRAME.clipboard, body);
+    };
+  }, [connection, viewOnly]);
 
   // Ajustes de imagem: enviados no HELLO e a cada mudanca.
   useEffect(() => {
@@ -126,12 +144,46 @@ export function RemoteViewerPage() {
     send(FRAME.mouse, { ...point, buttons: event.buttons });
   };
 
+  const sendPasteKeys = () => {
+    window.clearTimeout(paste.current.timer);
+    paste.current.waiting = false;
+    send(FRAME.key, { code: 'KeyV', down: true });
+    send(FRAME.key, { code: 'KeyV', down: false });
+  };
+
   const key = (event: KeyboardEvent<HTMLCanvasElement>, down: boolean) => {
     if (viewOnly || !shouldCapture(event.nativeEvent)) return;
+    if (down) void bridge().flushPending();
+    if (event.code === 'KeyV' && bridge().enabled) {
+      if (down && paste.current.waiting) {
+        event.preventDefault();
+        return;
+      }
+      if (down && (event.ctrlKey || event.metaKey)) {
+        // Sem preventDefault: o navegador entrega o texto local no evento paste, e as teclas vao depois dele.
+        paste.current = { waiting: true, ignoreUp: true, timer: window.setTimeout(() => {
+          if (paste.current.waiting) sendPasteKeys();
+        }, 300) };
+        return;
+      }
+      if (!down && paste.current.ignoreUp) {
+        event.preventDefault();
+        paste.current.ignoreUp = false;
+        return;
+      }
+    }
     event.preventDefault();
     if (down) pressed.current.add(event.code);
     else pressed.current.delete(event.code);
     send(FRAME.key, { code: event.code, down });
+  };
+
+  const onPaste = async (event: ClipboardEvent<HTMLCanvasElement>) => {
+    event.preventDefault();
+    if (viewOnly) return;
+    const text = event.clipboardData.getData('text/plain');
+    await bridge().local(text);
+    if (paste.current.waiting) sendPasteKeys();
   };
 
   // Teclas presas: ao perder o foco, solta o que estava pressionado.
@@ -193,6 +245,11 @@ export function RemoteViewerPage() {
               { value: 'baixa', label: 'Baixa' },
             ]}
           />
+          {hello?.features.includes('clipboard-text') && (
+            <Tooltip label="Área de transferência sincronizada: copie de um lado e cole do outro (Ctrl+V)">
+              <IconClipboardCheck size={18} aria-label="Área de transferência sincronizada" role="img" />
+            </Tooltip>
+          )}
           <Switch size="xs" label="Somente visualizar" checked={viewOnly} onChange={(e) => setViewOnly(e.currentTarget.checked)} />
           {hello?.features.includes('cad') && (
             <Button size="xs" variant="default" leftSection={<IconKeyboard size={14} />} onClick={() => send(FRAME.cad, {})} disabled={viewOnly}>
@@ -222,8 +279,13 @@ export function RemoteViewerPage() {
           onPointerMove={pointer}
           onPointerDown={(e) => {
             e.currentTarget.focus();
+            void bridge().flushPending();
             pointer(e);
           }}
+          onFocus={() => {
+            if (!viewOnly) void bridge().readOnFocus();
+          }}
+          onPaste={(e) => void onPaste(e)}
           onPointerUp={pointer}
           onWheel={wheel}
           onKeyDown={(e) => key(e, true)}

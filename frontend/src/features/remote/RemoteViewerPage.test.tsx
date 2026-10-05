@@ -1,8 +1,8 @@
-import { screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { RemoteSessionDto } from '../../api/types';
 import { json, makeMe, mockFetch, problem, renderApp } from '../../test/utils';
-import { FRAME } from './protocol';
+import { FRAME, jsonFrame } from './protocol';
 
 const me = makeMe({ permissions: ['agents.view', 'agents.remote'] });
 
@@ -77,6 +77,41 @@ describe('visualizador de acesso remoto', () => {
     socket!.onmessage?.({ data: new Uint8Array([FRAME.paired]).buffer });
     expect(await screen.findAllByText('Conectado')).not.toHaveLength(0);
     expect(created).toHaveBeenCalledTimes(1);
+  });
+
+  it('Ctrl+V envia o texto local antes das teclas', async () => {
+    mockFetch({
+      'GET /api/auth/me': () => json(me),
+      'POST /api/agents/1/remote/sessions': () => json(session, 201),
+      [`DELETE /api/remote/sessions/${session.sessionId}`]: () => new Response(null, { status: 204 }),
+    });
+    vi.stubGlobal('WebSocket', FakeSocket);
+    renderApp('/acesso-remoto/1');
+    await waitFor(() => expect(FakeSocket.last).not.toBeNull());
+    const socket = FakeSocket.last!;
+    socket.readyState = FakeSocket.OPEN;
+    socket.onopen?.();
+    const receive = (frame: Uint8Array) => {
+      const copy = new Uint8Array(frame.length);
+      copy.set(frame);
+      socket.onmessage?.({ data: copy.buffer });
+    };
+    receive(new Uint8Array([FRAME.authOk]));
+    receive(new Uint8Array([FRAME.paired]));
+    receive(jsonFrame(FRAME.hello, { proto: 1, os: 'windows', displays: [{ id: 0, name: '', x: 0, y: 0, w: 800, h: 600, scale: 1, primary: true }], active: 0, features: ['desktop', 'clipboard-text'], user: null }));
+    expect(await screen.findByRole('img', { name: 'Área de transferência sincronizada' })).toBeInTheDocument();
+
+    const canvas = screen.getByTestId('remote-canvas');
+    socket.sent.length = 0;
+    fireEvent.keyDown(canvas, { code: 'KeyV', key: 'v', ctrlKey: true });
+    fireEvent.paste(canvas, { clipboardData: { getData: () => 'texto local' } });
+    await waitFor(() => expect(socket.sent.filter((f) => f[0] === FRAME.key)).toHaveLength(2));
+    const types = socket.sent.map((f) => f[0]).filter((t) => t === FRAME.clipboard || t === FRAME.key);
+    expect(types).toEqual([FRAME.clipboard, FRAME.key, FRAME.key]);
+    const clip = JSON.parse(new TextDecoder().decode(socket.sent.find((f) => f[0] === FRAME.clipboard)?.subarray(1))) as { text: string };
+    expect(clip.text).toBe('texto local');
+    fireEvent.keyUp(canvas, { code: 'KeyV', key: 'v', ctrlKey: true });
+    expect(socket.sent.filter((f) => f[0] === FRAME.key)).toHaveLength(2);
   });
 
   it('explica quando a maquina esta desconectada', async () => {

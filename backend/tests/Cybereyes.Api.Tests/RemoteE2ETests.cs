@@ -56,9 +56,19 @@ public sealed class RemoteE2ETests(ApiFixture fixture)
         }
     }
 
-    private static string MouseLocation()
+    private static string MouseLocation() => Run("xdotool", "getmouselocation", null);
+
+    private static string Run(string file, string args, string? input)
     {
-        using var p = Process.Start(new ProcessStartInfo("xdotool", "getmouselocation") { RedirectStandardOutput = true })!;
+        // Com entrada (xclip -i), a saida nao e lida: o xclip fica em segundo plano segurando a selecao.
+        using var p = Process.Start(new ProcessStartInfo(file, args) { RedirectStandardOutput = input is null, RedirectStandardInput = input is not null })!;
+        if (input is not null)
+        {
+            p.StandardInput.Write(input);
+            p.StandardInput.Close();
+            p.WaitForExit();
+            return string.Empty;
+        }
         var output = p.StandardOutput.ReadToEnd();
         p.WaitForExit();
         return output;
@@ -126,6 +136,7 @@ public sealed class RemoteE2ETests(ApiFixture fixture)
         {
             Assert.Equal("linux", doc.RootElement.GetProperty("os").GetString());
             Assert.True(doc.RootElement.GetProperty("displays")[0].GetProperty("w").GetInt32() > 0);
+            Assert.Contains("clipboard-text", doc.RootElement.GetProperty("features").EnumerateArray().Select(f => f.GetString()));
         }
 
         // Primeiro quadro: blocos JPEG ate o FRAME_END, depois o ACK.
@@ -160,6 +171,30 @@ public sealed class RemoteE2ETests(ApiFixture fixture)
         }
         Assert.Contains("x:321 y:234", location, StringComparison.Ordinal);
 
+        // Area de transferencia, do tecnico para a estacao: outro programa (xclip) cola o texto.
+        await viewer.SendAsync(Frame(0x14, new { kind = "text", text = "do tecnico ✓", hash = "" }), WebSocketMessageType.Binary, true, cts.Token);
+        var pasted = string.Empty;
+        for (var i = 0; i < 40 && pasted != "do tecnico ✓"; i++)
+        {
+            await Task.Delay(100);
+            pasted = Run("xclip", "-selection clipboard -o", null);
+        }
+        Assert.Equal("do tecnico ✓", pasted);
+
+        // Da estacao para o tecnico: o texto copiado chega sem pedido.
+        Run("xclip", "-selection clipboard -i", "copiado na estacao");
+        string? received = null;
+        while (received is null)
+        {
+            var frame = await ReceiveAsync(viewer, cts.Token);
+            if (frame[0] == 0x14)
+            {
+                using var clip = JsonDocument.Parse(frame.AsMemory(1));
+                received = clip.RootElement.GetProperty("text").GetString();
+            }
+        }
+        Assert.Equal("copiado na estacao", received);
+
         await viewer.CloseAsync(WebSocketCloseStatus.NormalClosure, null, CancellationToken.None);
         var ended = false;
         for (var i = 0; i < 50 && !ended; i++)
@@ -169,5 +204,10 @@ public sealed class RemoteE2ETests(ApiFixture fixture)
             ended = state.RootElement.GetProperty("state").GetString() == "ended";
         }
         Assert.True(ended, "sessao nao terminou. Log do EYES:\n" + eyes.Log);
+
+        // Auditoria por contagem: um texto em cada sentido, sem o conteudo.
+        using var final = JsonDocument.Parse(await http.GetStringAsync($"/api/remote/sessions/{sessionId}"));
+        Assert.Equal(1, final.RootElement.GetProperty("clipboardToRemote").GetInt32());
+        Assert.Equal(1, final.RootElement.GetProperty("clipboardToLocal").GetInt32());
     }
 }

@@ -46,6 +46,12 @@ var (
 	initErr error
 )
 
+// Ensure prepara o processo (DPI e estacao WinSta0) sem executar nada; a area de transferencia usa a estacao.
+func Ensure() error {
+	once.Do(start)
+	return initErr
+}
+
 // Do executa fn na thread da area de trabalho de entrada. changed vale true quando a area de trabalho mudou desde a
 // chamada anterior (quem guarda recursos do GDI deve recria-los).
 func Do(fn func(changed bool) error) error {

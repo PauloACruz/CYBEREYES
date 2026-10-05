@@ -47,6 +47,13 @@ jobs:
             GOOS=$os go vet ./...
             GOOS=$os go vet -tags smoke ./smoke/...
           done
+      # Tela X11 virtual para os testes de captura, entrada e area de transferencia do acesso remoto.
+      - name: Xvfb, xdotool e xclip
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q xvfb xdotool xclip
+          Xvfb :99 -screen 0 1280x800x24 &
+          echo "DISPLAY=:99" >> "$GITHUB_ENV"
       - run: go test ./...
       - name: build.sh (todas as plataformas)
         run: ./build.sh "$RUNNER_TEMP/dist"
