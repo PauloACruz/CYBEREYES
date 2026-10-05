@@ -30,11 +30,21 @@ function StateBadge({ session }: { session: RemoteSessionDto }) {
 }
 
 /** Historico de acessos remotos de um agente ou de um chamado. */
-export function RemoteSessionsTable({ agentId, ticketId, showMachine = false }: { agentId?: number; ticketId?: number; showMachine?: boolean }) {
+export function RemoteSessionsTable({
+  agentId,
+  ticketId,
+  active,
+  showMachine = false,
+}: {
+  agentId?: number;
+  ticketId?: number;
+  active?: boolean;
+  showMachine?: boolean;
+}) {
   const [page, setPage] = useState(1);
   const sessions = useQuery({
-    queryKey: ['remote-sessions', { agentId, ticketId, page }],
-    queryFn: () => remoteApi.sessions({ agentId, ticketId, page }),
+    queryKey: ['remote-sessions', { agentId, ticketId, active, page }],
+    queryFn: () => remoteApi.sessions({ agentId, ticketId, active, page }),
     placeholderData: keepPreviousData,
   });
   const rows = sessions.data?.items ?? [];

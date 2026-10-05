@@ -8,6 +8,7 @@ import { LogAlertRulesSection } from './LogAlertRulesSection';
 import { LogsSection } from './LogsSection';
 import { MeshSection } from './MeshSection';
 import { NotificationsSection } from './NotificationsSection';
+import { RemotePoliciesSection } from './RemotePoliciesSection';
 import { SelfServiceSection } from './SelfServiceSection';
 import { SsoSection } from './SsoSection';
 import { TicketsSection } from './TicketsSection';
@@ -22,6 +23,7 @@ export function SettingsPage() {
         <NotificationsSection />
         <KeystoreSection />
         <UrlActionsSection />
+        <RemotePoliciesSection />
         <MeshSection />
         <SsoSection />
         <TicketsSection />

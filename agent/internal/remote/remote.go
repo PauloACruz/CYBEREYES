@@ -48,11 +48,12 @@ type Manager struct {
 	find     func(allowLogin bool) (target, error)
 }
 
-// Register registra remote_start e remote_stop.
+// Register registra remote_start, remote_stop e wol (Wake-on-LAN, que antes passava pelo MeshCentral).
 func Register(e *env.Env) error {
 	m := &Manager{e: e, sessions: map[string]context.CancelFunc{}, launch: launchHelper, find: findDesktop}
 	e.Reg.HandleTimeout("remote_start", 15*time.Second, m.start)
 	e.Reg.Handle("remote_stop", m.stop)
+	e.Reg.HandleTimeout("wol", 15*time.Second, wol)
 	return nil
 }
 

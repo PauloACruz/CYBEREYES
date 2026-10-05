@@ -1,5 +1,5 @@
 import { Tabs } from '@mantine/core';
-import { IconCalendarTime, IconFileAnalytics, IconHistory } from '@tabler/icons-react';
+import { IconCalendarTime, IconFileAnalytics, IconHistory, IconScreenShare } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router';
 import { reportsApi } from '../../api/reports';
@@ -9,11 +9,12 @@ import { hasPermission } from '../../auth/permissions';
 import { useMe } from '../../auth/useMe';
 import { PageHeader } from '../../components/PageHeader';
 import { LoadError } from '../../components/TableStates';
+import { RemoteReportTab } from '../remote/RemoteReportTab';
 import { ReportBuilder } from './ReportBuilder';
 import { ReportRunsTab } from './ReportRunsTab';
 import { ReportSchedulesTab } from './ReportSchedulesTab';
 
-const TABS = ['gerar', 'historico', 'agendamentos'] as const;
+const TABS = ['gerar', 'historico', 'agendamentos', 'acessos'] as const;
 type TabValue = (typeof TABS)[number];
 
 function isTab(value: string | null): value is TabValue {
@@ -23,6 +24,7 @@ function isTab(value: string | null): value is TabValue {
 export function ReportsPage() {
   const { data: me } = useMe();
   const canManage = hasPermission(me, PERMISSIONS.reportsManage);
+  const canRemote = hasPermission(me, PERMISSIONS.agentsView);
   const [searchParams, setSearchParams] = useSearchParams();
   const requested = searchParams.get('aba');
   const tab: TabValue = isTab(requested) ? requested : 'gerar';
@@ -55,6 +57,11 @@ export function ReportsPage() {
           <Tabs.Tab value="agendamentos" leftSection={<IconCalendarTime size={16} />}>
             Agendamentos
           </Tabs.Tab>
+          {canRemote && (
+            <Tabs.Tab value="acessos" leftSection={<IconScreenShare size={16} />}>
+              Acessos remotos
+            </Tabs.Tab>
+          )}
         </Tabs.List>
         <Tabs.Panel value="gerar">
           <ReportBuilder types={types.data} loading={types.isPending} />
@@ -65,6 +72,11 @@ export function ReportsPage() {
         <Tabs.Panel value="agendamentos">
           <ReportSchedulesTab types={types.data ?? []} canManage={canManage} />
         </Tabs.Panel>
+        {canRemote && (
+          <Tabs.Panel value="acessos">
+            <RemoteReportTab />
+          </Tabs.Panel>
+        )}
       </Tabs>
     </>
   );

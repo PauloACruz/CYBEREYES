@@ -1037,6 +1037,29 @@ export interface RemoteFileEntry {
   hidden: boolean;
 }
 
+export interface RemoteTransferDto {
+  id: number;
+  sessionId: string;
+  agentId: number;
+  hostname: string;
+  username: string;
+  direction: 'upload' | 'download';
+  remotePath: string;
+  sizeBytes: number;
+  sha256: string | null;
+  startedAt: string;
+  finishedAt: string | null;
+  status: 'running' | 'done' | 'failed';
+  error: string | null;
+}
+
+export interface RemoteTransferPage {
+  items: RemoteTransferDto[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
 export interface RemoteSessionPage {
   items: RemoteSessionDto[];
   total: number;

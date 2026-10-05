@@ -4,6 +4,7 @@ import (
 	"context"
 	"math"
 	"net"
+	"strings"
 	"testing"
 )
 
@@ -176,4 +177,17 @@ func TestLiveProbes(t *testing.T) {
 	}
 	_ = NeedsReboot(ctx)
 	_ = LocalIPs()
+}
+
+func TestNICsHaveMACAndCIDR(t *testing.T) {
+	for _, n := range NICs() {
+		if len(n.MAC) != 17 || n.MAC != strings.ToUpper(n.MAC) {
+			t.Errorf("MAC fora do formato: %q", n.MAC)
+		}
+		for _, ip := range n.IPs {
+			if !strings.Contains(ip, "/") {
+				t.Errorf("endereco sem prefixo: %q", ip)
+			}
+		}
+	}
 }

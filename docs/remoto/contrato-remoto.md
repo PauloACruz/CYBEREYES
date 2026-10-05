@@ -69,6 +69,7 @@ Mesmo padrao das fases anteriores: cookie com 2FA, camelCase, ProblemDetails com
 | GET | `/api/remote/sessions/{sessionId}` | dono da sessao ou `settings.manage` | 200 `RemoteSessionDto` (sem tokens) |
 | DELETE | `/api/remote/sessions/{sessionId}` | dono da sessao ou `settings.manage` | 204 |
 | GET | `/api/remote/sessions?agentId=&ticketId=&userId=&active=&page=` | `agents.view` | 200 lista paginada de `RemoteSessionDto` (sem tokens) |
+| GET | `/api/remote/transfers?agentId=&sessionId=&page=` | `agents.view` | 200 lista paginada das transferencias (caminho, tamanho, SHA-256, situacao; sem conteudo) |
 | GET | `/api/remote/sessions/{sessionId}/files/list?path=` | `agents.files` | 200 `FileEntryDto[]` |
 | GET | `/api/remote/sessions/{sessionId}/files/home` | `agents.files` | 200 `{ desktop, home, downloads, separator }` do usuario conectado |
 | POST | `/api/remote/sessions/{sessionId}/files/mkdir` `{ path }` | `agents.files` | 204 |
@@ -82,7 +83,7 @@ Mesmo padrao das fases anteriores: cookie com 2FA, camelCase, ProblemDetails com
 | GET | `/api/remote/policies` | `settings.manage` | 200 `RemotePolicyDto[]` |
 | PUT | `/api/remote/policies/{scope}/{scopeId?}` | `settings.manage` | 200 `RemotePolicyDto` |
 | DELETE | `/api/remote/policies/{scope}/{scopeId}` | `settings.manage` | 204 (volta a herdar) |
-| POST | `/api/agents/{id}/wake` | `agents.control` | 200 `{ result: "ok", via }` |
+| POST | `/api/agents/{id}/wake` | `agents.control` | 200 `{ result: "ok", via }` (`via` e a maquina que enviou); 409 sem placa no inventario ou sem vizinho online na mesma rede |
 
 ### 2.2 Tipos
 

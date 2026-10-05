@@ -64,6 +64,7 @@ public static class RemoteEndpoints
         app.MapPost("/api/agents/{id:int}/remote/sessions", CreateAsync).WithTags("Acesso remoto");
         app.MapGet("/api/remote/sessions", ListAsync).WithTags("Acesso remoto").RequireAuthorization(Policies.Permission(Permissions.AgentsView));
         app.MapGet("/api/remote/sessions/{sessionId}", GetAsync).WithTags("Acesso remoto");
+        app.MapGet("/api/remote/transfers", ListTransfersAsync).WithTags("Acesso remoto").RequireAuthorization(Policies.Permission(Permissions.AgentsView));
         app.MapDelete("/api/remote/sessions/{sessionId}", DeleteAsync).WithTags("Acesso remoto").AddEndpointFilter(RemoteForwarder.Filter);
         app.MapGet("/api/remote/policies", ListPoliciesAsync).WithTags("Acesso remoto").RequireAuthorization(Policies.Permission(Permissions.SettingsManage));
         app.MapPut("/api/remote/policies/{scope}/{scopeId:int?}", SavePolicyAsync).WithTags("Acesso remoto")
@@ -73,6 +74,7 @@ public static class RemoteEndpoints
         app.Map("/api/remote/relay/{sessionId}/{channel}", (HttpContext ctx, string sessionId, string channel, RemoteRelay relay) =>
             relay.HandleAsync(ctx, sessionId, channel)).AllowAnonymous().ExcludeFromDescription();
         RemoteFileEndpoints.MapRemoteFileEndpoints(app);
+        app.MapWakeEndpoint();
     }
 
     private static IResult Error(int status, string title, string code) => Problems.Create(status, title, code);
@@ -270,6 +272,30 @@ public static class RemoteEndpoints
         var p = Math.Max(1, page ?? 1);
         var total = await query.CountAsync(ct);
         var items = await Project(db, query.OrderByDescending(s => s.StartedAt).Skip((p - 1) * 50).Take(50)).ToListAsync(ct);
+        return TypedResults.Ok(new { items, total, page = p, pageSize = 50 });
+    }
+
+    /// <summary>Transferencias de arquivos (relatorio): sem conteudo, so caminho, tamanho, hash e situacao.</summary>
+    private static async Task<IResult> ListTransfersAsync(int? agentId, string? sessionId, int? page, CybereyesDbContext db, CancellationToken ct)
+    {
+        var query = db.RemoteTransfers.AsNoTracking();
+        if (agentId is { } a)
+        {
+            query = query.Where(t => t.AgentId == a);
+        }
+        if (!string.IsNullOrEmpty(sessionId))
+        {
+            query = query.Where(t => t.SessionId == sessionId);
+        }
+        var p = Math.Max(1, page ?? 1);
+        var total = await query.CountAsync(ct);
+        var items = await (from t in query.OrderByDescending(t => t.StartedAt).Skip((p - 1) * 50).Take(50)
+                           join ag in db.Agents on t.AgentId equals ag.Id
+                           select new
+                           {
+                               t.Id, t.SessionId, t.AgentId, ag.Hostname, t.Username, t.Direction, t.RemotePath, t.SizeBytes, t.Sha256,
+                               t.StartedAt, t.FinishedAt, t.Status, t.Error,
+                           }).ToListAsync(ct);
         return TypedResults.Ok(new { items, total, page = p, pageSize = 50 });
     }
 

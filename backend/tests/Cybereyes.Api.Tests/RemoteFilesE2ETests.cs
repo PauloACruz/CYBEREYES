@@ -95,6 +95,13 @@ public sealed class RemoteFilesE2ETests(ApiFixture fixture)
             Assert.Equal(HttpStatusCode.NoContent, delete.StatusCode);
             Assert.False(Directory.Exists(root + "/Pasta"));
 
+            // Relatorio de transferencias: envio e downloads registrados com hash, sem conteudo.
+            var report = await http.GetFromJsonAsync<JsonElement>($"/api/remote/transfers?sessionId={sid}");
+            var rows = report.GetProperty("items").EnumerateArray().ToList();
+            Assert.Contains(rows, r => r.GetProperty("direction").GetString() == "upload" && r.GetProperty("status").GetString() == "done"
+                && r.GetProperty("sha256").GetString() == Convert.ToHexStringLower(SHA256.HashData(content)));
+            Assert.Contains(rows, r => r.GetProperty("direction").GetString() == "download" && r.GetProperty("status").GetString() == "done");
+
             Assert.Equal(HttpStatusCode.NoContent, (await http.DeleteAsync($"/api/remote/sessions/{sid}")).StatusCode);
         }
         finally

@@ -136,7 +136,6 @@ public static class MeshEndpoints
     public static void MapMeshEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapGet("/api/agents/{id:int}/remote", RemoteAsync).WithTags("Acesso remoto").RequireAuthorization(Policies.Permission(Permissions.AgentsRemote));
-        app.MapPost("/api/agents/{id:int}/wake", WakeAsync).WithTags("Acesso remoto").RequireAuthorization(Policies.Permission(Permissions.AgentsControl));
         app.MapPost("/api/agents/{id:int}/mesh/recover", RecoverAsync).WithTags("Acesso remoto").RequireAuthorization(Policies.Permission(Permissions.AgentsControl));
         app.MapGet("/api/mesh/status", (MeshClient mesh, MeshState state, Microsoft.Extensions.Options.IOptions<MeshSettings> options) => TypedResults.Ok(new
         {
@@ -208,27 +207,6 @@ public static class MeshEndpoints
         string Link(int view) => $"{mesh.BaseUrl}/?login={token}&gotonode={node}&viewmode={view.ToString(CultureInfo.InvariantCulture)}&hide=31";
         await audit.LogAsync("agent.remote-session", "agent", id.ToString(CultureInfo.InvariantCulture), $"Acesso remoto a {agent.Hostname}", cancellationToken: ct);
         return TypedResults.Ok(new { hostname = agent.Hostname, control = Link(11), terminal = Link(12), files = Link(13) });
-    }
-
-    private static async Task<IResult> WakeAsync(int id, CybereyesDbContext db, MeshClient mesh, IAuditService audit, CancellationToken ct)
-    {
-        var agent = await db.Agents.AsNoTracking().Where(a => a.Id == id).Select(a => new { a.Hostname, a.MeshNodeId }).FirstOrDefaultAsync(ct);
-        if (agent is null)
-        {
-            return Problems.NotFound("Agente");
-        }
-        if (!mesh.Enabled || string.IsNullOrWhiteSpace(agent.MeshNodeId))
-        {
-            return Problems.Conflict("Wake-on-LAN precisa do MeshCentral configurado e do MeshAgent instalado");
-        }
-        var reply = await mesh.SendAsync(new JsonObject { ["action"] = "wakedevices", ["nodeids"] = new JsonArray(MeshTokens.NodeId(agent.MeshNodeId)) }, ct);
-        var result = reply["result"]?.ToString() ?? "ok";
-        if (result != "ok")
-        {
-            return Problems.BadRequest($"MeshCentral recusou o Wake-on-LAN: {result}");
-        }
-        await audit.LogAsync("agent.wake", "agent", id.ToString(CultureInfo.InvariantCulture), $"Wake-on-LAN enviado para {agent.Hostname}", cancellationToken: ct);
-        return TypedResults.Ok(new { result });
     }
 
     private static async Task<IResult> RecoverAsync(int id, CybereyesDbContext db, IAgentRpc rpc, IAuditService audit, CancellationToken ct)

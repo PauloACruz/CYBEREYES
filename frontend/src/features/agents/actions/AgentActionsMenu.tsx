@@ -5,6 +5,7 @@ import { IconChevronDown, IconCloudDownload, IconExternalLink, IconFirstAidKit, 
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { agentActionsApi } from '../../../api/agentActions';
 import { meshApi } from '../../../api/mesh';
+import { remoteApi } from '../../../api/remote';
 import { queryKeys } from '../../../api/queryKeys';
 import { urlActionsApi } from '../../../api/settings';
 import type { AgentDetail, UrlActionDto } from '../../../api/types';
@@ -31,8 +32,8 @@ export function AgentActionsMenu({ agent, canControl }: AgentActionsMenuProps) {
     onSuccess: () => notifySuccess(`${agent.hostname} vai reenviar o inventário em instantes.`),
   });
   const wake = useMutation({
-    mutationFn: () => meshApi.wake(agent.id),
-    onSuccess: () => notifySuccess('Wake-on-LAN enviado.'),
+    mutationFn: () => remoteApi.wake(agent.id),
+    onSuccess: (res) => notifySuccess(`Wake-on-LAN enviado por ${res.via}.`),
   });
   const recoverMesh = useMutation({
     mutationFn: () => meshApi.recover(agent.id),

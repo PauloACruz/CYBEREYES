@@ -7,6 +7,7 @@ import type {
   RemotePolicyScope,
   RemoteSessionDto,
   RemoteSessionPage,
+  RemoteTransferPage,
 } from './types';
 
 export const remoteApi = {
@@ -15,10 +16,13 @@ export const remoteApi = {
   session: (sessionId: string) => api.get<RemoteSessionDto>(`/api/remote/sessions/${sessionId}`),
   endSession: (sessionId: string) => api.delete(`/api/remote/sessions/${sessionId}`, { silent: true }),
   sessions: (query: { agentId?: number; ticketId?: number; active?: boolean; page?: number }) => api.get<RemoteSessionPage>('/api/remote/sessions', query),
+  transfers: (query: { agentId?: number; sessionId?: string; page?: number }) => api.get<RemoteTransferPage>('/api/remote/transfers', query),
   policies: () => api.get<RemotePolicyDto[]>('/api/remote/policies'),
   savePolicy: (scope: RemotePolicyScope, scopeId: number, body: Partial<RemotePolicyDto>) =>
     api.put<RemotePolicyDto>(scope === 'global' ? '/api/remote/policies/global' : `/api/remote/policies/${scope}/${scopeId}`, { ...body, scope, scopeId }),
   deletePolicy: (scope: RemotePolicyScope, scopeId: number) => api.delete(`/api/remote/policies/${scope}/${scopeId}`),
+  /** Wake-on-LAN por um agente online da mesma rede (contrato, secao 3). */
+  wake: (agentId: number) => api.post<{ result: string; via: string }>(`/api/agents/${agentId}/wake`),
 };
 
 const sessionPath = (sessionId: string) => `/api/remote/sessions/${encodeURIComponent(sessionId)}`;

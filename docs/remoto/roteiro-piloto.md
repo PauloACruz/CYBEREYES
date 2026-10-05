@@ -90,9 +90,15 @@ Este roteiro valida em maquinas reais o que o CI nao alcanca: Windows (prova S1)
 | 6.11 | macOS: versao mais recente disponivel | anotar se a captura por `CGDisplayCreateImage` funciona ou mostra aviso (mudanca registrada em `fase12-6.md`) |
 | 6.12 | macOS: politicas `ask` e `notify` | caixa de dialogo e notificacao do sistema |
 
-## 7. Itens das fases seguintes
+## 7. Wake-on-LAN, politicas e relatorio (fase 12.7)
 
-A fase 12.7 acrescenta aqui o roteiro de Wake-on-LAN.
+| # | Passo | Esperado |
+|---|---|---|
+| 7.1 | Desligar uma estacao com WoL ligado na BIOS e clicar em Wake-on-LAN | a estacao liga; a mensagem mostra por qual maquina o pacote saiu |
+| 7.2 | Wake-on-LAN com todas as outras maquinas do site desligadas | o console explica que nao ha vizinho online na mesma rede |
+| 7.3 | Configuracoes > Acesso remoto: ligar "Pedir permissao" so para um site | o pedido aparece nas maquinas desse site e nao nas outras |
+| 7.4 | Relatorios > Acessos remotos | sessoes e transferencias do piloto aparecem com tecnico, duracao e hash |
+| 7.5 | Menu "Acesso remoto" > Terminal e Arquivos | abrem as abas do agente |
 
 ## Registro
 
