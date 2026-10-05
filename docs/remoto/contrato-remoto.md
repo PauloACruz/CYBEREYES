@@ -157,7 +157,7 @@ Mesmas regras da secao 4 do contrato do EYES: mapa msgpack com `func`; `payload`
 ### 4.1 Conexao
 
 - URL: `wss://<CYBEREYES_HOST>/api/remote/relay/{sessionId}/{canal}`, canal `desktop` ou `files`.
-- O Nginx roteia `/api/remote/` pelo `sessionId` (`hash ... consistent`), para as duas pontas e as rotas REST da secao 2 cairem na mesma replica **[S3]**.
+- **Replica dona**: a replica que cria a sessao e a dona. Ela grava no Redis `remote:session:<sessionId>` com o proprio endereco interno e uma chave de encaminhamento aleatoria. Uma replica que receber o relay ou uma rota REST da sessao (a partir de `/api/remote/sessions/{sessionId}`) e nao for a dona confere as credenciais externas (cookie ou `Authorization` do agente) e encaminha a conexao para a dona com o cabecalho `X-Remote-Forward: <chave>`. O Nginx apaga esse cabecalho nas requisicoes de fora. Sem Redis (uma replica so), toda sessao e local. A prova S3 descartou o `hash` do Nginx (`docs/remoto/provas-12.1.md`).
 - **Visualizador**: conecta so ao canal `desktop`, com o cookie do console. O canal `files` termina na API: o navegador usa so a REST da secao 2.
 - **EYES**: o `remote-helper` conecta ao `desktop`; o servico conecta ao `files`. Os dois enviam `Authorization: Token <token do agente>` (o mesmo da REST `/api/v3`).
 - Tudo e WebSocket **binario**. Cada mensagem WebSocket carrega exatamente um quadro.

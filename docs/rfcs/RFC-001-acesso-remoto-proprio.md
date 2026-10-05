@@ -194,7 +194,7 @@ flowchart LR
 - **Sinalizacao por NATS**, como o terminal: a API manda `remote_start` e `remote_stop` ao agente pelo assunto do agente. As permissoes do NATS nao mudam (`Api/Rmm/Nats/NatsAuthWriter.cs`).
 - **Midia por relay WebSocket na API**: para cada sessao e canal (`desktop` e `files`), o navegador e o processo auxiliar abrem um WebSocket em `wss://CYBEREYES_HOST/api/remote/relay/{sessao}/{canal}`. A API so emparelha as pontas e repassa bytes com buffers pequenos, entao a contrapressao do TCP vale de ponta a ponta. E o desenho do `meshrelay` do MeshCentral.
 - **Por que a tela nao vai pelo NATS**: o agente tem uma unica conexao NATS (`wss://CYBEREYES_HOST/natsws`) para tudo. Alguns MB/s de tela atrasariam check-ins, respostas de comandos e o terminal, e o NATS basico nao tem controle de fluxo.
-- **Duas replicas da API**: as duas pontas de uma sessao precisam cair na mesma replica. Proposta: no Nginx, a rota do relay usa `hash` pelo id da sessao (`hash ... consistent`) em vez de `least_conn`. A prova S3 valida isso junto com o `resolve` que o upstream ja usa. Se nao servir, a replica que receber a ponta errada encaminha para a replica dona da sessao pela rede interna.
+- **Duas replicas da API**: as duas pontas de uma sessao precisam chegar a mesma replica. A prova S3 mostrou que o `hash` do Nginx 1.28 nao funciona junto com o `resolve` do upstream (`docs/remoto/provas-12.1.md`). Decisao: a replica que cria a sessao e a dona dela e registra o proprio endereco interno no Redis; a replica que receber uma ponta ou uma rota da sessao encaminha a conexao para a dona pela rede interna.
 - **Token nunca na URL**: o token curto vai na primeira mensagem do WebSocket (navegador) ou em cabecalho (agente), para nao repetir o DT-02.
 - **Portas**: tudo continua em 443, no mesmo host.
 
@@ -545,7 +545,7 @@ Consequencia aceita: ate o fim da fase 12.8, as estacoes que entrarem no Cyberey
 | D-03 | Visualizador so no navegador ou tambem um app nativo para o tecnico | **Decidido**: comecar pelo navegador; app nativo fica como fase futura opcional |
 | D-04 | Consentimento padrao | **Decidido**: sem aviso por padrao; "avisar" e "perguntar" podem ser ligados em Configuracoes, por cliente ou site. Texto do aviso e retencao da auditoria ainda a definir (LGPD) |
 | D-05 | Destino padrao do arrastar e soltar e limite de tamanho de arquivo | Pendente. Recomendacao: Area de Trabalho do usuario conectado; limite configuravel por politica |
-| D-06 | Linux com Wayland na v1 ou depois | Pendente, depende da prova S5. Com o servidor limpo nao ha MeshCentral como alternativa: maquinas Wayland ficam sem tela remota ate essa decisao |
+| D-06 | Linux com Wayland na v1 ou depois | **Decidido na 12.1** (recomendacao adotada): fora da v1; a sessao Wayland responde `REMOTE_UNSUPPORTED` e o terminal e os arquivos continuam funcionando |
 | D-07 | Assinatura de codigo (Windows e macOS) | **Decidido**: comecar sem assinatura (risco R-07 aceito) |
 | D-08 | A migracao das 400 estacoes espera o acesso novo? | **Decidido**: servidor limpo; a migracao comeca so depois da remocao do MeshCentral (secao 9) |
 | D-09 | Gravacao de sessao | Pendente. Recomendacao: fora da v1 |
