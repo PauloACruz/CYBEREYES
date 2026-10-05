@@ -15,6 +15,7 @@ export type ErrorCode =
   | 'UNAUTHENTICATED'
   | 'INVALID_CREDENTIALS'
   | 'INVALID_CODE'
+  | 'INVALID_TOKEN'
   | 'MFA_REQUIRED'
   | 'FORBIDDEN'
   | 'LOCKED_OUT'
@@ -118,6 +119,10 @@ export interface UserDto {
   /** Fase 9: vinculos SSO e senha local (garantidos no GET /api/users/{id}). */
   ssoLogins?: UserSsoLogin[];
   hasPassword?: boolean;
+  /** Criado por convite e ainda sem senha nem acesso. */
+  invitePending: boolean;
+  /** So na criacao com convite: o usuario foi criado, mas o e-mail nao saiu. */
+  inviteError?: string | null;
 }
 
 export interface UserSsoLogin {
@@ -135,9 +140,11 @@ export interface CreateUserRequest {
   username: string;
   email: string;
   fullName: string;
-  password: string;
+  /** Omitida quando sendInvite: o proprio usuario define a senha pelo link. */
+  password?: string;
   roleIds: string[];
   isActive: boolean;
+  sendInvite?: boolean;
 }
 
 export interface UpdateUserRequest {
@@ -149,6 +156,27 @@ export interface UpdateUserRequest {
 
 export interface ResetPasswordRequest {
   newPassword: string;
+}
+
+export interface ForgotPasswordRequest {
+  login: string;
+}
+
+export interface ResetPasswordWithTokenRequest {
+  userId: string;
+  token: string;
+  newPassword: string;
+}
+
+export interface InviteInfoDto {
+  username: string;
+  fullName: string;
+}
+
+export interface AcceptInviteRequest {
+  userId: string;
+  token: string;
+  password: string;
 }
 
 // Papeis

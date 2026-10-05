@@ -35,17 +35,36 @@ public sealed record UserDto(Guid Id, string Username, string? Email, string Ful
 {
     public IReadOnlyList<SsoLoginRef>? SsoLogins { get; init; }
     public bool? HasPassword { get; init; }
+    public bool InvitePending { get; init; }
+    /// <summary>Preenchido so na criacao com convite, quando o usuario foi criado mas o e-mail nao saiu.</summary>
+    public string? InviteError { get; init; }
 }
 
 public sealed record SsoLoginRef(int ProviderId, string ProviderName);
 
+/// <summary>Sem senha, o usuario e criado pendente e recebe o convite por e-mail (SendInvite).</summary>
 public sealed record CreateUserRequest(
     [property: Required, StringLength(150, MinimumLength = 3), RegularExpression(@"^[a-zA-Z0-9._@-]+$")] string Username,
     [property: Required, EmailAddress, StringLength(256)] string Email,
     [property: Required, StringLength(200)] string FullName,
-    [property: Required, StringLength(256)] string Password,
+    [property: StringLength(256)] string? Password,
     IReadOnlyList<Guid>? RoleIds,
-    bool IsActive = true);
+    bool IsActive = true,
+    bool SendInvite = false);
+
+public sealed record ForgotPasswordRequest([property: Required, StringLength(256)] string Login);
+
+public sealed record ResetPasswordWithTokenRequest(
+    Guid UserId,
+    [property: Required, StringLength(2000)] string Token,
+    [property: Required, StringLength(256)] string NewPassword);
+
+public sealed record AcceptInviteRequest(
+    Guid UserId,
+    [property: Required, StringLength(2000)] string Token,
+    [property: Required, StringLength(256)] string Password);
+
+public sealed record InviteInfoDto(string Username, string FullName);
 
 public sealed record UpdateUserRequest(
     [property: Required, EmailAddress, StringLength(256)] string Email,

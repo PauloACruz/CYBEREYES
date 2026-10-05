@@ -5,7 +5,10 @@ import { RequirePermission } from '../auth/RequirePermission';
 import { AppLayout } from '../components/layout/AppLayout';
 import { NotFound } from '../components/NotFound';
 import { DashboardPage } from '../features/dashboard/DashboardPage';
+import { AcceptInvitePage } from '../features/auth/AcceptInvitePage';
+import { ForgotPasswordPage } from '../features/auth/ForgotPasswordPage';
 import { LoginPage } from '../features/auth/LoginPage';
+import { ResetPasswordPage } from '../features/auth/ResetPasswordPage';
 import { TwoFactorPage } from '../features/auth/TwoFactorPage';
 import { TwoFactorSetupPage } from '../features/auth/TwoFactorSetupPage';
 import { PATHS } from './paths';
@@ -14,6 +17,9 @@ export const routes: RouteObject[] = [
   { path: PATHS.login, element: <LoginPage /> },
   { path: PATHS.loginTwoFactor, element: <TwoFactorPage /> },
   { path: PATHS.twoFactorSetup, element: <TwoFactorSetupPage /> },
+  { path: PATHS.forgotPassword, element: <ForgotPasswordPage /> },
+  { path: PATHS.resetPassword, element: <ResetPasswordPage /> },
+  { path: PATHS.acceptInvite, element: <AcceptInvitePage /> },
   {
     element: <RequireAuth />,
     children: [

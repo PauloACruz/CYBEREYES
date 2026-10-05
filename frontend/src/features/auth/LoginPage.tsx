@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Button, Checkbox, PasswordInput, Stack, TextInput } from '@mantine/core';
+import { Anchor, Button, Checkbox, Group, PasswordInput, Stack, TextInput } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useLocation, useNavigate, useSearchParams } from 'react-router';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { authApi } from '../../api/auth';
 import type { LoginRequest } from '../../api/types';
 import { PATHS } from '../../app/paths';
@@ -76,7 +76,12 @@ export function LoginPage() {
           {...form.getInputProps('username')}
         />
         <PasswordInput label="Senha" autoComplete="current-password" required {...form.getInputProps('password')} />
-        <Checkbox label="Manter conectado neste dispositivo" {...form.getInputProps('rememberMe', { type: 'checkbox' })} />
+        <Group justify="space-between" wrap="nowrap">
+          <Checkbox label="Manter conectado neste dispositivo" {...form.getInputProps('rememberMe', { type: 'checkbox' })} />
+          <Anchor component={Link} to={PATHS.forgotPassword} size="sm">
+            Esqueci minha senha
+          </Anchor>
+        </Group>
         <Button type="submit" fullWidth loading={login.isPending}>
           Entrar
         </Button>
