@@ -25,7 +25,7 @@ import (
 )
 
 // MaxSessions e o limite de sessoes simultaneas no agente (contrato, secao 10).
-const MaxSessions = 2
+const MaxSessions = 4
 
 var (
 	errUnsupported = errors.New("acesso remoto nao suportado nesta sessao")

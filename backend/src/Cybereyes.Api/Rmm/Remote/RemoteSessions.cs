@@ -168,10 +168,23 @@ public sealed partial class RemoteSessionManager(
     {
         handle.LastActivity = handle.CreatedAt;
         sessions[handle.SessionId] = handle;
-        await directory.RegisterAsync(handle.SessionId, new RemoteDirectoryEntry(node.SelfUrl, handle.HopKey, handle.UserId, handle.AgentPk),
-            TimeSpan.FromHours(handle.Policy.MaxHours + 1));
+        await directory.RegisterAsync(handle.SessionId, Entry(handle), RemoteSettings.DirectoryTtl);
         await NotifyAsync(handle);
         return handle;
+    }
+
+    private RemoteDirectoryEntry Entry(RemoteSessionHandle handle) => new(node.SelfUrl, handle.HopKey, handle.UserId, handle.AgentPk);
+
+    /// <summary>Renova o registro das sessoes desta replica no diretorio (chamado a cada 15 s pelo reaper).</summary>
+    public async Task RefreshDirectoryAsync()
+    {
+        foreach (var handle in sessions.Values)
+        {
+            if (handle.State != RemoteSessionState.Ended)
+            {
+                await directory.RegisterAsync(handle.SessionId, Entry(handle), RemoteSettings.DirectoryTtl);
+            }
+        }
     }
 
     public async Task SetStateAsync(RemoteSessionHandle handle, string state)
@@ -298,6 +311,14 @@ public sealed class RemoteSessionReaper(RemoteSessionManager manager, IRemoteDir
         var lastPermissionCheck = DateTimeOffset.MinValue;
         while (await timer.WaitForNextTickAsync(stoppingToken))
         {
+            try
+            {
+                await manager.RefreshDirectoryAsync();
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // Redis fora por um instante: tenta de novo no proximo ciclo (o registro vale 1 minuto).
+            }
             var now = time.GetUtcNow();
             foreach (var s in manager.Local.ToList())
             {

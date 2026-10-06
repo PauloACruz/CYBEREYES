@@ -412,9 +412,17 @@ public sealed partial class AgentTests
         {
             await CreateSessionAsync(busy);
             using var http = ApiKeyClient(busy.ApiKey);
-            var second = await http.PostAsJsonAsync($"/api/agents/{busy.Pk}/remote/sessions", new { channels = new[] { "desktop" } });
-            Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
-            Assert.Contains(RemoteErrors.SessionLimit, await second.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+            // Varios tecnicos podem abrir a tela da mesma estacao, ate o limite por estacao (4).
+            for (var i = 2; i <= 4; i++)
+            {
+                var more = await http.PostAsJsonAsync($"/api/agents/{busy.Pk}/remote/sessions", new { channels = new[] { "desktop" } });
+                Assert.Equal(HttpStatusCode.Created, more.StatusCode);
+            }
+            var fifth = await http.PostAsJsonAsync($"/api/agents/{busy.Pk}/remote/sessions", new { channels = new[] { "desktop" } });
+            Assert.Equal(HttpStatusCode.Conflict, fifth.StatusCode);
+            var body = await fifth.Content.ReadAsStringAsync();
+            Assert.Contains(RemoteErrors.SessionLimit, body, StringComparison.Ordinal);
+            Assert.Contains("limite de 4", body, StringComparison.Ordinal);
 
             await using (var scope = fixture.Services.CreateAsyncScope())
             {

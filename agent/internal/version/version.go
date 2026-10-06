@@ -2,7 +2,7 @@
 package version
 
 // Version e substituida no build: -X github.com/pauloacruz/cybereyes/agent/internal/version.Version=3.0.0
-var Version = "3.2.4"
+var Version = "3.2.5"
 
 // Name e o nome do produto exibido em logs e no servico.
 const Name = "EYES"
