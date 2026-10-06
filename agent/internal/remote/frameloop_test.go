@@ -107,6 +107,7 @@ type testViewer struct {
 	conn    *websocket.Conn
 	frames  chan viewerFrame
 	cursors chan proto.CursorBody
+	audios  chan []byte
 }
 
 func (v *testViewer) run(ctx context.Context) {
@@ -130,6 +131,11 @@ func (v *testViewer) run(ctx context.Context) {
 			cur.id = binary.BigEndian.Uint32(msg[1:])
 			v.frames <- cur
 			cur = viewerFrame{}
+		case proto.Audio:
+			select {
+			case v.audios <- msg:
+			default:
+			}
 		case proto.Cursor:
 			var c proto.CursorBody
 			if err := json.Unmarshal(msg[1:], &c); err != nil {
@@ -179,11 +185,11 @@ func startFrameLoop(t *testing.T, screen *fakeScreen, settings proto.SettingsBod
 		t.Fatal(err)
 	}
 	agent.SetReadLimit(8 << 20)
-	v := &testViewer{t: t, conn: <-viewerConn, frames: make(chan viewerFrame, 64), cursors: make(chan proto.CursorBody, 256)}
+	v := &testViewer{t: t, conn: <-viewerConn, frames: make(chan viewerFrame, 64), cursors: make(chan proto.CursorBody, 256), audios: make(chan []byte, 64)}
 	go v.run(ctx)
 	ds, _ := screen.Displays()
 	s := &desktopSession{conn: agent, screen: screen, grabber: screen, log: slog.New(slog.DiscardHandler), quality: settings.Quality,
-		flow: newFlowControl(), wake: make(chan struct{}, 1), cursorShapes: map[uint32]bool{}, displays: ds, display: ds[0], settings: settings}
+		flow: newFlowControl(), wake: make(chan struct{}, 1), cursorShapes: map[uint32]bool{}, displays: ds, display: ds[0], settings: settings, ctx: ctx}
 	go func() { _ = s.readLoop(ctx) }()
 	go func() { _ = s.frameLoop(ctx) }()
 	return v, s

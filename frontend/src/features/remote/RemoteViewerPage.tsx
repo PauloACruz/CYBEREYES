@@ -1,6 +1,6 @@
 import { Alert, Anchor, Badge, Box, Button, Center, Drawer, Group, Loader, SegmentedControl, Select, Stack, Switch, Text, Tooltip } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
-import { IconClipboardCheck, IconFolders, IconKeyboard, IconMaximize, IconPlugConnectedX, IconScreenShare } from '@tabler/icons-react';
+import { IconClipboardCheck, IconFolders, IconKeyboard, IconMaximize, IconPlugConnectedX, IconScreenShare, IconVolume, IconVolumeOff } from '@tabler/icons-react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent, type PointerEvent, type WheelEvent } from 'react';
 import { useParams, useSearchParams } from 'react-router';
 import { remoteFilesApi } from '../../api/remote';
@@ -8,6 +8,7 @@ import { PERMISSIONS } from '../../api/types';
 import { hasPermission } from '../../auth/permissions';
 import { useMe } from '../../auth/useMe';
 import { formatBytes } from '../../lib/format';
+import { AudioPlayer } from './audio';
 import { ClipboardBridge } from './clipboard';
 import { CursorShapes, cssCursor, placeCursor, type CursorShape } from './cursor';
 import { FilesPanel } from './FilesPanel';
@@ -133,6 +134,9 @@ function DesktopViewer({ onWayland }: { onWayland: () => void }) {
   const [displays, setDisplays] = useState<RemoteDisplay[]>([]);
   const [activeDisplay, setActiveDisplay] = useState(0);
   const [preset, setPreset] = useState<QualityPreset>('media');
+  // Som da maquina: desligado ao abrir (o navegador so libera audio depois de um clique).
+  const [sound, setSound] = useState(false);
+  const [player] = useState(() => new AudioPlayer());
   const [viewOnly, setViewOnly] = useState(options.viewOnly);
   const [consent, setConsent] = useState<string | null>(null);
   const [agentError, setAgentError] = useState<string | null>(null);
@@ -246,6 +250,7 @@ function DesktopViewer({ onWayland }: { onWayland: () => void }) {
       remoteCursor.current = { body, shape: cursorShapes.update(body) };
       showCursor();
     },
+    onAudio: (frame) => player.push(frame),
     onFrameEnd,
     onConsent: setConsent,
     onClipboard: (body) => void bridge().fromRemote(body),
@@ -287,10 +292,24 @@ function DesktopViewer({ onWayland }: { onWayland: () => void }) {
   // Ajustes de imagem: enviados no HELLO e a cada mudanca. Com o cursor separado, o agente nao desenha o ponteiro
   // na imagem e manda o CURSOR (contrato, secao 5.1).
   const separateCursor = hello?.features.includes('cursor') ?? false;
+  const hasAudio = hello?.features.includes('audio') ?? false;
+  const audio = hasAudio && sound;
   useEffect(() => {
     if (!connected || !hello) return;
-    connection.current?.sendJson(FRAME.settings, { ...PRESETS[preset], display: activeDisplay, cursor: separateCursor });
-  }, [connected, hello, preset, activeDisplay, connection, separateCursor]);
+    connection.current?.sendJson(FRAME.settings, { ...PRESETS[preset], display: activeDisplay, cursor: separateCursor, audio });
+  }, [connected, hello, preset, activeDisplay, connection, separateCursor, audio]);
+
+  useEffect(() => () => player.stop(), [player]);
+
+  const toggleSound = async () => {
+    if (sound) {
+      setSound(false);
+      player.stop();
+      return;
+    }
+    // Dentro do clique: o AudioContext so toca quando nasce de um gesto do tecnico.
+    if (await player.start()) setSound(true);
+  };
 
   const display = displays.find((d) => d.id === activeDisplay) ?? displays[0];
   useLayoutEffect(() => {
@@ -455,6 +474,20 @@ function DesktopViewer({ onWayland }: { onWayland: () => void }) {
               { value: 'baixa', label: 'Baixa' },
             ]}
           />
+          {hasAudio && (
+            <Tooltip label={sound ? 'Desligar o som da máquina' : 'Ouvir o som da máquina'}>
+              <Button
+                size="xs"
+                variant={sound ? 'filled' : 'default'}
+                leftSection={sound ? <IconVolume size={14} /> : <IconVolumeOff size={14} />}
+                onClick={() => void toggleSound()}
+                aria-pressed={sound}
+                disabled={!connected}
+              >
+                Som
+              </Button>
+            </Tooltip>
+          )}
           {hello?.features.includes('clipboard-text') && (
             <Tooltip label="Área de transferência sincronizada: copie de um lado e cole do outro (Ctrl+V)">
               <IconClipboardCheck size={18} aria-label="Área de transferência sincronizada" role="img" />
