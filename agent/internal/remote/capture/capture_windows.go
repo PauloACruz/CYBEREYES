@@ -109,6 +109,7 @@ type screen struct {
 	dxgi      *dxgiDup
 	dxgiRetry time.Time // proxima tentativa de usar o DXGI depois de uma falha
 	dxgiErr   error     // por que o DXGI nao esta em uso (log)
+	dxgiOK    bool      // a primeira imagem do DXGI ja foi conferida com a do GDI
 	backend   string
 
 	shapes     map[uintptr]*CursorShape
@@ -215,7 +216,10 @@ func (s *screen) Grab(d Display, f *Frame, separateCursor bool) error {
 			// e tentado de novo em alguns segundos; sem suporte (sessao remota, driver, monitor girado), em 1 minuto.
 			s.closeDXGI()
 			wait := 3 * time.Second
-			if errors.Is(err, errDXGIUnavailable) {
+			switch {
+			case errors.Is(err, errDXGIMismatch):
+				wait = 24 * time.Hour // so na proxima sessao
+			case errors.Is(err, errDXGIUnavailable):
 				wait = time.Minute
 			}
 			s.dxgiRetry = time.Now().Add(wait)
@@ -252,8 +256,12 @@ func (s *screen) closeDXGI() {
 	}
 }
 
-// errDXGINoImage: a duplicacao existe, mas a primeira imagem da tela ainda nao chegou.
-var errDXGINoImage = errors.New("DXGI sem imagem ainda")
+var (
+	// errDXGINoImage: a duplicacao existe, mas a primeira imagem da tela ainda nao chegou.
+	errDXGINoImage = errors.New("DXGI sem imagem ainda")
+	// errDXGIMismatch: a imagem do DXGI nao confere com a do GDI (driver com problema).
+	errDXGIMismatch = errors.New("imagem do DXGI diferente da do GDI")
+)
 
 // grabDXGI le as regioes alteradas pelo DXGI. Sem cursor separado, desenha o ponteiro na imagem guardando os
 // pixels de baixo, que voltam antes do proximo quadro.
@@ -294,6 +302,11 @@ func (s *screen) grabDXGI(d Display, f *Frame, separateCursor bool) error {
 	if !restored {
 		// Primeira imagem do DXGI: a tela inteira foi copiada, sem cursor desenhado.
 		old, oldShape = image.Rectangle{}, 0
+		if !s.dxgiOK {
+			if err := s.checkDXGI(d, f.Img); err != nil {
+				return err
+			}
+		}
 	}
 	s.under, s.underShape = cursorPatch{}, 0
 	if full {
@@ -322,6 +335,36 @@ func (s *screen) grabDXGI(d Display, f *Frame, separateCursor bool) error {
 		}
 	}
 	return nil
+}
+
+// checkDXGI compara a primeira imagem do DXGI da sessao com uma captura do GDI. Driver que entrega imagem preta ou
+// errada pelo DXGI deixa a sessao no GDI (o DXGI so volta a ser tentado na proxima sessao).
+func (s *screen) checkDXGI(d Display, img *image.RGBA) error {
+	var g Frame
+	if err := s.gdi.grab(d, &g, false); err != nil || g.Img.Bounds() != img.Bounds() {
+		// Sem como comparar agora: confere na proxima primeira imagem.
+		return nil
+	}
+	if similar := samePixels(img, g.Img); similar < 0.5 {
+		return fmt.Errorf("%w (%.0f%% igual)", errDXGIMismatch, similar*100)
+	}
+	s.dxgiOK = true
+	return nil
+}
+
+// samePixels devolve a fracao de pixels iguais (RGB) entre duas imagens do mesmo tamanho, por amostragem.
+func samePixels(a, b *image.RGBA) float64 {
+	same, total := 0, 0
+	for i := 0; i+3 < len(a.Pix) && i+3 < len(b.Pix); i += 4 * 7 {
+		total++
+		if a.Pix[i] == b.Pix[i] && a.Pix[i+1] == b.Pix[i+1] && a.Pix[i+2] == b.Pix[i+2] {
+			same++
+		}
+	}
+	if total == 0 {
+		return 1
+	}
+	return float64(same) / float64(total)
 }
 
 // Pointer le a posicao e o desenho do ponteiro (GetCursorInfo), com cache por cursor.

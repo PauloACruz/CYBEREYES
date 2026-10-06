@@ -59,6 +59,31 @@ Causas encontradas:
   refinamentos, quadros segurados pela janela, KiB, tempo medio de captura e de codificacao, qualidade, ida e volta e
   banda estimada.
 
+## Depois (EYES 3.2.0, 2026-10-05)
+
+Mesma maquina, mesmas sessoes somente de visualizacao, API com o relay novo.
+
+| Medida | 3.1.0 | 3.2.0 |
+|---|---|---|
+| CPU do `remote-helper` com a tela parada | 22% de um nucleo | **0%** (DXGI) |
+| Primeiro quadro | 2,34 s | **0,72 s** |
+| Quadro completo pedido e recebido | p50 533 ms, p90 583 ms; 1,9 q/s | **p50 188 ms, p90 205 ms; 5,2 q/s** |
+| Quadro completo | 147 KiB, 103 blocos | 105 KiB, 28 blocos |
+| Tela inteira mudando sem parar (`REFRESH` a cada 33 ms) | no maximo ~5 q/s pela janela de 2 quadros, ~170 ms de CPU por quadro | **25,5 q/s** (intervalo p50 34 ms, p90 66 ms), 17 Mbit/s, ~70 ms de CPU por quadro |
+| Trafego com a tela parada, depois do refinamento | - | 2,8 KiB em 30 s |
+
+- Linha de estatistica do `remote-helper` no envio continuo: `metodo=dxgi`, captura media abaixo de 1 ms, nenhum quadro
+  segurado pela janela.
+- O pior caso (tela inteira mudando, como video em tela cheia) usa ~1,8 nucleo do i3-4130 para 25 q/s; no uso normal
+  so as regioes alteradas sao codificadas.
+- A imagem do DXGI (textura de copia na Intel HD 4400) conferiu no visualizador; no runner Windows do CI (adaptador
+  basico, imagem na memoria do sistema) a imagem do DXGI saiu 100% igual a do GDI.
+
+Cuidado ao medir pelo console: aba em segundo plano limita os timers da pagina (ate 1 por minuto). O envio continuo
+precisa do timer num Web Worker; o `REFRESH` disparado pela chegada do quadro nao sofre isso. Os numeros de envio
+continuo da linha de base (1,0 a 2,8 q/s) foram medidos com timer da pagina e podem ter sido afetados; o limite da
+arquitetura antiga era ~5 q/s.
+
 ## Como medir
 
 1. Abra o console autenticado e uma sessao somente de visualizacao (nao mexe na maquina do usuario).
@@ -66,3 +91,4 @@ Causas encontradas:
 3. Movimento: arraste uma janela ou role uma pagina na maquina e acompanhe os quadros por segundo no log do
    `remote-helper` (linha "desempenho da tela").
 4. Latencia de pedido e resposta: `REFRESH` seguido do `FRAME_END`, varias vezes, com `ACK` de cada quadro.
+5. Envio continuo: `REFRESH` a cada 33 ms por um timer num Web Worker (ver o cuidado acima), `ACK` de cada quadro.
