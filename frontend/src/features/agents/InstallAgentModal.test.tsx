@@ -6,7 +6,7 @@ import { CLIENTS } from '../../test/fixtures';
 import { json, makeMe, mockFetch, renderApp } from '../../test/utils';
 
 const LINUX_COMMAND =
-  "curl -fsSL 'https://rmm.exemplo.com/api/install/linux.sh' | sudo bash -s -- --client-id 1 --site-id 10 --auth abc123";
+  "curl -fsSL 'https://rmm.exemplo.com/api/install/linux.sh' | $(command -v sudo) bash -s -- --client-id 1 --site-id 10 --auth abc123";
 
 describe('modal de instalação do agente', () => {
   afterEach(() => vi.unstubAllGlobals());

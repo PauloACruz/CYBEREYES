@@ -31,7 +31,7 @@ public static class InstallScripts
     public static string LinuxCommand(InstallParameters p)
     {
         var sb = new StringBuilder();
-        sb.Append(CultureInfo.InvariantCulture, $"curl -fsSL '{p.ApiUrl}/api/install/linux.sh' | sudo bash -s -- ");
+        sb.Append(CultureInfo.InvariantCulture, $"curl -fsSL '{p.ApiUrl}/api/install/linux.sh' | $(command -v sudo) bash -s -- ");
         sb.Append(CultureInfo.InvariantCulture, $"--client-id {p.ClientId} --site-id {p.SiteId} --auth {p.Token}");
         if (p.AgentType != AutoType)
         {
@@ -102,7 +102,7 @@ public static class InstallScripts
     private const string LinuxTemplate = """
         #!/usr/bin/env bash
         # Instalador do EYES (agente Cybereyes) para Linux.
-        # Uso: curl -fsSL <servidor>/api/install/linux.sh | sudo bash -s -- --client-id N --site-id N --auth TOKEN [--agent-type auto|server|workstation] [--insecure]
+        # Uso: curl -fsSL <servidor>/api/install/linux.sh | $(command -v sudo) bash -s -- --client-id N --site-id N --auth TOKEN [--agent-type auto|server|workstation] [--insecure]
         set -euo pipefail
 
         API_URL="__API_URL__"

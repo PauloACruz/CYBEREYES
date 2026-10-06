@@ -141,7 +141,7 @@ export function DeploymentsPage() {
         </Table.ScrollContainer>
       </Paper>
       <Text size="xs" c="dimmed" mt="sm">
-        Linux e macOS: rode no terminal com sudo. Windows: rode no PowerShell como administrador.
+        Linux: rode no terminal como root ou com um usuário que tenha sudo. macOS: rode com um usuário administrador. Windows: rode no PowerShell como administrador.
       </Text>
       <CreateDeploymentModal opened={createOpened} onClose={createModal.close} />
     </>

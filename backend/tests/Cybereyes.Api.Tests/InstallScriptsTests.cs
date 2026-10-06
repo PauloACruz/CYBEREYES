@@ -59,6 +59,16 @@ public sealed partial class InstallScriptsTests
         Assert.Contains("install --api https://rmm.x --client-id 1 --site-id 2 --agent-type server --auth abc", script, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void LinuxCommand_UsesSudoOnlyWhenAvailable()
+    {
+        // Como root sem sudo (Proxmox, conteineres), "$(command -v sudo)" fica vazio e roda so o bash.
+        var command = InstallScripts.LinuxCommand(Params);
+
+        Assert.Contains("/api/install/linux.sh' | $(command -v sudo) bash -s -- --client-id 1 --site-id 2 --auth abc", command, StringComparison.Ordinal);
+        Assert.DoesNotContain("| sudo bash", command, StringComparison.Ordinal);
+    }
+
     /// <summary>O script e a instalacao elevada passam no analisador do PowerShell (sem erro de sintaxe).</summary>
     [PwshFact]
     public void WindowsScript_ParsesInPowerShell()

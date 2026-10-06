@@ -187,7 +187,7 @@ public static class InstallerEndpoints
 
     private static Dictionary<string, string> DeploymentCommands(string url, Guid uid) => new()
     {
-        ["linux"] = $"curl -fsSL '{url}/api/deploy/{uid}/linux' | sudo bash",
+        ["linux"] = $"curl -fsSL '{url}/api/deploy/{uid}/linux' | $(command -v sudo) bash",
         ["darwin"] = $"curl -fsSL '{url}/api/deploy/{uid}/darwin' | sudo bash",
         ["windows"] = $"irm '{url}/api/deploy/{uid}/windows' | iex",
     };
