@@ -71,7 +71,9 @@ public sealed partial class InstallScriptsTests
             var inner = Path.Combine(dir.FullName, "inner.ps1");
             File.WriteAllText(outer, script);
             File.WriteAllText(inner, Inner(script));
-            var check = """
+            // Com -File, os caminhos chegam em $args (com -Command seriam colados ao comando).
+            var check = Path.Combine(dir.FullName, "check.ps1");
+            File.WriteAllText(check, """
                 $failed = 0
                 foreach ($f in $args) {
                     $tokens = $null; $errors = $null
@@ -79,9 +81,9 @@ public sealed partial class InstallScriptsTests
                     foreach ($e in $errors) { Write-Output "$f`: $($e.Message)"; $failed++ }
                 }
                 exit $failed
-                """;
+                """);
             var psi = new ProcessStartInfo(Pwsh!) { RedirectStandardOutput = true, RedirectStandardError = true };
-            foreach (var a in new[] { "-NoProfile", "-NonInteractive", "-Command", check, outer, inner })
+            foreach (var a in new[] { "-NoProfile", "-NonInteractive", "-File", check, outer, inner })
             {
                 psi.ArgumentList.Add(a);
             }
