@@ -59,4 +59,48 @@ describe('lista de agentes', () => {
     const urls = fetchMock.mock.calls.map(([input]) => (typeof input === 'string' ? input : ''));
     expect(urls.some((u) => u.startsWith('/api/agents?') && u.includes('status=overdue'))).toBe(true);
   });
+
+  it('ordena pela coluna clicada no servidor e alterna o sentido', async () => {
+    const requested: string[] = [];
+    mockFetch({
+      'GET /api/auth/me': () => json(makeMe({ permissions: ['agents.view'] })),
+      'GET /api/clients': () => json(CLIENTS),
+      'GET /api/agents': (_, url) => {
+        requested.push(`${url.searchParams.get('sortBy') ?? ''} ${url.searchParams.get('sortDir') ?? ''}`);
+        const items = url.searchParams.get('sortDir') === 'desc' ? [...agents].reverse() : agents;
+        return json({ items, total: items.length, page: 1, pageSize: 50 });
+      },
+    });
+    renderApp('/agentes');
+    const user = userEvent.setup();
+    await screen.findByText('SRV-ARQUIVOS');
+    expect(requested.at(-1)).toBe('hostname asc');
+    expect(screen.getByRole('columnheader', { name: /Hostname/ })).toHaveAttribute('aria-sort', 'ascending');
+
+    await user.click(screen.getByRole('button', { name: 'Ordenar por visto por último' }));
+    await waitFor(() => expect(requested.at(-1)).toBe('lastSeen asc'));
+    expect(screen.getByRole('columnheader', { name: /Visto por último/ })).toHaveAttribute('aria-sort', 'ascending');
+    expect(screen.getByRole('columnheader', { name: /Hostname/ })).toHaveAttribute('aria-sort', 'none');
+
+    await user.click(screen.getByRole('button', { name: 'Ordenar por visto por último' }));
+    await waitFor(() => expect(requested.at(-1)).toBe('lastSeen desc'));
+    const rows = screen.getAllByRole('row').slice(1);
+    expect(within(rows[0] as HTMLElement).getByText('SRV-ARQUIVOS')).toBeInTheDocument();
+  });
+
+  it('abre com a ordenação do endereço', async () => {
+    const requested: string[] = [];
+    mockFetch({
+      'GET /api/auth/me': () => json(makeMe({ permissions: ['agents.view'] })),
+      'GET /api/clients': () => json(CLIENTS),
+      'GET /api/agents': (_, url) => {
+        requested.push(`${url.searchParams.get('sortBy') ?? ''} ${url.searchParams.get('sortDir') ?? ''}`);
+        return json({ items: agents, total: agents.length, page: 1, pageSize: 50 });
+      },
+    });
+    renderApp('/agentes?ordem=status&sentido=desc');
+    await screen.findByText('SRV-ARQUIVOS');
+    expect(requested.at(-1)).toBe('status desc');
+    expect(screen.getByRole('columnheader', { name: /Status/ })).toHaveAttribute('aria-sort', 'descending');
+  });
 });
