@@ -208,7 +208,7 @@ function InstallerForm({
 const PLAT_NOTE: Record<AgentPlat, string> = {
   windows: 'Abra o PowerShell como administrador na máquina e cole o comando.',
   linux:
-    'Rode no terminal com um usuário que tenha sudo. Com o tipo "Detectar automaticamente", a máquina é cadastrada como estação quando tem interface gráfica e como servidor quando tem só terminal.',
+    'Rode no terminal como root ou com um usuário que tenha sudo. Com o tipo "Detectar automaticamente", a máquina é cadastrada como estação quando tem interface gráfica e como servidor quando tem só terminal.',
   darwin: 'Rode no Terminal com um usuário administrador (o comando usa sudo).',
 };
 

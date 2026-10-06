@@ -9,7 +9,7 @@ Plano de migracao gradual: piloto com 10 maquinas e depois ondas por site.
 2. **[deducao, validar no piloto]** Por isso as duas versoes nao convivem na mesma maquina: instalar o agente do Cybereyes substitui o do Tactical, e a maquina sai do Tactical naquele momento. O acesso remoto do Cybereyes vem no proprio EYES; a instalacao do EYES nao mexe no MeshAgent do Tactical, que continua ligado ao MeshCentral do Tactical ate ser removido (secao 7). A convivencia e por **parque** (parte das maquinas em cada servidor durante as ondas), nao por maquina.
 3. **[verificado no codigo]** A implantacao por site (fase 1) gera um link publico com validade e um comando por sistema:
    - Windows (PowerShell como administrador): `irm 'https://CYBEREYES_HOST/api/deploy/<uid>/windows' | iex`
-   - Linux: `curl -fsSL 'https://CYBEREYES_HOST/api/deploy/<uid>/linux' | sudo bash`
+   - Linux: `curl -fsSL 'https://CYBEREYES_HOST/api/deploy/<uid>/linux' | $(command -v sudo) bash`
    - macOS: `curl -fsSL 'https://CYBEREYES_HOST/api/deploy/<uid>/darwin' | sudo bash`
 
    Ela e criada no console (Implantacoes) ou por `POST /api/deployments` `{ siteId, agentType: "auto"|"server"|"workstation", goArch?, expiresAt }`, com a permissao `agents.install`. O script do Windows detecta a arquitetura, baixa o EYES em `/api/agent/download/windows/<arch>` e roda `eyes.exe install`, que registra o agente no site da implantacao e cria o servico `eyes` (ADR-020). Apagar a implantacao invalida o token.

@@ -258,7 +258,7 @@ Duas origens de token de instalacao, ambas SHA-256 em `installer_tokens`:
   - O token fica cifrado (Data Protection) e e servido sem autenticacao em `GET /api/deploy/{uid}/{linux|darwin|windows}` enquanto `ExpiresAt` nao passar (`:145-165`).
   - Excluir a implantacao apaga o token (`:139`).
   - Comandos gerados (`:187-192`):
-    - Linux: `curl -fsSL '<url>/api/deploy/<uid>/linux' | sudo bash`
+    - Linux: `curl -fsSL '<url>/api/deploy/<uid>/linux' | $(command -v sudo) bash` (como root sem `sudo`, como no Proxmox, vira so `bash`)
     - macOS: `curl -fsSL '<url>/api/deploy/<uid>/darwin' | sudo bash`
     - Windows: `irm '<url>/api/deploy/<uid>/windows' | iex`
 - Chaves de API com `agents.install` tambem passam na politica de instalacao (`AuthSetup.cs:112-115`), mas os scripts sempre usam token de instalacao.
@@ -269,7 +269,7 @@ Duas origens de token de instalacao, ambas SHA-256 em `installer_tokens`:
 O servidor gera estes comandos e o EYES tem que aceita-los **sem mudar o servidor**.
 
 **Linux**: `GET /api/install/linux.sh` (anonimo, sem segredo) ou `/api/deploy/{uid}/linux` (com segredo embutido) (`Api/Rmm/InstallScripts.cs:17-30,59-179`).
-- Comando gerado: `curl -fsSL '<api>/api/install/linux.sh' | sudo bash -s -- --client-id N --site-id N --auth TOKEN [--agent-type server|workstation]` (`:32-42`).
+- Comando gerado: `curl -fsSL '<api>/api/install/linux.sh' | $(command -v sudo) bash -s -- --client-id N --site-id N --auth TOKEN [--agent-type server|workstation]` (`:32-42`).
 - Opcoes do proprio script: `--api`, `--client-id`, `--site-id`, `--auth`, `--agent-type auto|server|workstation`, `--insecure`, `--nomesh` (`:78-89`). Depois da fase 12.8, `--nomesh` e aceito sem efeito (ver ADR-023).
 - Arquitetura por `uname -m`: `x86_64`/`amd64` vira `amd64`; `aarch64`/`arm64` vira `arm64`; `armv6l`/`armv7l` vira `arm`; `i386`/`i686` vira `386` (`:95-101`).
 - Com `auto`, o script detecta interface grafica: com ela vira `workstation`, sem ela `server` (`:104-121`).
