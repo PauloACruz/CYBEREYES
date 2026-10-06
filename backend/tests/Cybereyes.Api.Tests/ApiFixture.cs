@@ -96,6 +96,8 @@ public sealed class ApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
         {
             services.RemoveAll<INotificationSender>();
             services.AddSingleton<INotificationSender>(Notifications);
+            services.AddHttpClient(Cybereyes.Api.Rmm.Software.PackageCatalog.HttpClientName)
+                .ConfigurePrimaryHttpMessageHandler(() => new PackageFeeds.Handler());
         });
     }
 

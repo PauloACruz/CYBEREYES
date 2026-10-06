@@ -1,22 +1,23 @@
 import { Fragment, useMemo, useState } from 'react';
 import { ActionIcon, Badge, Button, Group, Paper, Stack, Table, Text, TextInput, Title } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
-import { IconChevronDown, IconChevronRight, IconCircleCheck, IconCircleX, IconClockHour4, IconPackage, IconRefresh, IconSearch } from '@tabler/icons-react';
+import { IconChevronDown, IconChevronRight, IconCircleCheck, IconCircleX, IconClockHour4, IconRefresh, IconSearch } from '@tabler/icons-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { softwareApi } from '../../../api/monitoring';
 import { queryKeys } from '../../../api/queryKeys';
-import { PERMISSIONS, type AgentDetail, type PendingActionDto } from '../../../api/types';
+import { PERMISSIONS, type AgentDetail, type PackageManager, type PendingActionDto } from '../../../api/types';
 import { hasPermission } from '../../../auth/permissions';
 import { useMe } from '../../../auth/useMe';
 import { ApiErrorAlert } from '../../../components/ApiErrorAlert';
 import { OutputBlock } from '../../../components/OutputBlock';
 import { EmptyRow, LoadError, LoadingRows } from '../../../components/TableStates';
-import { confirmAction, notifySuccess } from '../../../lib/feedback';
+import { notifySuccess } from '../../../lib/feedback';
 import { formatDateTime } from '../../../lib/format';
 import { isWindows } from '../actions/shells';
+import { PackageInstall } from './PackageInstall';
+import { MANAGER_LABEL } from './packageManagers';
 
 const COLUMNS = 4;
-const PACKAGE_PATTERN = /^[A-Za-z0-9_.-]{1,100}$/;
 
 function normalize(text: string): string {
   return text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -48,7 +49,7 @@ export function SoftwareTab({ agent }: { agent: AgentDetail }) {
 
   return (
     <Stack>
-      {canInstall && <ChocolateyInstall agent={agent} />}
+      {canInstall && <PackageInstall agent={agent} />}
       {isWindows(agent.plat) && <PendingActions agentId={agent.id} />}
       <Group justify="space-between">
         <TextInput
@@ -108,67 +109,16 @@ export function SoftwareTab({ agent }: { agent: AgentDetail }) {
   );
 }
 
-function ChocolateyInstall({ agent }: { agent: AgentDetail }) {
-  const queryClient = useQueryClient();
-  const [pkg, setPkg] = useState('');
-  const valid = PACKAGE_PATTERN.test(pkg.trim());
-  const install = useMutation({
-    mutationFn: (name: string) => softwareApi.install(agent.id, name),
-    onSuccess: (_, name) => {
-      notifySuccess(`A instalação de ${name} foi enviada ao agente.`, 'Instalação solicitada');
-      setPkg('');
-      void queryClient.invalidateQueries({ queryKey: queryKeys.agentPendingActions(agent.id) });
-    },
-  });
-  const submit = () => {
-    const name = pkg.trim();
-    if (!PACKAGE_PATTERN.test(name)) return;
-    confirmAction({
-      title: 'Instalar software',
-      message: `Instalar o pacote ${name} pelo Chocolatey em ${agent.hostname}?`,
-      confirmLabel: 'Instalar',
-      onConfirm: () => install.mutate(name),
-    });
-  };
-  return (
-    <Paper withBorder p="md">
-      <Group gap="xs" mb="xs">
-        <IconPackage size={18} aria-hidden />
-        <Title order={4}>Instalar pelo Chocolatey</Title>
-      </Group>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          submit();
-        }}
-      >
-        <Group align="flex-end">
-          <TextInput
-            label="Pacote"
-            placeholder="googlechrome, 7zip, vlc..."
-            value={pkg}
-            onChange={(e) => setPkg(e.currentTarget.value)}
-            error={pkg && !valid ? 'Use letras, números, ponto, hífen ou sublinhado' : undefined}
-            w={320}
-            maw="100%"
-          />
-          <Button type="submit" loading={install.isPending} disabled={!valid}>
-            Instalar
-          </Button>
-        </Group>
-      </form>
-    </Paper>
-  );
-}
-
-function packageName(action: PendingActionDto): string {
+/** Pacote e gerenciador gravados nos detalhes da acao ({ name, manager }; acoes antigas so tem name). */
+function packageOf(action: PendingActionDto): { name: string; manager: PackageManager } {
+  const manager: PackageManager = action.type === 'wingetinstall' ? 'winget' : 'choco';
   try {
     const parsed: unknown = JSON.parse(action.details);
-    if (parsed && typeof parsed === 'object' && 'name' in parsed && typeof parsed.name === 'string') return parsed.name;
+    if (parsed && typeof parsed === 'object' && 'name' in parsed && typeof parsed.name === 'string') return { name: parsed.name, manager };
   } catch {
     // detalhes invalidos: mostra o texto bruto
   }
-  return action.details;
+  return { name: action.details, manager };
 }
 
 function PendingStatus({ status }: { status: string }) {
@@ -221,7 +171,7 @@ function PendingActions({ agentId }: { agentId: number }) {
           {actions.isPending && <LoadingRows columns={4} rows={2} />}
           {rows.map((action) => {
             const open = expanded === action.id;
-            const name = packageName(action);
+            const { name, manager } = packageOf(action);
             return (
               <Fragment key={action.id}>
                 <Table.Tr>
@@ -237,7 +187,12 @@ function PendingActions({ agentId }: { agentId: number }) {
                       {open ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
                     </ActionIcon>
                   </Table.Td>
-                  <Table.Td>{name}</Table.Td>
+                  <Table.Td>
+                    {name}{' '}
+                    <Text span size="xs" c="dimmed">
+                      ({MANAGER_LABEL[manager]})
+                    </Text>
+                  </Table.Td>
                   <Table.Td>
                     <PendingStatus status={action.status} />
                   </Table.Td>

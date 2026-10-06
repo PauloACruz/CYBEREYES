@@ -67,6 +67,13 @@ builder.Services.AddSingleton<IAgentNotifier, AgentNotifier>();
 builder.Services.AddScoped<Cybereyes.Api.Rmm.Actions.SystemEndpoints.Deps>();
 builder.Services.AddHttpClient("webhooks");
 builder.Services.AddHttpClient("oidc");
+builder.Services.Configure<Cybereyes.Api.Rmm.Software.SoftwareCatalogSettings>(builder.Configuration.GetSection(Cybereyes.Api.Rmm.Software.SoftwareCatalogSettings.Section));
+builder.Services.AddHttpClient(Cybereyes.Api.Rmm.Software.PackageCatalog.HttpClientName, c =>
+{
+    c.Timeout = TimeSpan.FromSeconds(60);
+    c.DefaultRequestHeaders.UserAgent.ParseAdd("Cybereyes/1.0");
+});
+builder.Services.AddSingleton<Cybereyes.Api.Rmm.Software.PackageCatalog>();
 builder.Services.AddScoped<Cybereyes.Api.Sso.SsoService>();
 builder.Services.Configure<Cybereyes.Api.Rmm.Remote.RemoteSettings>(builder.Configuration.GetSection(Cybereyes.Api.Rmm.Remote.RemoteSettings.Section));
 if (builder.Configuration.GetConnectionString("Redis") is { Length: > 0 } remoteRedis)
@@ -196,6 +203,7 @@ app.MapClientEndpoints();
 app.MapAgentEndpoints();
 app.MapInstallerEndpoints();
 app.MapAgentUpdateEndpoints();
+Cybereyes.Api.Rmm.Software.SoftwareCatalogEndpoints.MapSoftwareCatalogEndpoints(app);
 app.MapAgentProtocolEndpoints();
 Cybereyes.Api.Rmm.Actions.CommandEndpoints.MapCommandEndpoints(app);
 Cybereyes.Api.Rmm.Actions.SystemEndpoints.MapSystemEndpoints(app);

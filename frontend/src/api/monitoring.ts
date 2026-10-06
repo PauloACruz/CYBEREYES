@@ -3,10 +3,12 @@ import type {
   AgentCheckDto,
   AgentPatchPolicyDto,
   AgentTaskDto,
+  CatalogPackage,
   BlockInheritanceRequest,
   CheckDto,
   CheckHistoryPoint,
   EffectivePolicyDto,
+  PackageManager,
   PatchPolicy,
   PendingActionDto,
   PolicyAssignmentRequest,
@@ -72,6 +74,9 @@ export const patchesApi = {
 export const softwareApi = {
   list: (agentId: number) => api.get<SoftwareInventory>(`${agent(agentId)}/software`),
   refresh: (agentId: number, options?: Silent) => api.post<SoftwareInventory>(`${agent(agentId)}/software/refresh`, undefined, options),
-  install: (agentId: number, pkg: string) => api.post<{ pendingActionId: number }>(`${agent(agentId)}/software/install`, { package: pkg }),
+  install: (agentId: number, pkg: string, manager: PackageManager) =>
+    api.post<{ pendingActionId: number }>(`${agent(agentId)}/software/install`, { package: pkg, manager }),
+  catalog: (source: PackageManager, q: string) =>
+    api.get<{ source: PackageManager; items: CatalogPackage[] }>(`/api/software/catalog/${source}?q=${encodeURIComponent(q)}`),
   pendingActions: (agentId: number) => api.get<PendingActionDto[]>(`${agent(agentId)}/pending-actions`),
 };

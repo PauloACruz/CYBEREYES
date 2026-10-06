@@ -18,6 +18,7 @@ public static class ErrorCodes
     public const string Internal = "INTERNAL_ERROR";
     public const string AgentTimeout = "AGENT_TIMEOUT";
     public const string ChatLocked = "CHAT_LOCKED";
+    public const string CatalogUnavailable = "CATALOG_UNAVAILABLE";
 
     public static string ForStatus(int status) => status switch
     {

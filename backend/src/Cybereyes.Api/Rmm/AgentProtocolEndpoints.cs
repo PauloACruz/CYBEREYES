@@ -45,6 +45,7 @@ public static class AgentProtocolEndpoints
         agent.MapPatch("/{pk:int}/{agentId}/taskrunner/", Monitoring.MonitoringProtocol.TaskResultAsync);
         agent.MapPatch("/{pk:int}/{agentId}/histresult/", HistoryResultAsync);
         app.MapPatch("/api/v4/{agentId}/{pk:long}/chocoresult/", Monitoring.MonitoringProtocol.ChocoResultAsync).RequireAuthorization(Policies.Agent).ExcludeFromDescription();
+        app.MapPatch("/api/v4/{agentId}/{pk:long}/wingetresult/", Monitoring.MonitoringProtocol.ChocoResultAsync).RequireAuthorization(Policies.Agent).ExcludeFromDescription();
     }
 
     private static IResult Error(string message) => Results.Json(message, statusCode: StatusCodes.Status400BadRequest);

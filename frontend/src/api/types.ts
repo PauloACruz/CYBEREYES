@@ -931,6 +931,19 @@ export interface SoftwareInventory {
   items: SoftwareItem[];
 }
 
+/** Gerenciador de pacotes usado na instalacao pelo console. */
+export type PackageManager = 'choco' | 'winget';
+
+/** Pacote encontrado na pesquisa do Chocolatey ou do winget. */
+export interface CatalogPackage {
+  id: string;
+  name: string;
+  version: string;
+  summary: string | null;
+  /** So no Chocolatey. */
+  downloads: number | null;
+}
+
 export interface PendingActionDto {
   id: number;
   type: string;
