@@ -14,6 +14,7 @@ import (
 	"github.com/pauloacruz/cybereyes/agent/internal/tasks"
 	"github.com/pauloacruz/cybereyes/agent/internal/terminal"
 	"github.com/pauloacruz/cybereyes/agent/internal/tray"
+	"github.com/pauloacruz/cybereyes/agent/internal/winget"
 	"github.com/pauloacruz/cybereyes/agent/internal/wua"
 )
 
@@ -26,6 +27,7 @@ func init() {
 		terminal.Register,
 		wua.Register,
 		choco.Register,
+		winget.Register,
 		checks.Register,
 		tasks.Register,
 		logs.Register,

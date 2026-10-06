@@ -352,7 +352,8 @@ public static class MonitoringProtocol
         if (action is not null)
         {
             action.Output = body.ValueKind == JsonValueKind.Object ? Str(body, "results") : string.Empty;
-            action.Status = "completed";
+            // O agente comeca o texto com "error:" quando a instalacao falhou (contrato, secao 3.8).
+            action.Status = action.Output.StartsWith("error", StringComparison.OrdinalIgnoreCase) ? "failed" : "completed";
             await db.SaveChangesAsync(ct);
         }
         return Ok;

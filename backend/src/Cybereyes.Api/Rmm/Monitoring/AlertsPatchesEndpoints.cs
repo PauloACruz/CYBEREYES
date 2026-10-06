@@ -37,9 +37,10 @@ public sealed record TestWebhookRequest([property: Required] string Url);
 public sealed record UpdateActionRequest([property: Required] string Action);
 public sealed record PatchPolicyRequest(string Critical, string Important, string Moderate, string Low, string Other,
     List<int>? RunTimeDays, [property: Range(0, 23)] int RunTimeHour, string RebootAfterInstall);
-public sealed record InstallSoftwareRequest([property: Required, RegularExpression(@"^[A-Za-z0-9_.\-]{1,100}$")] string Package);
+/// <summary>Pacote a instalar. Manager: "choco" (padrao) ou "winget".</summary>
+public sealed record InstallSoftwareRequest([property: Required, StringLength(128, MinimumLength = 1)] string Package, string? Manager);
 
-public static class AlertsPatchesEndpoints
+public static partial class AlertsPatchesEndpoints
 {
     private static readonly HashSet<string> PatchRules = new(StringComparer.Ordinal) { "approve", "ignore", "manual" };
 
@@ -441,6 +442,13 @@ public static class AlertsPatchesEndpoints
         }
     }
 
+    [System.Text.RegularExpressions.GeneratedRegex(@"^[A-Za-z0-9][A-Za-z0-9_.\-]{0,99}$")]
+    private static partial System.Text.RegularExpressions.Regex ChocoPackage();
+
+    // Identificadores do winget: Google.Chrome, 7zip.7zip, Notepad++.Notepad++.
+    [System.Text.RegularExpressions.GeneratedRegex(@"^[A-Za-z0-9][A-Za-z0-9_.+\-]{0,127}$")]
+    private static partial System.Text.RegularExpressions.Regex WingetPackage();
+
     private static async Task<IResult> InstallSoftwareAsync(int id, InstallSoftwareRequest r, CybereyesDbContext db, IAgentRpc rpc, IAuditService audit, CancellationToken ct)
     {
         var agent = await AgentRef.FindAsync(db, id, ct);
@@ -448,18 +456,35 @@ public static class AlertsPatchesEndpoints
         {
             return Problems.NotFound("Agente");
         }
+        var manager = string.IsNullOrWhiteSpace(r.Manager) ? "choco" : r.Manager.Trim().ToLowerInvariant();
+        if (manager is not ("choco" or "winget"))
+        {
+            return Problems.Validation("manager", "Use choco ou winget");
+        }
+        var package = r.Package.Trim();
+        if (!(manager == "choco" ? ChocoPackage() : WingetPackage()).IsMatch(package))
+        {
+            return Problems.Validation("package", manager == "choco"
+                ? "Use letras, numeros, ponto, hifen ou sublinhado"
+                : "Use o identificador do winget: letras, numeros, ponto, hifen, sublinhado ou +");
+        }
+        var label = manager == "choco" ? "Chocolatey" : "winget";
         if (!agent.IsWindows)
         {
-            return Problems.BadRequest("A instalacao pelo Chocolatey so existe no Windows");
+            return Problems.BadRequest($"A instalacao pelo {label} so existe no Windows");
         }
-        var action = new PendingAction { AgentId = id, Type = "chocoinstall", Details = JsonSerializer.Serialize(new { name = r.Package }) };
+        var action = new PendingAction
+        {
+            AgentId = id, Type = manager == "choco" ? "chocoinstall" : "wingetinstall",
+            Details = JsonSerializer.Serialize(new { name = package, manager }),
+        };
         db.PendingActions.Add(action);
         await db.SaveChangesAsync(ct);
-        await rpc.PublishAsync(agent.AgentId, new Dictionary<string, object?>
-        {
-            ["func"] = "installwithchoco", ["choco_prog_name"] = r.Package, ["pending_action_pk"] = (int)action.Id,
-        }, ct);
-        await audit.LogAsync("software.install", "agent", Id(id), $"{agent.Hostname}: instalar {r.Package}", cancellationToken: ct);
+        var request = manager == "choco"
+            ? new Dictionary<string, object?> { ["func"] = "installwithchoco", ["choco_prog_name"] = package, ["pending_action_pk"] = (int)action.Id }
+            : new Dictionary<string, object?> { ["func"] = "installwithwinget", ["winget_id"] = package, ["pending_action_pk"] = (int)action.Id };
+        await rpc.PublishAsync(agent.AgentId, request, ct);
+        await audit.LogAsync("software.install", "agent", Id(id), $"{agent.Hostname}: instalar {package} ({label})", cancellationToken: ct);
         return TypedResults.Accepted((string?)null, new { pendingActionId = action.Id });
     }
 

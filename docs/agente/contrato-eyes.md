@@ -648,7 +648,9 @@ Fluxo:
 
 - `POST /api/v3/choco/ {installed}`: secao 3.4. **PROPOSTA**: enviar apos o comando `installchoco` e na partida em Windows.
 - `PATCH /api/v4/{agent_id}/{pending_action_pk}/chocoresult/` com `{ "results": str }`. Atencao a ordem: **agent_id antes do pk**, ao contrario do `taskrunner`.
-  - Grava a saida na acao pendente e marca `completed` (`MonitoringProtocol.cs:348-359`; rota em `AgentProtocolEndpoints.cs:56`).
+- `PATCH /api/v4/{agent_id}/{pending_action_pk}/wingetresult/` com `{ "results": str }` (mesmo formato, para o `installwithwinget`).
+- Nos dois, `results` comecando com `error` marca a acao pendente como `failed`; senao, `completed`.
+  - Grava a saida na acao pendente e marca `completed`, ou `failed` quando `results` comeca com `error` (`MonitoringProtocol.cs`; rota em `AgentProtocolEndpoints.cs`).
   - Sempre `"ok"`.
 
 ### 3.9 `histresult`
@@ -798,7 +800,8 @@ O coletor escuta UDP em `trap_port`, que e 162 e exige privilegio. **PROPOSTA**:
 | `installchoco` | publish | | `MonitoringProtocol.cs:255` |
 | `getwinupdates` | publish | | `MonitoringProtocol.cs:257`; `AlertsPatchesEndpoints.cs:141` |
 | `installwinupdates` | publish | | `AlertsPatchesEndpoints.cs:151`; `Schedulers.cs:210` |
-| `installwithchoco` | publish | | `AlertsPatchesEndpoints.cs:458-461` |
+| `installwithchoco` | publish | | `AlertsPatchesEndpoints.cs` |
+| `installwithwinget` | publish | | `AlertsPatchesEndpoints.cs` (EYES 3.2.3) |
 | `softwarelist` | request | 60 s | `AlertsPatchesEndpoints.cs:423` |
 | `recover` (substituido na fase 12.8, ver ADR-023): o servidor nao envia mais e o EYES nao trata | request | 60 s | `MeshServices.cs:239` |
 | `snmp_test` | request | `min(120, timeout*(retries+1)+10)` s | `SnmpEndpoints.cs:357-361` |
@@ -986,6 +989,14 @@ Todos com `payload` de str (`SystemEndpoints.cs:50-66,253-277`):
 #### `installwithchoco` (Windows)
 - Publish `{ func: "installwithchoco", choco_prog_name: str, pending_action_pk: int }`.
 - O agente executa `choco install <pacote>` e envia `PATCH /api/v4/{agent_id}/{pending_action_pk}/chocoresult/ { results: <saida> }`.
+
+
+#### `installwithwinget` (Windows, EYES 3.2.3)
+- Publish `{ func: "installwithwinget", winget_id: str, pending_action_pk: int }`. O identificador segue `^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$` (validado no servidor e no agente).
+- O EYES roda como SYSTEM e procura o `winget.exe` em `%ProgramFiles%\WindowsApps\Microsoft.DesktopAppInstaller_*__8wekyb3d8bbwe` (versao mais nova, arquitetura do EYES primeiro). Sem o App Installer, responde `error: winget nao encontrado...`.
+- Executa `winget install --id <id> --exact --source winget --silent --disable-interactivity --accept-package-agreements --accept-source-agreements --scope machine`; com `0x8A150014` (sem instalador para a maquina toda) repete sem `--scope`. `0x8A150061` (ja instalado), 3010 e 1641 contam como sucesso.
+- Envia `PATCH /api/v4/{agent_id}/{pending_action_pk}/wingetresult/ { results: <saida sem as linhas de progresso> }`; falha comeca com `error:`.
+- Pesquisa de pacotes no console: `GET /api/software/catalog/{choco|winget}?q=` (permissao `software.manage`). Chocolatey pela busca publica da comunidade (ordenada por downloads, 10 min em cache); winget pelo indice oficial `source2.msix`, baixado pela API e renovado a cada 12 h.
 
 #### `softwarelist`
 - Pedido: `{ func: "softwarelist" }`.
