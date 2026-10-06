@@ -61,9 +61,11 @@ describe('arquivos da maquina remota', () => {
     await user.type(await screen.findByLabelText(/Nome/), 'Entrega');
     await user.click(screen.getByRole('button', { name: 'Criar' }));
     await waitFor(() => expect(created).toEqual([{ path: `${desktop}\\Entrega` }]));
+    // O dialogo fecha com transicao e a lista recarrega: o menu so abre direito depois disso (no CI pode demorar).
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 
-    await user.click(screen.getByRole('button', { name: 'Ações de Projetos' }));
-    await user.click(await screen.findByRole('menuitem', { name: 'Apagar' }));
+    await user.click(await screen.findByRole('button', { name: 'Ações de Projetos' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Apagar' }, { timeout: 3000 }));
     const dialog = await screen.findByRole('dialog', { name: 'Apagar' });
     await user.click(within(dialog).getByRole('button', { name: 'Apagar' }));
     await waitFor(() => expect(deleted).toEqual([{ path: `${desktop}\\Projetos`, recursive: true }]));
