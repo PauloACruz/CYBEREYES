@@ -28,7 +28,7 @@ Causas encontradas:
 5. Captura e entrada na mesma thread: uma captura lenta atrasava o mouse e o teclado.
 6. Movimentos do mouse sem agrupamento: risco de passar dos 200 quadros/s do relay e derrubar a sessao.
 
-## O que mudou (EYES 3.2.0)
+## O que mudou (EYES 3.2.0 e 3.2.1)
 
 - Captura no Windows pelo DXGI Desktop Duplication (Go puro, chamadas COM pela vtable): a GPU entrega so os
   quadros com mudanca e a lista de regioes alteradas; tela parada nao custa nada. Com adaptador de video basico (VM),
@@ -55,6 +55,8 @@ Causas encontradas:
 - Relay da API: o canal de tela le cada mensagem num buffer reaproveitado do `ArrayPool` em vez de `MemoryStream` e
   `ToArray` por quadro (cerca de 3 copias e varias alocacoes a menos por bloco).
 - Predefinicoes do console: Alta 80/30 q/s, Media 60/24 q/s, Baixa 40 com escala 0,75/15 q/s.
+- 3.2.1: a primeira imagem do DXGI de cada sessao e conferida com uma captura do GDI; driver que entregue imagem
+  preta ou errada deixa a sessao no GDI.
 - Log do `remote-helper` a cada minuto: metodo de captura (e por que o DXGI nao esta em uso), capturas, quadros,
   refinamentos, quadros segurados pela janela, KiB, tempo medio de captura e de codificacao, qualidade, ida e volta e
   banda estimada.
