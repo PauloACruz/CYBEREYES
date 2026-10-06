@@ -99,7 +99,7 @@ public sealed partial class PackageCatalog(IHttpClientFactory http, IOptions<Sof
             }
             string? P(string name) => props.Element(D + name)?.Value is { Length: > 0 } v ? v.Trim() : null;
             var title = P("Title") ?? id;
-            var summary = P("Summary") ?? P("Description");
+            var summary = PlainText(P("Summary") ?? P("Description"));
             if (summary is { Length: > 300 })
             {
                 summary = summary[..297].TrimEnd() + "...";
@@ -120,6 +120,29 @@ public sealed partial class PackageCatalog(IHttpClientFactory http, IOptions<Sof
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Indice do winget indisponivel")]
     private static partial void LogWingetFailed(ILogger logger, Exception ex);
+
+    [GeneratedRegex(@"\[([^\]]*)\]\([^)]*\)")]
+    private static partial Regex MarkdownLink();
+
+    [GeneratedRegex(@"(^|\s)(#{1,6}|[-*]|\d+\.)\s+")]
+    private static partial Regex MarkdownMarker();
+
+    [GeneratedRegex(@"\s+")]
+    private static partial Regex Spaces();
+
+    /// <summary>Descricoes do Chocolatey vem em Markdown: tira titulos, marcadores, crases e links (fica o texto).</summary>
+    public static string? PlainText(string? markdown)
+    {
+        if (string.IsNullOrWhiteSpace(markdown))
+        {
+            return null;
+        }
+        var text = MarkdownLink().Replace(markdown, "$1");
+        text = MarkdownMarker().Replace(text, "$1");
+        text = text.Replace("`", string.Empty, StringComparison.Ordinal).Replace("**", string.Empty, StringComparison.Ordinal).Replace("__", string.Empty, StringComparison.Ordinal);
+        text = Spaces().Replace(text, " ").Trim();
+        return text.Length == 0 ? null : text;
+    }
 
     public async Task<IReadOnlyList<CatalogPackage>> SearchWingetAsync(string term, CancellationToken ct)
     {

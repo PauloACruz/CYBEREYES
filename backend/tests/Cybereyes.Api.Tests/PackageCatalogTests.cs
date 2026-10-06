@@ -45,6 +45,14 @@ public sealed class PackageCatalogTests
         Assert.Throws<InvalidDataException>(() => WingetIndex.Load(ms.ToArray(), DateTimeOffset.UtcNow));
     }
 
+    [Fact]
+    public void PlainText_RemovesMarkdown()
+    {
+        Assert.Equal("Firefox Features A powerful engine. Install given locale. See the official page for more.",
+            PackageCatalog.PlainText("Firefox\n## Features\n- A powerful engine.\n- Install given `locale`. See the [official page](https://x/y) for **more**."));
+        Assert.Null(PackageCatalog.PlainText("  "));
+    }
+
     [Theory]
     [InlineData("chrome", true)]
     [InlineData("notepad++", true)]
