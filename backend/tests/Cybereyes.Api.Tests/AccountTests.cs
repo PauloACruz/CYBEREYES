@@ -37,7 +37,7 @@ public sealed partial class AccountTests(ApiFixture fixture)
 
         var forgot = await fixture.NewClient().PostAsJsonAsync("/api/auth/password/forgot", new { login = $"{username}@exemplo.com" });
         Assert.Equal(HttpStatusCode.Accepted, forgot.StatusCode);
-        var (uid, token, link) = await WaitForLinkAsync($"{username}@exemplo.com", "Redefinicao de senha");
+        var (uid, token, link) = await WaitForLinkAsync($"{username}@exemplo.com", "Redefinição de senha");
         Assert.StartsWith("https://rmm.exemplo.com/redefinir-senha?uid=", link, StringComparison.Ordinal);
 
         var reset = await fixture.NewClient().PostAsJsonAsync("/api/auth/password/reset",
@@ -64,12 +64,12 @@ public sealed partial class AccountTests(ApiFixture fixture)
         await fixture.CreateUserAsync(admin, username, Password);
 
         await fixture.NewClient().PostAsJsonAsync("/api/auth/password/forgot", new { login = username });
-        await WaitForLinkAsync($"{username}@exemplo.com", "Redefinicao de senha");
+        await WaitForLinkAsync($"{username}@exemplo.com", "Redefinição de senha");
         var second = await fixture.NewClient().PostAsJsonAsync("/api/auth/password/forgot", new { login = username });
 
         Assert.Equal(HttpStatusCode.Accepted, second.StatusCode);
         await Task.Delay(300);
-        Assert.Single(EmailsTo($"{username}@exemplo.com", "Redefinicao de senha"));
+        Assert.Single(EmailsTo($"{username}@exemplo.com", "Redefinição de senha"));
     }
 
     [Fact]
@@ -101,7 +101,7 @@ public sealed partial class AccountTests(ApiFixture fixture)
         var (uid, token, link) = await WaitForLinkAsync($"{username}@exemplo.com", "Convite");
         Assert.Equal(user.Id, uid);
         Assert.StartsWith("https://rmm.exemplo.com/convite?uid=", link, StringComparison.Ordinal);
-        Assert.Contains($"Seu usuario: {username}", LastBody($"{username}@exemplo.com", "Convite"), StringComparison.Ordinal);
+        Assert.Contains($"Seu usuário: {username}", LastBody($"{username}@exemplo.com", "Convite"), StringComparison.Ordinal);
 
         var info = await fixture.NewClient().GetFromJsonAsync<InviteInfoBody>($"/api/auth/invite?uid={uid}&token={Uri.EscapeDataString(token)}");
         Assert.Equal(username, info!.Username);

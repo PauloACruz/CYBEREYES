@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Cybereyes.Api.Infrastructure;
 using Cybereyes.Api.Rmm.Monitoring;
 using Cybereyes.Core.Rmm;
 using OtpNet;
@@ -171,25 +172,28 @@ public sealed class RecordingSender : INotificationSender
     public List<(IReadOnlyList<string> To, string Subject)> Emails { get; } = [];
     public List<(IReadOnlyList<string> To, string Subject, IReadOnlyList<EmailAttachment> Attachments)> EmailsWithAttachments { get; } = [];
     public List<(IReadOnlyList<string> To, string Subject, string Body)> EmailBodies { get; } = [];
+    public List<(IReadOnlyList<string> To, string Subject, string Html)> EmailHtml { get; } = [];
 
-    public Task SendEmailAsync(CoreSettings settings, IReadOnlyList<string> recipients, string subject, string body,
+    public Task SendEmailAsync(CoreSettings settings, IReadOnlyList<string> recipients, EmailContent content,
         IReadOnlyList<EmailAttachment> attachments, CancellationToken ct)
     {
         lock (Emails)
         {
-            Emails.Add((recipients, subject));
-            EmailsWithAttachments.Add((recipients, subject, attachments));
-            EmailBodies.Add((recipients, subject, body));
+            Emails.Add((recipients, content.Subject));
+            EmailsWithAttachments.Add((recipients, content.Subject, attachments));
+            EmailBodies.Add((recipients, content.Subject, content.Text));
+            EmailHtml.Add((recipients, content.Subject, content.Html));
         }
         return Task.CompletedTask;
     }
 
-    public Task SendEmailAsync(CoreSettings settings, IReadOnlyList<string> recipients, string subject, string body, CancellationToken ct)
+    public Task SendEmailAsync(CoreSettings settings, IReadOnlyList<string> recipients, EmailContent content, CancellationToken ct)
     {
         lock (Emails)
         {
-            Emails.Add((recipients, subject));
-            EmailBodies.Add((recipients, subject, body));
+            Emails.Add((recipients, content.Subject));
+            EmailBodies.Add((recipients, content.Subject, content.Text));
+            EmailHtml.Add((recipients, content.Subject, content.Html));
         }
         return Task.CompletedTask;
     }

@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Cybereyes.Api.Infrastructure;
 using Cybereyes.Api.Rmm.Monitoring;
 using Cybereyes.Core.Audit;
 using Cybereyes.Core.Persistence;
@@ -9,7 +10,7 @@ using Cybereyes.Core.Reports;
 namespace Cybereyes.Api.Reports;
 
 public sealed partial class ReportService(CybereyesDbContext db, ReportBuilder builder, INotificationSender sender, IAuditService audit,
-    TimeProvider time, ILogger<ReportService> logger)
+    TimeProvider time, IConfiguration config, ILogger<ReportService> logger)
 {
     public const long MaxFileBytes = 25L * 1024 * 1024;
     public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
@@ -51,9 +52,9 @@ public sealed partial class ReportService(CybereyesDbContext db, ReportBuilder b
             try
             {
                 var period = ReportFormatter.Period(data, zone);
-                await sender.SendEmailAsync(settings, recipients, $"[Cybereyes] Relatorio {data.Title}",
-                    $"Segue em anexo o relatorio {data.Title}.{(period.Length > 0 ? $"\nPeriodo: {period}" : string.Empty)}\n" +
-                    string.Join("\n", data.Summary.Select(s => $"{s.Label}: {s.Value}")),
+                var content = EmailTemplates.Report(data.Title, period, data.Summary.Select(s => (s.Label, s.Value)).ToList(), run.FileName,
+                    config["App:PublicUrl"]);
+                await sender.SendEmailAsync(settings, recipients, content,
                     [new EmailAttachment(run.FileName, format == ReportFormat.Pdf ? "application/pdf" : "text/csv", bytes)], ct);
                 run.EmailedTo = recipients.ToList();
             }

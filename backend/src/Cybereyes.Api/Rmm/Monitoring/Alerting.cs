@@ -21,9 +21,9 @@ public sealed record EmailAttachment(string FileName, string ContentType, byte[]
 
 public interface INotificationSender
 {
-    Task SendEmailAsync(CoreSettings settings, IReadOnlyList<string> recipients, string subject, string body, CancellationToken ct);
+    Task SendEmailAsync(CoreSettings settings, IReadOnlyList<string> recipients, EmailContent content, CancellationToken ct);
 
-    Task SendEmailAsync(CoreSettings settings, IReadOnlyList<string> recipients, string subject, string body, IReadOnlyList<EmailAttachment> attachments,
+    Task SendEmailAsync(CoreSettings settings, IReadOnlyList<string> recipients, EmailContent content, IReadOnlyList<EmailAttachment> attachments,
         CancellationToken ct);
 
     Task SendWebhookAsync(string url, object payload, CancellationToken ct);
@@ -31,10 +31,10 @@ public interface INotificationSender
 
 public sealed class NotificationSender(IHttpClientFactory http, IDataProtectionProvider protection) : INotificationSender
 {
-    public Task SendEmailAsync(CoreSettings settings, IReadOnlyList<string> recipients, string subject, string body, CancellationToken ct) =>
-        SendEmailAsync(settings, recipients, subject, body, [], ct);
+    public Task SendEmailAsync(CoreSettings settings, IReadOnlyList<string> recipients, EmailContent content, CancellationToken ct) =>
+        SendEmailAsync(settings, recipients, content, [], ct);
 
-    public async Task SendEmailAsync(CoreSettings settings, IReadOnlyList<string> recipients, string subject, string body,
+    public async Task SendEmailAsync(CoreSettings settings, IReadOnlyList<string> recipients, EmailContent content,
         IReadOnlyList<EmailAttachment> attachments, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(settings.SmtpHost) || string.IsNullOrWhiteSpace(settings.SmtpFrom) || recipients.Count == 0)
@@ -48,8 +48,9 @@ public sealed class NotificationSender(IHttpClientFactory http, IDataProtectionP
         {
             message.To.Add(MailboxAddress.Parse(address));
         }
-        message.Subject = subject;
-        var builder = new BodyBuilder { TextBody = body };
+        message.Subject = content.Subject;
+        // multipart/alternative: clientes sem HTML mostram o texto puro.
+        var builder = new BodyBuilder { TextBody = content.Text, HtmlBody = content.Html };
         foreach (var attachment in attachments)
         {
             builder.Attachments.Add(attachment.FileName, attachment.Content, ContentType.Parse(attachment.ContentType));
@@ -113,8 +114,7 @@ public sealed partial class AlertService(CybereyesDbContext db, INotificationSen
         {
             if (request.Email && template.EmailSeverities.Contains(request.Severity) && template.EmailRecipients.Count > 0)
             {
-                alert.EmailSent = await TryAsync(() => sender.SendEmailAsync(settings, template.EmailRecipients,
-                    $"[Cybereyes] Alerta {SeverityName(alert.Severity)}: {alert.Message}", Body(alert, created: true), ct));
+                alert.EmailSent = await TryAsync(() => sender.SendEmailAsync(settings, template.EmailRecipients, Email(alert, created: true), ct));
             }
             var webhook = template.WebhookUrl ?? settings.DefaultWebhookUrl;
             if (request.Webhook && template.WebhookSeverities.Contains(request.Severity) && !string.IsNullOrWhiteSpace(webhook))
@@ -160,8 +160,7 @@ public sealed partial class AlertService(CybereyesDbContext db, INotificationSen
         {
             if (template.EmailSeverities.Contains(request.Severity) && template.EmailRecipients.Count > 0)
             {
-                alert.EmailSent = await TryAsync(() => sender.SendEmailAsync(settings, template.EmailRecipients,
-                    $"[Cybereyes] Alerta {SeverityName(alert.Severity)}: {alert.Message}", Body(alert, created: true), ct));
+                alert.EmailSent = await TryAsync(() => sender.SendEmailAsync(settings, template.EmailRecipients, Email(alert, created: true), ct));
             }
             var webhook = template.WebhookUrl ?? settings.DefaultWebhookUrl;
             if (template.WebhookSeverities.Contains(request.Severity) && !string.IsNullOrWhiteSpace(webhook))
@@ -195,7 +194,7 @@ public sealed partial class AlertService(CybereyesDbContext db, INotificationSen
             {
                 if (alert.EmailSent && template.EmailRecipients.Count > 0)
                 {
-                    await TryAsync(() => sender.SendEmailAsync(settings, template.EmailRecipients, $"[Cybereyes] Resolvido: {alert.Message}", Body(alert, created: false), ct));
+                    await TryAsync(() => sender.SendEmailAsync(settings, template.EmailRecipients, Email(alert, created: false), ct));
                 }
                 var webhook = template.WebhookUrl ?? settings.DefaultWebhookUrl;
                 if (alert.WebhookSent && !string.IsNullOrWhiteSpace(webhook))
@@ -245,7 +244,7 @@ public sealed partial class AlertService(CybereyesDbContext db, INotificationSen
             {
                 if (alert.EmailSent && template.EmailRecipients.Count > 0)
                 {
-                    await TryAsync(() => sender.SendEmailAsync(settings, template.EmailRecipients, $"[Cybereyes] Resolvido: {alert.Message}", Body(alert, created: false), ct));
+                    await TryAsync(() => sender.SendEmailAsync(settings, template.EmailRecipients, Email(alert, created: false), ct));
                 }
                 var webhook = template.WebhookUrl ?? settings.DefaultWebhookUrl;
                 if (alert.WebhookSent && !string.IsNullOrWhiteSpace(webhook))
@@ -283,9 +282,9 @@ public sealed partial class AlertService(CybereyesDbContext db, INotificationSen
         url = Link(alert),
     };
 
-    private string Body(Alert alert, bool created) =>
-        $"{(created ? "Novo alerta" : "Alerta resolvido")} ({SeverityName(alert.Severity)})\n\n{alert.Message}\n\n" +
-        $"Criado em: {alert.CreatedAt:dd/MM/yyyy HH:mm} UTC\n{(alert.AgentId is null ? "Dispositivo" : "Agente")}: {Link(alert)}";
+    private EmailContent Email(Alert alert, bool created) =>
+        EmailTemplates.Alert(created, SeverityName(alert.Severity), alert.Message, alert.CreatedAt, alert.AgentId is null ? "Dispositivo" : "Agente",
+            Link(alert), config["App:PublicUrl"]);
 
     private string Link(Alert alert) => alert.AgentId is null && alert.SnmpDeviceId is { } device
         ? $"{(config["App:PublicUrl"] ?? string.Empty).TrimEnd('/')}/snmp/{device}"
