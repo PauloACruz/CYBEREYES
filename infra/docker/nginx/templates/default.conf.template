@@ -74,7 +74,9 @@ server {
 
     # Acesso remoto (ADR-023): relay WebSocket e transferencia de arquivos em streaming. Os cabecalhos
     # X-Remote-* sao internos (encaminhamento entre replicas da API) e nunca podem vir de fora.
-    location /api/remote/ {
+    # "^~": sem ele a location por regex de /api/ abaixo venceria e o upgrade de WebSocket nao seria
+    # repassado (o relay respondia 400 e a sessao ficava em "starting" ate o tempo limite).
+    location ^~ /api/remote/ {
         proxy_pass http://cybereyes_api;
         proxy_http_version 1.1;
         proxy_set_header Upgrade    $http_upgrade;
