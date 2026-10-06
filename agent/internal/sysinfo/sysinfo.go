@@ -122,6 +122,37 @@ func CleanValue(s string) string {
 	return s
 }
 
+// NIC e uma placa de rede com MAC (para o Wake-on-LAN pelo EYES, RFC-001) e enderecos em CIDR.
+type NIC struct {
+	Name string   `json:"name"`
+	MAC  string   `json:"mac"`
+	IPs  []string `json:"ips"`
+}
+
+// NICs devolve as placas fisicas ativas com MAC de 6 bytes, sem loopback nem interfaces virtuais de conteineres.
+func NICs() []NIC {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return []NIC{}
+	}
+	out := []NIC{}
+	for _, ifc := range ifaces {
+		if ifc.Flags&net.FlagUp == 0 || ifc.Flags&net.FlagLoopback != 0 || !keepInterface(ifc.Name) || len(ifc.HardwareAddr) != 6 {
+			continue
+		}
+		nic := NIC{Name: ifc.Name, MAC: strings.ToUpper(ifc.HardwareAddr.String()), IPs: []string{}}
+		if addrs, err := ifc.Addrs(); err == nil {
+			for _, a := range addrs {
+				if ipn, ok := a.(*net.IPNet); ok && keepIP(ipn.IP) {
+					nic.IPs = append(nic.IPs, ipn.String())
+				}
+			}
+		}
+		out = append(out, nic)
+	}
+	return out
+}
+
 // LocalIPs devolve os enderecos das interfaces ativas no formato CIDR ("10.0.0.5/24"),
 // sem loopback, link-local nem interfaces virtuais de conteineres.
 func LocalIPs() []string {

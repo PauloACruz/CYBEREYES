@@ -46,7 +46,6 @@ export function makeAgentDetail(overrides: Partial<AgentDetail> = {}): AgentDeta
     goArch: 'amd64',
     totalRam: 16,
     bootTime: null,
-    meshNodeId: null,
     disks: [],
     services: [],
     wmi: null,
@@ -105,7 +104,6 @@ export function makeTicketDetail(overrides: Partial<TicketDetail> = {}): TicketD
       operatingSystem: 'Windows 11 Pro 23H2',
       loggedInUsername: 'maria',
       publicIp: '200.10.10.10',
-      meshNodeId: null,
     },
     ...overrides,
   };

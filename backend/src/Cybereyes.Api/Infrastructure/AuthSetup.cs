@@ -84,6 +84,10 @@ public static class AuthSetup
             {
                 o.ForwardDefaultSelector = ctx =>
                 {
+                    if (Rmm.Remote.RemoteForwardAuthenticationHandler.Matches(ctx.Request))
+                    {
+                        return Rmm.Remote.RemoteForwardAuthenticationHandler.SchemeName;
+                    }
                     if (ctx.Request.Headers.ContainsKey(ApiKeyAuthenticationHandler.HeaderName))
                     {
                         return CybereyesClaims.ApiKeyScheme;
@@ -99,7 +103,8 @@ public static class AuthSetup
             })
             .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>(CybereyesClaims.ApiKeyScheme, null)
             .AddScheme<AuthenticationSchemeOptions, Rmm.AgentTokenAuthenticationHandler>(CybereyesClaims.AgentTokenScheme, null)
-            .AddScheme<AuthenticationSchemeOptions, Tickets.TrayTokenAuthenticationHandler>(Tickets.TrayTokenAuthenticationHandler.SchemeName, null);
+            .AddScheme<AuthenticationSchemeOptions, Tickets.TrayTokenAuthenticationHandler>(Tickets.TrayTokenAuthenticationHandler.SchemeName, null)
+            .AddScheme<AuthenticationSchemeOptions, Rmm.Remote.RemoteForwardAuthenticationHandler>(Rmm.Remote.RemoteForwardAuthenticationHandler.SchemeName, null);
 
         services.AddScoped<IClaimsTransformation, PermissionClaimsTransformation>();
         services.AddSingleton<IAuthorizationPolicyProvider, CybereyesPolicyProvider>();

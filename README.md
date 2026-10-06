@@ -1,6 +1,6 @@
 # Cybereyes
 
-Plataforma unificada de RMM e chamados: backend C# (.NET 10), frontend React, agente EYES em Go (`agent/`, ver ADR-020) e MeshCentral para acesso remoto pelo navegador.
+Plataforma unificada de RMM e chamados: backend C# (.NET 10), frontend React, agente EYES em Go (`agent/`, ver ADR-020) e acesso remoto proprio pelo navegador, embutido no EYES e na API (ver ADR-023).
 
 Contexto, decisoes e padroes: [`.team-context.md`](.team-context.md). Plano por fases: [`docs/PLANO.md`](docs/PLANO.md).
 
@@ -10,7 +10,7 @@ Contexto, decisoes e padroes: [`.team-context.md`](.team-context.md). Plano por 
 |---|---|
 | `backend/` | API ASP.NET Core (`Cybereyes.Api`), dominio e persistencia (`Cybereyes.Core`), testes |
 | `frontend/` | Console do tecnico em React + TypeScript |
-| `infra/docker/` | Docker Compose da VPS: Nginx (balanceador e TLS), Certbot, PostgreSQL, Redis, NATS, MeshCentral, API e frontend |
+| `infra/docker/` | Docker Compose da VPS: Nginx (balanceador e TLS), Certbot, PostgreSQL, Redis, NATS, API e frontend |
 | `docs/` | Contratos de API, ADRs, runbooks |
 
 ## Desenvolvimento local
@@ -40,11 +40,11 @@ cd frontend && npm run lint && npm run typecheck && npm test
 
 ## Producao (VPS com Docker)
 
-1. Aponte dois nomes DNS para a VPS: um para o console (`CYBEREYES_HOST`) e outro para o MeshCentral (`MESH_HOST`).
+1. Aponte um nome DNS para a VPS, o do console (`CYBEREYES_HOST`).
 2. Libere as portas 80 e 443.
 3. `cd infra/docker && cp .env.example .env` e preencha as senhas.
 4. `docker compose up -d`
 
 O Nginx distribui as requisicoes entre as instancias da API (`API_REPLICAS`, padrao 2). O Certbot emite e renova os certificados Let's Encrypt automaticamente (perfil `letsencrypt`); para usar certificado proprio, coloque `fullchain.pem` e `privkey.pem` em `infra/docker/certs/<host>/`. Backup e restauracao: [`docs/runbooks/backup-restauracao.md`](docs/runbooks/backup-restauracao.md).
 
-O MeshCentral cria sozinho, na primeira partida, o administrador interno e a chave de token usada pela API; os tecnicos com a permissao `agents.remote` ganham um usuario proprio no MeshCentral e abrem o acesso remoto direto pelo console, sem segundo login. Detalhes: [`docs/api/fase4-mesh.md`](docs/api/fase4-mesh.md).
+O acesso remoto e proprio do Cybereyes (o MeshCentral saiu na fase 12.8, ver ADR-023): o tecnico abre a tela da estacao numa janela do console (`/acesso-remoto/:agentId`), com area de transferencia automatica, transferencia de arquivos (painel, arrastar e soltar e aba "Arquivos"), terminal do EYES e Wake-on-LAN por um EYES vizinho. O relay passa pelo mesmo nome do console (`location /api/remote/` no Nginx), sem segundo dominio nem segundo login. Permissoes: `agents.remote` (tela e area de transferencia), `agents.files` (arquivos), `agents.control` (Wake-on-LAN) e `settings.manage` (politicas em Configuracoes > Acesso remoto). Detalhes: [`docs/remoto/contrato-remoto.md`](docs/remoto/contrato-remoto.md).

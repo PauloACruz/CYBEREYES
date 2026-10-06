@@ -14,6 +14,7 @@ import (
 
 	"github.com/pauloacruz/cybereyes/agent/internal/agent"
 	"github.com/pauloacruz/cybereyes/agent/internal/install"
+	"github.com/pauloacruz/cybereyes/agent/internal/remote"
 	"github.com/pauloacruz/cybereyes/agent/internal/service"
 	"github.com/pauloacruz/cybereyes/agent/internal/version"
 )
@@ -39,6 +40,9 @@ func main() {
 		err = service.Run(agent.Service)
 	case "run":
 		err = service.Run(agent.Foreground)
+	case "remote-helper":
+		// Processo auxiliar do acesso remoto, iniciado pelo servico na sessao grafica do usuario.
+		err = remote.HelperMain(os.Stdin)
 	case "version", "v":
 		fmt.Println(version.Name, version.Version)
 	case "help", "h":
@@ -59,7 +63,7 @@ func usage() {
 
 Uso:
   eyes install --api URL --client-id N --site-id N --agent-type server|workstation --auth TOKEN
-               [--desc TEXTO] [--nomesh] [--insecure] [--proxy URL] [--api-key]
+               [--desc TEXTO] [--insecure] [--proxy URL] [--api-key]
   eyes uninstall [--keep-mesh]
   eyes service     (executado pelo servico do sistema)
   eyes run         (primeiro plano, para diagnostico)

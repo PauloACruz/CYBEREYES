@@ -13,6 +13,7 @@ import { formatDateTime } from '../../lib/format';
 import { notifySuccess } from '../../lib/feedback';
 import { AgentStatusBadge, OperatingSystem } from '../agents/agentDisplay';
 import { RemoteAccessMenu } from '../agents/actions/RemoteAccessMenu';
+import { RemoteSessionsCompact } from '../remote/RemoteSessionsTable';
 import { TicketStatusBadge } from './TicketBadges';
 import { isOverdue, isTicketStatus, STATUS_OPTIONS, TICKET_STATUS_INFO } from './ticketFormat';
 import { storeTicket } from './ticketActions';
@@ -261,9 +262,10 @@ function MachineCard({ ticket, me }: { ticket: TicketDetail; me: MeDto | undefin
           <Field label="IP público">{orMissing(agent.publicIp)}</Field>
           {canRemote && (
             <div>
-              <RemoteAccessMenu agent={agent} />
+              <RemoteAccessMenu agent={agent} ticketId={ticket.id} />
             </div>
           )}
+          {canRemote && <RemoteSessionsCompact ticketId={ticket.id} />}
         </Stack>
       )}
       {ticket.alertId !== null && (

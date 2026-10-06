@@ -74,6 +74,7 @@ type TicketMessageEvent struct {
 // TrayService e o unico servico exposto ao JavaScript. O token fica so aqui.
 type TrayService struct {
 	tokens   *ipc.Manager
+	remote   *ipc.Remote
 	client   *api.Client
 	rt       *realtime.Client
 	notifier *notifier
@@ -95,6 +96,7 @@ func newTrayService(insecure bool) *TrayService {
 	httpClient := api.NewHTTPClient(insecure)
 	s := &TrayService{
 		tokens:   tokens,
+		remote:   &ipc.Remote{},
 		client:   &api.Client{Tokens: tokens, HTTP: httpClient},
 		statuses: map[int]string{},
 	}
@@ -109,6 +111,7 @@ func (s *TrayService) ServiceName() string { return "TrayService" }
 func (s *TrayService) ServiceStartup(ctx context.Context, _ application.ServiceOptions) error {
 	s.ctx = ctx
 	go s.rt.Run(ctx)
+	go s.remote.Run(ctx, s.onRemote)
 	return nil
 }
 

@@ -1,6 +1,7 @@
 import type {
   Backend,
   Message,
+  RemoteEvent,
   RunStatus,
   SelfServiceEvent,
   SelfServiceRun,
@@ -138,6 +139,8 @@ function push(t: TicketDetail, m: Message) {
   msgListeners.forEach((l) => { l({ ticketId: t.id, message: m }); });
 }
 
+const remoteListeners = new Set<(e: RemoteEvent) => void>();
+
 const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 // Imagem 1x1 cinza usada como captura simulada.
@@ -240,5 +243,22 @@ export const mockBackend: Backend = {
   onSelfService(cb) {
     selfServiceListeners.add(cb);
     return () => { selfServiceListeners.delete(cb); };
+  },
+  // No modo de demonstracao, um pedido de acesso aparece alguns segundos depois de abrir.
+  onRemote(cb) {
+    const timer = setTimeout(() => { cb({ event: 'remote-ask', session: 'demo', technician: 'Carlos (Suporte)', timeout: 60 }); }, 3000);
+    remoteListeners.add(cb);
+    return () => {
+      clearTimeout(timer);
+      remoteListeners.delete(cb);
+    };
+  },
+  async remoteAnswer(session, accept) {
+    await delay(100);
+    for (const cb of remoteListeners) cb({ event: accept ? 'remote-notify' : 'remote-ended', session, technician: 'Carlos (Suporte)' });
+  },
+  async remoteEnd(session) {
+    await delay(100);
+    for (const cb of remoteListeners) cb({ event: 'remote-ended', session });
   },
 };

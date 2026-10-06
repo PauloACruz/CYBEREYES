@@ -40,7 +40,6 @@ public sealed class Agent
     public Site? Site { get; set; }
     public string MonitoringType { get; set; } = Rmm.MonitoringType.Server;
     public string? Description { get; set; }
-    public string? MeshNodeId { get; set; }
     public string? GoArch { get; set; }
     public string Plat { get; set; } = "windows";
     public string Version { get; set; } = "0.1.0";

@@ -58,7 +58,7 @@ O papel padrao "Tecnico" recebe as duas em instalacoes novas.
 `slaBreached`: prazo de primeira resposta vencido sem resposta, ou prazo de solucao vencido sem resolucao.
 `unreadForTechnician`: a ultima mensagem publica e do usuario.
 
-`TicketDetail` = `TicketListItem` mais `{ description, requesterUsername, requesterEmail, alertId, createdByName, firstResponseAt, resolvedAt, closedAt, totalMinutes, agent: { id, hostname, status, plat, operatingSystem, loggedInUsername, publicIp, meshNodeId } | null }`.
+`TicketDetail` = `TicketListItem` mais `{ description, requesterUsername, requesterEmail, alertId, createdByName, firstResponseAt, resolvedAt, closedAt, totalMinutes, agent: { id, hostname, status, plat, operatingSystem, loggedInUsername, publicIp, meshNodeId } | null }`. O campo `meshNodeId` foi retirado (substituido na fase 12.8, ver ADR-023).
 
 | Metodo | Rota | Permissao | Corpo / resposta |
 |---|---|---|---|

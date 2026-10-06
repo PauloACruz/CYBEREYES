@@ -71,6 +71,9 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
     public DbSet<ReportSchedule> ReportSchedules => Set<ReportSchedule>();
     public DbSet<ReportDispatch> ReportDispatches => Set<ReportDispatch>();
     public DbSet<OidcProvider> OidcProviders => Set<OidcProvider>();
+    public DbSet<RemoteSession> RemoteSessions => Set<RemoteSession>();
+    public DbSet<RemoteTransfer> RemoteTransfers => Set<RemoteTransfer>();
+    public DbSet<RemotePolicy> RemotePolicies => Set<RemotePolicy>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -140,7 +143,6 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
             e.Property(a => a.Hostname).HasMaxLength(255);
             e.Property(a => a.MonitoringType).HasMaxLength(30);
             e.Property(a => a.Description).HasMaxLength(255);
-            e.Property(a => a.MeshNodeId).HasMaxLength(255);
             e.Property(a => a.GoArch).HasMaxLength(32);
             e.Property(a => a.Plat).HasMaxLength(32);
             e.Property(a => a.Version).HasMaxLength(64);
@@ -655,6 +657,48 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
             e.Property(x => x.Data).HasColumnType("jsonb");
             e.HasIndex(x => new { x.RunId, x.Seq }).IsUnique();
             e.HasOne<CareRun>().WithMany().HasForeignKey(x => x.RunId).HasPrincipalKey(x => x.RunId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<RemoteSession>(e =>
+        {
+            e.ToTable("remote_sessions");
+            e.Property(x => x.SessionId).HasMaxLength(32);
+            e.Property(x => x.Username).HasMaxLength(256);
+            e.Property(x => x.Channels).HasMaxLength(32);
+            e.Property(x => x.ConsentMode).HasMaxLength(16);
+            e.Property(x => x.ConsentResult).HasMaxLength(16);
+            e.Property(x => x.State).HasMaxLength(16);
+            e.Property(x => x.EndReason).HasMaxLength(32);
+            e.Property(x => x.ViewerIp).HasMaxLength(64);
+            e.HasIndex(x => x.SessionId).IsUnique();
+            e.HasIndex(x => new { x.AgentId, x.StartedAt });
+            e.HasIndex(x => new { x.UserId, x.StartedAt });
+            e.HasIndex(x => x.State);
+            e.HasOne<Agent>().WithMany().HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<RemoteTransfer>(e =>
+        {
+            e.ToTable("remote_transfers");
+            e.Property(x => x.SessionId).HasMaxLength(32);
+            e.Property(x => x.Username).HasMaxLength(256);
+            e.Property(x => x.Direction).HasMaxLength(16);
+            e.Property(x => x.RemotePath).HasMaxLength(2000);
+            e.Property(x => x.Sha256).HasMaxLength(64);
+            e.Property(x => x.Status).HasMaxLength(16);
+            e.Property(x => x.Error).HasMaxLength(500);
+            e.HasIndex(x => x.SessionId);
+            e.HasIndex(x => new { x.AgentId, x.StartedAt });
+            e.HasOne<Agent>().WithMany().HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<RemotePolicy>(e =>
+        {
+            e.ToTable("remote_policies");
+            e.Property(x => x.Scope).HasMaxLength(16);
+            e.Property(x => x.Consent).HasMaxLength(16);
+            e.Property(x => x.UpdatedBy).HasMaxLength(256);
+            e.HasIndex(x => new { x.Scope, x.ScopeId }).IsUnique();
         });
 
         builder.Entity<AgentHealth>(e =>

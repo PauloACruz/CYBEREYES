@@ -68,12 +68,27 @@ builder.Services.AddScoped<Cybereyes.Api.Rmm.Actions.SystemEndpoints.Deps>();
 builder.Services.AddHttpClient("webhooks");
 builder.Services.AddHttpClient("oidc");
 builder.Services.AddScoped<Cybereyes.Api.Sso.SsoService>();
-builder.Services.AddHttpClient("mesh", c => c.Timeout = TimeSpan.FromMinutes(5));
-builder.Services.Configure<Cybereyes.Api.Rmm.Mesh.MeshSettings>(builder.Configuration.GetSection(Cybereyes.Api.Rmm.Mesh.MeshSettings.Section));
-builder.Services.AddSingleton<Cybereyes.Api.Rmm.Mesh.MeshClient>();
-builder.Services.AddSingleton<Cybereyes.Api.Rmm.Mesh.MeshState>();
-builder.Services.AddSingleton<Cybereyes.Api.Rmm.Mesh.MeshSync>();
-builder.Services.AddHostedService(sp => sp.GetRequiredService<Cybereyes.Api.Rmm.Mesh.MeshSync>());
+builder.Services.Configure<Cybereyes.Api.Rmm.Remote.RemoteSettings>(builder.Configuration.GetSection(Cybereyes.Api.Rmm.Remote.RemoteSettings.Section));
+if (builder.Configuration.GetConnectionString("Redis") is { Length: > 0 } remoteRedis)
+{
+    builder.Services.AddSingleton<StackExchange.Redis.IConnectionMultiplexer>(_ =>
+    {
+        var redisOptions = StackExchange.Redis.ConfigurationOptions.Parse(remoteRedis);
+        redisOptions.AbortOnConnectFail = false;
+        return StackExchange.Redis.ConnectionMultiplexer.Connect(redisOptions);
+    });
+    builder.Services.AddSingleton<Cybereyes.Api.Rmm.Remote.IRemoteDirectory, Cybereyes.Api.Rmm.Remote.RedisRemoteDirectory>();
+}
+else
+{
+    builder.Services.AddSingleton<Cybereyes.Api.Rmm.Remote.IRemoteDirectory, Cybereyes.Api.Rmm.Remote.LocalRemoteDirectory>();
+}
+builder.Services.AddSingleton<Cybereyes.Api.Rmm.Remote.RemoteNode>();
+builder.Services.AddSingleton<Cybereyes.Api.Rmm.Remote.RemoteSessionManager>();
+builder.Services.AddSingleton<Cybereyes.Api.Rmm.Remote.RemoteForwarder>();
+builder.Services.AddSingleton<Cybereyes.Api.Rmm.Remote.RemoteRelay>();
+builder.Services.AddHostedService<Cybereyes.Api.Rmm.Remote.RemoteSessionReaper>();
+builder.Services.AddHttpClient(Cybereyes.Api.Rmm.Remote.RemoteForwarder.HttpClientName, c => c.Timeout = Timeout.InfiniteTimeSpan);
 builder.Services.AddSingleton<Cybereyes.Api.Rmm.Monitoring.INotificationSender, Cybereyes.Api.Rmm.Monitoring.NotificationSender>();
 builder.Services.AddScoped<Cybereyes.Api.Rmm.Monitoring.AlertService>();
 builder.Services.AddScoped<Cybereyes.Api.Tickets.TicketService>();
@@ -152,6 +167,7 @@ app.Use(async (context, next) =>
     await next();
 });
 
+app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(30) });
 app.UseAuthentication();
 app.UseRateLimiter();
 app.UseAuthorization();
@@ -186,7 +202,7 @@ Cybereyes.Api.Rmm.Actions.SystemEndpoints.MapSystemEndpoints(app);
 Cybereyes.Api.Rmm.Actions.LibraryEndpoints.MapLibraryEndpoints(app);
 Cybereyes.Api.Rmm.Monitoring.ChecksTasksEndpoints.MapChecksTasksEndpoints(app);
 Cybereyes.Api.Rmm.Monitoring.AlertsPatchesEndpoints.MapAlertsPatchesEndpoints(app);
-Cybereyes.Api.Rmm.Mesh.MeshEndpoints.MapMeshEndpoints(app);
+Cybereyes.Api.Rmm.Remote.RemoteEndpoints.MapRemoteEndpoints(app);
 Cybereyes.Api.Tickets.TicketEndpoints.MapTicketEndpoints(app);
 Cybereyes.Api.Tickets.Tray.MapTrayEndpoints(app);
 Cybereyes.Api.Inventory.AssetEndpoints.MapAssetEndpoints(app);

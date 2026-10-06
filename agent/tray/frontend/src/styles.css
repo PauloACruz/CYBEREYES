@@ -230,3 +230,40 @@ button { font: inherit; }
 @media (prefers-reduced-motion: reduce) {
   .ss-bar-fill { transition: none; }
 }
+
+/* Acesso remoto: pedido de aceite e aviso de sessao em andamento. */
+.remote-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(10, 14, 20, .55);
+}
+.remote-dialog {
+  width: 100%;
+  max-width: 360px;
+  padding: 20px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .25);
+}
+.remote-dialog h2 { margin: 0 0 8px; font-size: 16px; }
+.remote-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+.remote-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #fff4e5;
+  color: #6b3a00;
+  border-bottom: 1px solid #f5c37a;
+}
+@media (prefers-color-scheme: dark) {
+  .remote-banner { background: #3a2a10; color: #ffd8a1; border-bottom-color: #6b4a14; }
+}
+.remote-error { padding: 0 12px; }

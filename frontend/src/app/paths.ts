@@ -27,7 +27,17 @@ export const PATHS = {
   logs: '/logs',
   snmp: '/snmp',
   reports: '/relatorios',
+  remote: '/acesso-remoto',
 } as const;
+
+/** Janela do visualizador de acesso remoto (RFC-001). */
+export function remotePath(agentId: number, options: { viewOnly?: boolean; ticketId?: number } = {}): string {
+  const query = new URLSearchParams();
+  if (options.viewOnly) query.set('visualizar', '1');
+  if (options.ticketId) query.set('chamado', String(options.ticketId));
+  const qs = query.toString();
+  return `${PATHS.remote}/${agentId}${qs ? `?${qs}` : ''}`;
+}
 
 export function agentPath(id: number): string {
   return `${PATHS.agents}/${id}`;

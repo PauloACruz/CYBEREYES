@@ -1,5 +1,7 @@
 # Contrato de API - Fase 4 (acesso remoto com MeshCentral)
 
+> **Substituido (fase 12.8)**: este contrato foi substituido por `docs/remoto/contrato-remoto.md` (ADR-023). O MeshCentral saiu do Cybereyes e as rotas abaixo (`/api/mesh/*`, `/api/agents/{id}/remote`, `/api/agents/{id}/mesh/recover` e as rotas do agente `meshexe`, `meshreinstall` e `syncmesh`) nao existem mais. O Wake-on-LAN continua em `POST /api/agents/{id}/wake`, agora enviado por um EYES vizinho. O restante deste documento fica como registro historico.
+
 Mesmo padrao das fases anteriores (cookie com 2FA, camelCase, ProblemDetails com `code`, auditoria em toda acao).
 
 ## Permissao nova
@@ -47,8 +49,14 @@ Cada abertura de acesso remoto gera o registro de auditoria `agent.remote-sessio
 | `Mesh__Username` | `cybereyes` | Administrador interno do MeshCentral |
 | `Mesh__TokenKeyFile` | `/mesh/mesh_token` | Arquivo com a chave de token (ou `Mesh__TokenKey` com o valor) |
 | `Mesh__DeviceGroup` | `Cybereyes` | Nome do grupo de dispositivos |
+| `Mesh__DistributeAgent` | `false` | Oferece o MeshAgent nas instalacoes e em `meshexe`/`meshreinstall`. Desligado por padrao desde o ADR-023 |
+
+> **ADR-023 (servidor limpo)**: o MeshAgent deixou de ser oferecido. Os comandos de instalacao saem com `--nomesh` e `meshexe`/`meshreinstall` respondem 400 `"MeshAgent is no longer distributed"`. O acesso remoto passa a ser o modulo proprio da RFC-001; o MeshCentral sai na fase 12.8.
 
 ## Tela via RDP em Linux com Wayland
+
+> Removida na fase 12.8 junto com o MeshCentral (dependia do tunel do MeshAgent). Substituida pelo canal `rdp` do acesso remoto proprio, que leva o RDP do GNOME pelo relay (`docs/remoto/contrato-remoto.md`, secao 5.4, e `docs/remoto/fase12-8.md`).
+
 O MeshAgent so captura a tela de sessoes X11. Em distribuicoes com GNOME recente (por exemplo Ubuntu com GNOME 50), a sessao e sempre Wayland e a "Tela" do MeshCentral abre sem imagem.
 
 Para esses casos, `POST /api/agents/{id}/remote/rdp`:

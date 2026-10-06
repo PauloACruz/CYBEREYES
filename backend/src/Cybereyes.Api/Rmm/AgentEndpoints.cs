@@ -18,7 +18,7 @@ public sealed record AgentListItem(int Id, string AgentId, string Hostname, int 
 public sealed record AgentDetail(int Id, string AgentId, string Hostname, int ClientId, string ClientName, int SiteId, string SiteName,
     string MonitoringType, string Plat, string? GoArch, string? OperatingSystem, string Status, DateTimeOffset? LastSeen, string Version,
     string? LoggedInUsername, string? LastLoggedInUser, string? PublicIp, bool NeedsReboot, string? Description, int? TotalRam,
-    DateTimeOffset? BootTime, string? MeshNodeId, JsonElement? Disks, JsonElement? Services, JsonElement? Wmi, int CheckInterval,
+    DateTimeOffset? BootTime, JsonElement? Disks, JsonElement? Services, JsonElement? Wmi, int CheckInterval,
     int OfflineTime, int OverdueTime, DateTimeOffset CreatedAt, bool SnmpCollector);
 
 public static class AgentEndpoints
@@ -78,7 +78,7 @@ public static class AgentEndpoints
         return TypedResults.Ok(new AgentDetail(a.Id, a.AgentId, a.Hostname, a.Site!.ClientId, a.Site.Client!.Name, a.SiteId, a.Site.Name,
             a.MonitoringType, a.Plat, a.GoArch, a.OperatingSystem, a.Status, a.LastSeen, a.Version, a.LoggedInUsername, a.LastLoggedInUser,
             a.PublicIp, a.NeedsReboot, a.Description, a.TotalRam,
-            a.BootTime is { } boot ? DateTimeOffset.FromUnixTimeSeconds((long)boot) : null, a.MeshNodeId,
+            a.BootTime is { } boot ? DateTimeOffset.FromUnixTimeSeconds((long)boot) : null,
             Json(a.Disks), Json(a.Services), Json(a.WmiDetail), a.CheckInterval, a.OfflineTime, a.OverdueTime, a.CreatedAt, a.SnmpCollector));
     }
 

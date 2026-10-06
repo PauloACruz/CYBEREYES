@@ -12,7 +12,6 @@ issue() {
 sleep 15
 while :; do
     issue "$CYBEREYES_HOST" || echo "Falha ao emitir certificado para $CYBEREYES_HOST, nova tentativa em 1 h"
-    issue "$MESH_HOST" || echo "Falha ao emitir certificado para $MESH_HOST, nova tentativa em 1 h"
     certbot renew --webroot -w /var/www/certbot --quiet || echo "Falha na renovacao, nova tentativa em 1 h"
     sleep 3600
 done

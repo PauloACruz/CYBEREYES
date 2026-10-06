@@ -6,6 +6,8 @@
 //
 //	-> {"cmd":"token","refresh":false}
 //	<- {"token":"...","expires_at":"RFC3339","api_url":"https://...","hostname":"...","username":"...","error":""}
+//
+// A conexao aberta com {"cmd":"subscribe"} fica aberta e recebe os eventos do acesso remoto (events.go).
 package tray
 
 import (
@@ -80,13 +82,21 @@ func Register(e *env.Env) error {
 func (s *Server) serve(ctx context.Context, conn net.Conn) {
 	defer conn.Close()
 	_ = conn.SetDeadline(time.Now().Add(45 * time.Second))
-	line, err := bufio.NewReaderSize(conn, 4096).ReadString('\n')
+	reader := bufio.NewReaderSize(conn, 4096)
+	line, err := reader.ReadString('\n')
 	if err != nil && line == "" {
 		return
 	}
 	var req request
 	resp := response{}
-	if err := json.Unmarshal([]byte(strings.TrimSpace(line)), &req); err != nil || req.Cmd != "token" {
+	parseErr := json.Unmarshal([]byte(strings.TrimSpace(line)), &req)
+	if parseErr == nil && req.Cmd == "subscribe" {
+		if user, err := peerUser(conn); err == nil && user != "" {
+			Events.serve(ctx, conn, reader, user)
+		}
+		return
+	}
+	if parseErr != nil || req.Cmd != "token" {
 		resp.Error = "comando invalido"
 		s.write(conn, resp)
 		return

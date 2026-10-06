@@ -42,7 +42,7 @@ func asUser(ctx context.Context, path string, args ...string) (string, error) {
 	return out, nil
 }
 
-func enable(ctx context.Context) (Access, error) {
+func enable(ctx context.Context, viewOnly bool) (Access, error) {
 	grd, err := grdctl()
 	if err != nil {
 		return Access{}, err
@@ -86,12 +86,16 @@ func enable(ctx context.Context) (Access, error) {
 	}
 
 	password := newPassword(16)
+	viewMode := "disable-view-only"
+	if viewOnly {
+		viewMode = "enable-view-only"
+	}
 	steps := [][]string{
 		{"rdp", "set-tls-key", keyPath},
 		{"rdp", "set-tls-cert", certPath},
 		{"rdp", "set-auth-methods", "credentials"},
 		{"rdp", "set-credentials", Username, password},
-		{"rdp", "disable-view-only"},
+		{"rdp", viewMode},
 		{"rdp", "enable"},
 	}
 	for _, s := range steps {

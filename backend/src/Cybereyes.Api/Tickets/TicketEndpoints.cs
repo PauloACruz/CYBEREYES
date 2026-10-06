@@ -21,7 +21,7 @@ public sealed record TicketListItem(
     bool SlaBreached, bool UnreadForTechnician);
 
 public sealed record TicketAgentDto(int Id, string Hostname, string Status, string? Plat, string? OperatingSystem, string? LoggedInUsername,
-    string? PublicIp, string? MeshNodeId);
+    string? PublicIp);
 
 public sealed record TicketDetail(
     int Id, string Type, string Title, string Status, string Priority, int QueueId, string QueueName, int? AgentId, string? Hostname,
@@ -264,7 +264,7 @@ public static class TicketEndpoints
         var minutes = await db.TimeEntries.Where(e => e.TicketId == id).SumAsync(e => (int?)e.Minutes, ct) ?? 0;
         var agent = t.AgentId is { } agentId
             ? await db.Agents.AsNoTracking().Where(a => a.Id == agentId)
-                .Select(a => new TicketAgentDto(a.Id, a.Hostname, a.Status, a.Plat, a.OperatingSystem, a.LoggedInUsername, a.PublicIp, a.MeshNodeId))
+                .Select(a => new TicketAgentDto(a.Id, a.Hostname, a.Status, a.Plat, a.OperatingSystem, a.LoggedInUsername, a.PublicIp))
                 .FirstOrDefaultAsync(ct)
             : null;
         var item = ToItem(row, time.GetUtcNow());

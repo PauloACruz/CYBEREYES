@@ -5,6 +5,7 @@ import { suggestedTicket, type TicketDraft } from './lib/selfService';
 import type { SelfServiceOptions, SelfServiceTask, SessionInfo, Ticket } from './lib/types';
 import { useSelfServiceRun } from './lib/useSelfServiceRun';
 import { Header } from './components/Header';
+import { RemoteAccess } from './components/RemoteAccess';
 import { NewTicketForm } from './components/NewTicketForm';
 import { TicketDetailView } from './components/TicketDetailView';
 import { TicketList } from './components/TicketList';
@@ -194,6 +195,7 @@ export function App() {
   return (
     <div className="app">
       <Header session={session} />
+      <RemoteAccess backend={backend} />
       {showTabs && (
         <ViewTabs
           active={view.kind === 'selfService' ? 'selfService' : 'tickets'}

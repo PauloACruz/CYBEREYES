@@ -24,7 +24,6 @@ export type ErrorCode =
   | 'RATE_LIMITED'
   | 'AGENT_TIMEOUT'
   | 'AGENT_BUSY'
-  | 'MESH_DISABLED'
   | 'VAULT_DISABLED'
   | 'SSO_PROVIDER_ERROR'
   | 'SSO_INVALID_STATE'
@@ -32,7 +31,18 @@ export type ErrorCode =
   | 'SSO_USER_NOT_FOUND'
   | 'SSO_USER_DISABLED'
   | 'SSO_DOMAIN_NOT_ALLOWED'
-  | 'PASSWORD_LOGIN_DISABLED';
+  | 'PASSWORD_LOGIN_DISABLED'
+  | 'REMOTE_DISABLED'
+  | 'AGENT_OFFLINE'
+  | 'REMOTE_UNSUPPORTED'
+  | 'REMOTE_WAYLAND'
+  | 'SESSION_LIMIT'
+  | 'NO_INTERACTIVE_SESSION'
+  | 'AGENT_ERROR'
+  | 'SESSION_ENDED'
+  | 'FILE_EXISTS'
+  | 'FILE_TOO_LARGE'
+  | 'INVALID_PATH';
 
 export interface Paged<T> {
   items: T[];
@@ -303,7 +313,6 @@ export interface AgentDetail extends AgentListItem {
   /** Em GB. */
   totalRam: number | null;
   bootTime: string | null;
-  meshNodeId: string | null;
   /** JSON enviado pelo agente; validar antes de usar. */
   disks: unknown;
   services: unknown;
@@ -577,6 +586,7 @@ export const PERMISSIONS = {
   agentsRun: 'agents.run',
   agentsControl: 'agents.control',
   agentsRemote: 'agents.remote',
+  agentsFiles: 'agents.files',
   scriptsView: 'scripts.view',
   scriptsManage: 'scripts.manage',
   checksManage: 'checks.manage',
@@ -949,37 +959,118 @@ export interface SaveGlobalSettingsRequest extends Omit<GlobalSettingsDto, 'smtp
   smtpPassword?: string;
 }
 
-// Acesso remoto com MeshCentral (docs/api/fase4-mesh.md)
+// Acesso remoto proprio (docs/remoto/contrato-remoto.md)
 
-export type RemoteView = 'control' | 'terminal' | 'files';
+export type RemoteChannel = 'desktop' | 'rdp' | 'files';
+export type RemoteSessionState = 'starting' | 'waiting-consent' | 'active' | 'ended';
+export type RemoteConsentMode = 'none' | 'notify' | 'ask';
 
-export interface RemoteAccessDto {
-  hostname: string;
-  control: string;
-  terminal: string;
-  files: string;
+export interface CreateRemoteSessionRequest {
+  channels: RemoteChannel[];
+  viewOnly?: boolean;
+  ticketId?: number | null;
 }
 
-/** Acesso RDP (Linux com sessao Wayland): link do Web-RDP do MeshCentral e credencial de uso unico. */
-export interface RdpAccessDto {
-  url: string;
+export interface RemoteSessionDto {
+  sessionId: string;
+  agentId: number;
+  hostname: string;
+  user: string;
+  channels: RemoteChannel[];
+  viewOnly: boolean;
+  state: RemoteSessionState;
+  consent: RemoteConsentMode;
+  startedAt: string;
+  endedAt: string | null;
+  endReason: string | null;
+  /** So na criacao. */
+  relayUrl: string | null;
+  /** So na criacao: token de uso unico do visualizador. */
+  viewerToken: string | null;
+  expiresAt: string | null;
+  ticketId: number | null;
+  firstFrameAt: string | null;
+  bytesToViewer: number;
+  bytesToAgent: number;
+  clipboardToRemote: number;
+  clipboardToLocal: number;
+  /** So na criacao de sessao com o canal rdp (RDP do GNOME em Linux com Wayland). */
+  rdp?: RemoteRdpAccessDto | null;
+}
+
+/** Credencial temporaria do RDP do GNOME: o EYES cria uma senha nova a cada sessao e desliga o RDP no fim. */
+export interface RemoteRdpAccessDto {
+  destination: string;
   username: string;
   password: string;
-  port: number;
-  sessionUser: string | null;
+  user: string | null;
+  /** Area de transferencia do RDP ligada (politica nos dois sentidos e sessao com controle). */
+  clipboard: boolean;
 }
 
-export interface MeshSyncResult {
-  lastSync: string | null;
-  lastError: string | null;
-  users: number;
+export interface RemoteHomeDto {
+  desktop: string;
+  home: string;
+  downloads: string;
+  separator: string;
 }
 
-export interface MeshStatusDto extends MeshSyncResult {
-  enabled: boolean;
-  url: string | null;
-  deviceGroup: string | null;
-  groupId: string | null;
+export interface RemoteFileEntry {
+  name: string;
+  path: string;
+  kind: 'file' | 'dir' | 'link';
+  size: number;
+  modifiedAt: string;
+  hidden: boolean;
+}
+
+export interface RemoteTransferDto {
+  id: number;
+  sessionId: string;
+  agentId: number;
+  hostname: string;
+  username: string;
+  direction: 'upload' | 'download';
+  remotePath: string;
+  sizeBytes: number;
+  sha256: string | null;
+  startedAt: string;
+  finishedAt: string | null;
+  status: 'running' | 'done' | 'failed';
+  error: string | null;
+}
+
+export interface RemoteTransferPage {
+  items: RemoteTransferDto[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface RemoteSessionPage {
+  items: RemoteSessionDto[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export type RemotePolicyScope = 'global' | 'client' | 'site';
+
+export interface RemotePolicyDto {
+  scope: RemotePolicyScope;
+  scopeId: number;
+  consent: RemoteConsentMode | null;
+  consentTimeoutSeconds: number | null;
+  allowAtLoginScreen: boolean | null;
+  clipboardToRemote: boolean | null;
+  clipboardToLocal: boolean | null;
+  filesUpload: boolean | null;
+  filesDownload: boolean | null;
+  maxFileMb: number | null;
+  idleMinutes: number | null;
+  maxHours: number | null;
+  updatedAt: string | null;
+  updatedBy: string | null;
 }
 
 // Chamados e incidentes (docs/api/fase5-chamados.md)
@@ -1023,7 +1114,6 @@ export interface TicketAgentDto {
   operatingSystem: string | null;
   loggedInUsername: string | null;
   publicIp: string | null;
-  meshNodeId: string | null;
 }
 
 export interface TicketDetail extends TicketListItem {

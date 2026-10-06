@@ -97,6 +97,9 @@ public static class EyesBinary
         return null;
     }
 
+    /// <summary>Versao do EYES compilado nos testes (agent/VERSION).</summary>
+    public static string Version => File.ReadAllText(System.IO.Path.Combine(RepoRoot(), "agent", "VERSION")).Trim();
+
     public static string RepoRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
@@ -128,9 +131,15 @@ public sealed class ApiProxy : IAsyncDisposable
         builder.Logging.ClearProviders();
         builder.WebHost.UseUrls($"http://127.0.0.1:{port}");
         var app = builder.Build();
+        app.UseWebSockets();
         var upstream = fixture.Server.CreateClient();
         app.Run(async ctx =>
         {
+            if (ctx.WebSockets.IsWebSocketRequest)
+            {
+                await RelayWebSocketAsync(fixture, ctx);
+                return;
+            }
             using var request = new HttpRequestMessage(new HttpMethod(ctx.Request.Method), "https://localhost" + ctx.Request.Path + ctx.Request.QueryString);
             if (ctx.Request.ContentLength is > 0 || ctx.Request.Headers.TransferEncoding.Count > 0)
             {
@@ -165,6 +174,49 @@ public sealed class ApiProxy : IAsyncDisposable
         });
         await app.StartAsync();
         return new ApiProxy(app, $"http://127.0.0.1:{port}");
+    }
+
+    /// <summary>Repassa um WebSocket (relay do acesso remoto) ao servidor de teste, com os cabecalhos de autenticacao.</summary>
+    private static async Task RelayWebSocketAsync(ApiFixture fixture, HttpContext ctx)
+    {
+        var client = fixture.Server.CreateWebSocketClient();
+        client.ConfigureRequest = r =>
+        {
+            foreach (var name in new[] { "Authorization", "X-API-KEY" })
+            {
+                if (ctx.Request.Headers.TryGetValue(name, out var value))
+                {
+                    r.Headers[name] = value;
+                }
+            }
+        };
+        using var upstream = await client.ConnectAsync(new Uri("ws://localhost" + ctx.Request.Path + ctx.Request.QueryString), ctx.RequestAborted);
+        using var downstream = await ctx.WebSockets.AcceptWebSocketAsync();
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ctx.RequestAborted);
+        await Task.WhenAny(PumpAsync(downstream, upstream, cts.Token), PumpAsync(upstream, downstream, cts.Token));
+        await cts.CancelAsync();
+    }
+
+    private static async Task PumpAsync(System.Net.WebSockets.WebSocket from, System.Net.WebSockets.WebSocket to, CancellationToken ct)
+    {
+        var buffer = new byte[1 << 16];
+        try
+        {
+            while (true)
+            {
+                var result = await from.ReceiveAsync(buffer, ct);
+                if (result.MessageType == System.Net.WebSockets.WebSocketMessageType.Close)
+                {
+                    await to.CloseOutputAsync(from.CloseStatus ?? System.Net.WebSockets.WebSocketCloseStatus.NormalClosure, from.CloseStatusDescription, CancellationToken.None);
+                    return;
+                }
+                await to.SendAsync(buffer.AsMemory(0, result.Count), result.MessageType, result.EndOfMessage, ct);
+            }
+        }
+        catch (Exception ex) when (ex is System.Net.WebSockets.WebSocketException or OperationCanceledException or InvalidOperationException)
+        {
+            // uma das pontas fechou
+        }
     }
 
     private static int FreePort()

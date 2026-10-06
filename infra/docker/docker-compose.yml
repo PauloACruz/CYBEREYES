@@ -39,7 +39,6 @@ services:
       - "443:443"
     environment:
       CYBEREYES_HOST: ${CYBEREYES_HOST:?defina CYBEREYES_HOST no .env}
-      MESH_HOST: ${MESH_HOST}
     volumes:
       - letsencrypt:/etc/letsencrypt:ro
       - certbot_webroot:/var/www/certbot:ro
@@ -52,8 +51,6 @@ services:
     networks:
       edge:
         ipv4_address: 172.30.0.10
-        aliases:
-          - ${MESH_HOST}
 
   certbot:
     <<: [*restart, *hardening]
@@ -62,7 +59,6 @@ services:
     entrypoint: ["/bin/sh", "/run.sh"]
     environment:
       CYBEREYES_HOST: ${CYBEREYES_HOST}
-      MESH_HOST: ${MESH_HOST}
       ACME_EMAIL: ${ACME_EMAIL}
     volumes:
       - ./certbot/run.sh:/run.sh:ro
@@ -119,16 +115,10 @@ services:
       Nats__AuthFile: /etc/nats/auth/users.conf
       Agent__BinariesPath: /agents
       Agent__LatestVersion: ${AGENT_VERSION:-}
-      Mesh__Url: https://${MESH_HOST}
-      Mesh__InternalUrl: http://meshcentral:4443
-      Mesh__Username: ${MESH_USER:-cybereyes}
-      Mesh__TokenKeyFile: /mesh/mesh_token
-      Mesh__DeviceGroup: ${MESH_DEVICE_GROUP:-Cybereyes}
       Vault__Key: ${VAULT_KEY:-}
     volumes:
       - nats_auth:/etc/nats/auth
       - ./agents:/agents:ro
-      - mesh_shared:/mesh:ro
     depends_on:
       nats:
         condition: service_started
@@ -215,32 +205,13 @@ services:
       - nats_auth:/etc/nats/auth
     networks: [edge, data]
 
-  meshcentral:
-    <<: [*restart, *hardening]
-    mem_limit: 1g
-    build:
-      context: ./meshcentral
-      args:
-        MESHCENTRAL_VERSION: ${MESHCENTRAL_VERSION:-1.2.5}
-    image: ${REGISTRY:-ghcr.io/pauloacruz}/cybereyes-meshcentral:${MESHCENTRAL_VERSION:-1.2.5}
-    environment:
-      MESH_HOST: ${MESH_HOST}
-      PROXY_IP: 172.30.0.10
-      MESH_USER: ${MESH_USER:-cybereyes}
-      MESH_EMAIL: ${ADMIN_EMAIL}
-    volumes:
-      - mesh_data:/opt/meshcentral/meshcentral-data
-      - mesh_files:/opt/meshcentral/meshcentral-files
-      - mesh_shared:/opt/meshcentral/shared
-    networks: [edge]
-
   # Backup diario (sempre ativo, sem perfil: o RPO de 24 h depende dele e um perfil esquecido
   # no .env desligaria o backup sem aviso). Ver docs/runbooks/backup-restauracao.md.
   backup:
     <<: [*restart, *hardening]
     build: ./backup
     image: ${REGISTRY:-ghcr.io/pauloacruz}/cybereyes-backup:${VERSION:-latest}
-    # Root com DAC_READ_SEARCH apenas para ler os arquivos do MeshCentral (uid 1000) nos volumes somente leitura.
+    # Root com DAC_READ_SEARCH apenas para ler o .env montado (BACKUP_INCLUDE_ENV), que costuma ter permissao 600.
     cap_add: [DAC_READ_SEARCH]
     read_only: true
     tmpfs: [/tmp]
@@ -257,8 +228,6 @@ services:
       BACKUP_INCLUDE_ENV: ${BACKUP_INCLUDE_ENV:-false}
     volumes:
       - ${BACKUP_HOST_DIR:-./backups}:/backups
-      - mesh_data:/volumes/mesh_data:ro
-      - mesh_files:/volumes/mesh_files:ro
       - ./.env:/config/.env:ro
     depends_on:
       postgres:
@@ -279,6 +248,3 @@ volumes:
   certbot_webroot:
   postgres_data:
   redis_data:
-  mesh_data:
-  mesh_files:
-  mesh_shared:

@@ -9,6 +9,7 @@ import (
 	"github.com/pauloacruz/cybereyes/agent/internal/inventory"
 	"github.com/pauloacruz/cybereyes/agent/internal/logs"
 	"github.com/pauloacruz/cybereyes/agent/internal/rdp"
+	"github.com/pauloacruz/cybereyes/agent/internal/remote"
 	"github.com/pauloacruz/cybereyes/agent/internal/snmp"
 	"github.com/pauloacruz/cybereyes/agent/internal/tasks"
 	"github.com/pauloacruz/cybereyes/agent/internal/terminal"
@@ -30,6 +31,7 @@ func init() {
 		logs.Register,
 		snmp.Register,
 		care.Register,
+		remote.Register,
 		rdp.Register,
 	}
 }

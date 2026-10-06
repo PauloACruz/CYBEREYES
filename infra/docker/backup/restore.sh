@@ -7,9 +7,9 @@
 # Opcoes:
 #   -p, --project NOME   projeto do Compose (padrao: cybereyes)
 #   --env-file ARQUIVO   .env do stack (padrao: infra/docker/.env)
-#   --no-mesh            nao restaura os volumes do MeshCentral
+#   --no-mesh            aceito por compatibilidade, sem efeito (o MeshCentral saiu na fase 12.8)
 #   --no-start           nao sobe o stack ao final
-#   --yes                confirma que o banco e os volumes do projeto serao SOBRESCRITOS
+#   --yes                confirma que o banco do projeto sera SOBRESCRITO
 #
 # Conjuntos cifrados (*.enc) exigem BACKUP_PASSPHRASE no ambiente.
 # Outros arquivos do Compose (override) podem ser passados pela variavel COMPOSE_FILE.
@@ -20,15 +20,12 @@ SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 COMPOSE_DIR=$(dirname "$SCRIPT_DIR")
 PROJECT=cybereyes
 ENV_FILE="$COMPOSE_DIR/.env"
-RESTORE_MESH=1
 START=1
 CONFIRMED=0
 SET_DIR=
 DB_NAME=cybereyes
 DB_USER=cybereyes
 HELPER_IMAGE="${HELPER_IMAGE:-postgres:17-alpine}"
-# Usuario "node" da imagem do MeshCentral: dono da raiz dos volumes, mesmo que o arquivo venha de um volume nunca usado.
-MESH_UID=1000
 PBKDF2_ITER=200000
 
 log() { printf '%s [restore] %s\n' "$(date '+%Y-%m-%d %H:%M:%S %Z')" "$*" >&2; }
@@ -38,7 +35,7 @@ while [ $# -gt 0 ]; do
     case "$1" in
         -p|--project) PROJECT="$2"; shift 2 ;;
         --env-file) ENV_FILE="$2"; shift 2 ;;
-        --no-mesh) RESTORE_MESH=0; shift ;;
+        --no-mesh) shift ;;
         --no-start) START=0; shift ;;
         --yes) CONFIRMED=1; shift ;;
         -h|--help) sed -n '2,17p' "$0"; exit 0 ;;
@@ -68,8 +65,7 @@ if [ "$CONFIRMED" != 1 ]; then
     cat >&2 <<EOF
 ATENCAO: esta restauracao vai SOBRESCREVER, no projeto Compose "$PROJECT":
   - o banco "$DB_NAME" (apagado e recriado a partir de $SET_DIR)
-$( [ "$RESTORE_MESH" = 1 ] && echo "  - os volumes ${PROJECT}_mesh_data e ${PROJECT}_mesh_files (conteudo atual apagado)" )
-Os servicos api, nginx, meshcentral e backup serao parados durante a restauracao.
+Os servicos api, nginx e backup serao parados durante a restauracao.
 Repita o comando com --yes para continuar.
 EOF
     exit 2
@@ -99,23 +95,20 @@ plain() {
 
 dump=$(plain postgres.dump)
 [ -n "$dump" ] || fail "postgres.dump nao encontrado"
-mesh_data_archive=
-mesh_files_archive=
-if [ "$RESTORE_MESH" = 1 ]; then
-    mesh_data_archive=$(plain mesh_data.tar.gz)
-    mesh_files_archive=$(plain mesh_files.tar.gz)
-fi
-
-# Valida tudo antes de parar qualquer servico: senha errada ou arquivo ruim nao pode derrubar o banco atual.
-log "validando o dump e os arquivos"
-docker run --rm --network none -v "$(dirname "$dump"):/in:ro" "$HELPER_IMAGE" \
-    pg_restore --list "/in/$(basename "$dump")" >/dev/null || fail "dump ilegivel (senha errada ou arquivo corrompido)"
-for archive in $mesh_data_archive $mesh_files_archive; do
-    gzip -t "$archive" || fail "arquivo ilegivel: $(basename "$archive")"
+# Conjuntos anteriores a fase 12.8 podem trazer mesh_data e mesh_files do MeshCentral: nao sao mais usados.
+for old in mesh_data.tar.gz mesh_files.tar.gz; do
+    if [ -f "$SET_DIR/$old" ] || [ -f "$SET_DIR/$old.enc" ]; then
+        log "AVISO: $old e do MeshCentral removido e foi ignorado"
+    fi
 done
 
-log "parando servicos que usam o banco e os volumes"
-dc stop api nginx meshcentral backup >/dev/null 2>&1 || true
+# Valida tudo antes de parar qualquer servico: senha errada ou arquivo ruim nao pode derrubar o banco atual.
+log "validando o dump"
+docker run --rm --network none -v "$(dirname "$dump"):/in:ro" "$HELPER_IMAGE" \
+    pg_restore --list "/in/$(basename "$dump")" >/dev/null || fail "dump ilegivel (senha errada ou arquivo corrompido)"
+
+log "parando servicos que usam o banco"
+dc stop api nginx backup >/dev/null 2>&1 || true
 
 log "subindo o postgres"
 dc up -d --no-build postgres >/dev/null
@@ -136,39 +129,6 @@ log "pg_restore"
 dc exec -T postgres pg_restore -U "$DB_USER" -d "$DB_NAME" --no-owner --exit-on-error < "$dump" \
     || fail "pg_restore falhou"
 [ "$dump" = "$WORK/postgres.dump" ] && rm -f "$dump"
-
-volume_for() {
-    name=$(docker volume ls -q --filter "label=com.docker.compose.project=$PROJECT" \
-        --filter "label=com.docker.compose.volume=$1")
-    if [ -z "$name" ]; then
-        name="${PROJECT}_$1"
-        docker volume create --label "com.docker.compose.project=$PROJECT" \
-            --label "com.docker.compose.volume=$1" "$name" >/dev/null
-    fi
-    echo "$name"
-}
-
-if [ "$RESTORE_MESH" = 1 ]; then
-    for vol in mesh_data mesh_files; do
-        if [ "$vol" = mesh_data ]; then archive=$mesh_data_archive; else archive=$mesh_files_archive; fi
-        if [ -z "$archive" ]; then
-            log "AVISO: $vol.tar.gz nao existe no conjunto; volume mantido como esta"
-            continue
-        fi
-        target=$(volume_for "$vol")
-        log "restaurando $vol em $target"
-        docker run --rm --network none -v "$target:/d" -v "$(dirname "$archive"):/in:ro" "$HELPER_IMAGE" \
-            sh -c "find /d -mindepth 1 -delete && tar --numeric-owner -xzpf /in/$(basename "$archive") -C /d && chown $MESH_UID:$MESH_UID /d" \
-            || fail "falha ao restaurar $vol"
-    done
-    # A chave de token em mesh_shared e regravada pelo MeshCentral so quando falta; apagamos para
-    # que ele grave a chave que corresponde ao mesh_data restaurado.
-    shared=$(docker volume ls -q --filter "label=com.docker.compose.project=$PROJECT" \
-        --filter "label=com.docker.compose.volume=mesh_shared")
-    if [ -n "$shared" ]; then
-        docker run --rm --network none -v "$shared:/s" "$HELPER_IMAGE" rm -f /s/mesh_token
-    fi
-fi
 
 if [ -f "$SET_DIR/env" ] || [ -f "$SET_DIR/env.enc" ]; then
     log "o conjunto tem uma copia do .env; ela NAO foi aplicada (ver docs/runbooks/backup-restauracao.md)"

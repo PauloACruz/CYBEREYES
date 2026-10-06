@@ -41,6 +41,13 @@ jobs:
             exit 1
           fi
       - run: dotnet build --no-restore -c Release
+      # Tela X11 virtual para o teste do acesso remoto com o EYES real (RemoteE2ETests, RFC-001).
+      - name: Xvfb, xdotool e xclip
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q xvfb xdotool xclip
+          Xvfb :99 -screen 0 1280x800x24 &
+          echo "DISPLAY=:99" >> "$GITHUB_ENV"
       - run: dotnet test --no-build -c Release --collect:"XPlat Code Coverage"
 
   frontend:
@@ -84,7 +91,6 @@ jobs:
           docker build --build-context agent=agent -t $REGISTRY/cybereyes-api:${{ github.sha }} backend
           docker build --build-arg APP_COMMIT=${{ github.sha }} -t $REGISTRY/cybereyes-web:${{ github.sha }} frontend
           docker build -t $REGISTRY/cybereyes-backup:${{ github.sha }} infra/docker/backup
-          docker build -t $REGISTRY/cybereyes-meshcentral:1.2.5 infra/docker/meshcentral
       - name: Publicar imagens
         if: github.event_name == 'push'
         run: |
@@ -93,4 +99,3 @@ jobs:
             docker push $REGISTRY/$img:${{ github.sha }}
             docker push $REGISTRY/$img:latest
           done
-          docker push $REGISTRY/cybereyes-meshcentral:1.2.5

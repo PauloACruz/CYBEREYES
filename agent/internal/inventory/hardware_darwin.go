@@ -51,6 +51,7 @@ func collectHardware(ctx context.Context) map[string]any {
 		"gpus":         nonNil(hw.GPUs),
 		"disks":        nonNil(hw.Disks),
 		"local_ips":    nonNil(sysinfo.LocalIPs()),
+		"nics":         sysinfo.NICs(),
 		"manufacturer": "Apple",
 		"model":        hw.Model,
 		"cpu_cores":    cores,

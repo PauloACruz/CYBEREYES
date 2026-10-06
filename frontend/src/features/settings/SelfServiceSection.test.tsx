@@ -13,6 +13,8 @@ describe('autoatendimento nas configurações', () => {
     let agentQuery: string | null = null;
     mockFetch({
       'GET /api/auth/me': () => json(makeMe({ permissions: ['settings.manage'] })),
+      'GET /api/remote/policies': () => json([]),
+      'GET /api/clients': () => json([]),
       'GET /api/care/self-service': () => json({ enabled: false, tasks: ['winget.upgrade_all'] }),
       'GET /api/sso/providers': () => json([]),
       'GET /api/sso/settings': () => json({ disablePasswordLogin: false }),

@@ -63,6 +63,7 @@ func collectHardware(ctx context.Context) map[string]any {
 		"gpus":         nonNil(linuxGPUs(ctx)),
 		"disks":        nonNil(linuxDisks()),
 		"local_ips":    nonNil(sysinfo.LocalIPs()),
+		"nics":         sysinfo.NICs(),
 		"manufacturer": sysinfo.CleanValue(vendor),
 		"model":        sysinfo.CleanValue(product),
 		"bios_version": dmi("bios_version"),

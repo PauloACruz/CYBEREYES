@@ -13,7 +13,6 @@ function detailOf(agent: AgentListItem): AgentDetail {
     goArch: 'amd64',
     totalRam: 16,
     bootTime: null,
-    meshNodeId: null,
     disks: null,
     services: null,
     wmi: null,

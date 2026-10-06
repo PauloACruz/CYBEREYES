@@ -67,6 +67,8 @@ export interface RequestOptions {
   signal?: AbortSignal;
   /** Nao dispara a notificacao global de erro (o chamador trata). */
   silent?: boolean;
+  /** Cabecalhos extras (por exemplo Content-Range no envio em blocos). */
+  headers?: Record<string, string>;
 }
 
 // Erros de 401 que significam "dado digitado incorreto" e nao "sessao ausente".
@@ -85,10 +87,12 @@ export function buildUrl(path: string, query?: Record<string, QueryValue>): stri
 
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = 'GET', body, query, signal, silent = false } = options;
-  const headers: Record<string, string> = { Accept: 'application/json' };
-  // FormData (upload multipart): o navegador define o Content-Type com o boundary.
+  const headers: Record<string, string> = { Accept: 'application/json', ...options.headers };
+  // FormData (upload multipart): o navegador define o Content-Type com o boundary. Blob vai como bytes.
   const isForm = body instanceof FormData;
-  if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json';
+  const isBlob = body instanceof Blob;
+  if (isBlob) headers['Content-Type'] = 'application/octet-stream';
+  else if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json';
 
   let response: Response;
   try {
@@ -96,7 +100,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
       method,
       headers,
       credentials: 'same-origin',
-      body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
+      body: body === undefined ? undefined : isForm || isBlob ? body : JSON.stringify(body),
       signal,
     });
   } catch (cause) {

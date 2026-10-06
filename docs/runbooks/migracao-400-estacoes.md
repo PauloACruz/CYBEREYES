@@ -5,26 +5,27 @@ Plano de migracao gradual: piloto com 10 maquinas e depois ondas por site.
 **Status deste documento**: e um plano. Nada da migracao foi executado ainda. Ao longo do texto, **[verificado]** marca o que foi conferido no codigo ou em teste e **[recomendacao]** marca o que e sugestao e precisa ser validado no piloto.
 
 ## 1. Fatos que definem a estrategia
-1. **[verificado no codigo]** O agente do Cybereyes e o agente do Tactical usam os mesmos caminhos. No Windows o comando de instalacao chama `C:\Program Files\TacticalAgent\tacticalrmm.exe -m install ...` (`InstallScripts.Windows`); no Linux o script grava `/opt/tacticalagent/tacticalagent` e o servico `tacticalagent.service`, e instala o MeshAgent em `/opt/tacticalmesh`.
-2. **[deducao, validar no piloto]** Por isso as duas versoes nao convivem na mesma maquina: instalar o agente do Cybereyes substitui o do Tactical, e a maquina sai do Tactical naquele momento. Com o acesso remoto vale o mesmo: o MeshAgent do Cybereyes (do MeshCentral novo) tende a substituir o MeshAgent do Tactical. A convivencia e por **parque** (parte das maquinas em cada servidor durante as ondas), nao por maquina.
+1. **[verificado no codigo]** O agente do Cybereyes e o agente do Tactical usam os mesmos caminhos. No Windows o comando de instalacao chama `C:\Program Files\TacticalAgent\tacticalrmm.exe -m install ...` (`InstallScripts.Windows`); no Linux o script grava `/opt/tacticalagent/tacticalagent` e o servico `tacticalagent.service`. Desde a fase 12.8 (ADR-023) nem o script nem o EYES instalam o MeshAgent: o acesso remoto e do proprio EYES.
+2. **[deducao, validar no piloto]** Por isso as duas versoes nao convivem na mesma maquina: instalar o agente do Cybereyes substitui o do Tactical, e a maquina sai do Tactical naquele momento. O acesso remoto do Cybereyes vem no proprio EYES; a instalacao do EYES nao mexe no MeshAgent do Tactical, que continua ligado ao MeshCentral do Tactical ate ser removido (secao 7). A convivencia e por **parque** (parte das maquinas em cada servidor durante as ondas), nao por maquina.
 3. **[verificado no codigo]** A implantacao por site (fase 1) gera um link publico com validade e um comando por sistema:
    - Windows (PowerShell como administrador): `irm 'https://CYBEREYES_HOST/api/deploy/<uid>/windows' | iex`
    - Linux: `curl -fsSL 'https://CYBEREYES_HOST/api/deploy/<uid>/linux' | sudo bash`
    - macOS: `curl -fsSL 'https://CYBEREYES_HOST/api/deploy/<uid>/darwin' | sudo bash`
 
-   Ela e criada no console (Implantacoes) ou por `POST /api/deployments` `{ siteId, agentType: "auto"|"server"|"workstation", goArch?, expiresAt }`, com a permissao `agents.install`. O script do Windows detecta a arquitetura, baixa o EYES em `/api/agent/download/windows/<arch>` e roda `eyes.exe install`, que instala o MeshAgent, registra o agente no site da implantacao e cria o servico `eyes` (ADR-020). Apagar a implantacao invalida o token.
+   Ela e criada no console (Implantacoes) ou por `POST /api/deployments` `{ siteId, agentType: "auto"|"server"|"workstation", goArch?, expiresAt }`, com a permissao `agents.install`. O script do Windows detecta a arquitetura, baixa o EYES em `/api/agent/download/windows/<arch>` e roda `eyes.exe install`, que registra o agente no site da implantacao e cria o servico `eyes` (ADR-020). Apagar a implantacao invalida o token.
 4. **[verificado no codigo]** Nao ha importacao de configuracao do Tactical: clientes, sites, scripts, checks, politicas, modelos de alerta e tarefas precisam ser criados no Cybereyes antes das ondas.
 5. **[verificado]** Os agentes falam com o servidor so por HTTPS 443 (REST e `wss://CYBEREYES_HOST/natsws`). O certificado precisa ser valido (Let's Encrypt ou proprio); com o autoassinado temporario do Nginx os agentes nao conectam.
 
 ## 2. Pre-requisitos (antes do piloto)
 - [ ] Servidor de producao instalado (`instalacao.md`), backup diario funcionando e uma restauracao ensaiada (`backup-restauracao.md`).
-- [ ] API atualizada com o EYES embutido (`AGENT_VERSION` vazio); download conferido para `windows-amd64` e `linux-amd64` (e `386`/`arm64` se houver no parque), ver `atualizacao.md`.
+- [ ] Fase 12.8 concluida no servidor de producao: MeshCentral removido e acesso remoto proprio ligado (decisao D-08 do RFC-001: a migracao so comeca depois disso), com o roteiro `docs/remoto/roteiro-piloto.md` aprovado.
+- [ ] API atualizada com o EYES embutido (`AGENT_VERSION` vazio), EYES 3.1.0 ou mais novo (minimo do acesso remoto); download conferido para `windows-amd64` e `linux-amd64` (e `386`/`arm64` se houver no parque), ver `atualizacao.md`.
 - [ ] App de bandeja (`eyes-tray`): com o EYES 3.0.3 ou mais novo, o servico do agente instala e inicia o app no Windows e no Linux (ADR-020 e ADR-022). Conferir que `GET /api/agent/download/windows/amd64?component=tray` e `GET /api/agent/download/linux/amd64?component=tray` respondem 200.
   - Estacoes Linux: o agente instala a WebKitGTK 4.1 pelo gerenciador de pacotes (apt, dnf, zypper ou pacman), entao precisam alcancar o repositorio da distribuicao. Distribuicoes atendidas: Ubuntu 22.04 ou mais novo, Debian 12, Fedora, openSUSE Leap 15.6 e Arch.
   - macOS: o app nao e distribuido pelo EYES; a comunicacao sobre o app de bandeja nao vale para Macs.
 - [ ] Clientes e sites criados no Cybereyes espelhando os do Tactical.
 - [ ] Scripts, checks, politicas, modelos de alerta, SMTP e webhook recriados; janela de patches revisada.
-- [ ] Tecnicos com usuario, papel e 2FA no Cybereyes.
+- [ ] Tecnicos com usuario, papel e 2FA no Cybereyes, com as permissoes do acesso remoto (`agents.remote` para tela e area de transferencia, `agents.files` para arquivos, `agents.control` para Wake-on-LAN) e as politicas revisadas em Configuracoes > Acesso remoto.
 - [ ] Inventario do Tactical exportado (lista de agentes por site com hostname, SO, usuario, ultimo contato) para servir de lista de conferencia.
 - [ ] O servidor do Tactical continua ligado ate o fim da migracao mais 30 dias (rota de volta e historico).
 
@@ -70,7 +71,7 @@ Execucao:
 Criterios de saida (todos):
 - [ ] 10 de 10 maquinas online no Cybereyes e ausentes do Tactical.
 - [ ] Nenhuma maquina ficou sem agente (nem no Tactical nem no Cybereyes).
-- [ ] Checks, alertas por e-mail, execucao de script, terminal, acesso remoto pelo MeshCentral, Health Check e coleta de logs funcionando em pelo menos uma maquina de cada tipo.
+- [ ] Checks, alertas por e-mail, execucao de script, terminal, acesso remoto (tela, area de transferencia e arquivos, pelos itens do roteiro `docs/remoto/roteiro-piloto.md`), Health Check e coleta de logs funcionando em pelo menos uma maquina de cada tipo.
 - [ ] App de bandeja: um usuario abriu chamado pela propria maquina, acompanhou o andamento e conversou com o tecnico (pelo menos uma estacao Windows e uma Linux, se houver no piloto).
 - [ ] O metodo de instalacao pelo executor do Tactical funcionou sem intervencao em pelo menos 8 de 10 (senao, ajustar o script antes das ondas).
 - [ ] Desempenho do servidor estavel (`docker stats`, latencia do console).
@@ -96,6 +97,7 @@ Criterios de saida:
 - [ ] Pelo menos 95% das maquinas do site online no Cybereyes; as restantes listadas com motivo.
 - [ ] Nenhum chamado de usuario sem resposta causado pela migracao.
 - [ ] Alertas do site chegando pelo Cybereyes.
+- [ ] Acesso remoto (tela, area de transferencia e arquivos) aberto pelo console em uma amostra de maquinas de cada tipo do site, como no roteiro `docs/remoto/roteiro-piloto.md`; maquinas com `REMOTE_UNSUPPORTED` listadas com motivo.
 - [ ] Maquinas migradas removidas do Tactical (secao 7, cuidado com a ordem).
 
 ## 6. Checklist por maquina
@@ -103,7 +105,7 @@ Criterios de saida:
 - [ ] Versao do agente igual a distribuida pela API (`GET /api/agents/version`).
 - [ ] Checks da politica aplicados e com resultado.
 - [ ] Execucao de um script simples (por exemplo `hostname`) devolve saida.
-- [ ] Acesso remoto abre pelo console.
+- [ ] Acesso remoto abre pelo console (janela `/acesso-remoto/:agentId`): tela, area de transferencia e envio de um arquivo; a sessao aparece em Relatorios > Acessos remotos.
 - [ ] Health Check executa.
 - [ ] Logs de sistema chegando, se a coleta estiver ativa.
 - [ ] App de bandeja visivel na sessao do usuario (Windows e Linux; no Linux tambem o atalho "EYES" no menu de aplicativos).
@@ -116,7 +118,7 @@ Reversao de uma onda: o mesmo, em massa, pelo executor de scripts do Cybereyes (
 
 Reversao total: possivel enquanto o servidor do Tactical estiver no ar. Por isso ele so e desligado 30 dias depois da ultima onda, com um backup final dele guardado.
 
-Limpeza no Tactical: so remova uma maquina do Tactical depois de confirma-la online no Cybereyes. **Nao use** a acao de desinstalar agente do Tactical em maquinas que ainda nao migraram: ela remove o agente e a maquina fica sem gestao.
+Limpeza no Tactical: so remova uma maquina do Tactical depois de confirma-la online no Cybereyes. **[recomendacao]** Remova tambem o MeshAgent do Tactical que tiver ficado na maquina, para nao deixar um segundo acesso remoto ativo. **Nao use** a acao de desinstalar agente do Tactical em maquinas que ainda nao migraram: ela remove o agente e a maquina fica sem gestao.
 
 ## 8. Comunicacao aos usuarios
 Mensagem modelo (e-mail ou intranet, 2 dias uteis antes da onda):
@@ -138,6 +140,7 @@ Em [nome do app de bandeja], use "EYES": e o nome que o app mostra no icone, na 
 |---|---|
 | Script morto no meio da instalacao (agente antigo parado pelo instalador) | instalacao desacoplada (secao 3), log local, piloto |
 | Antivirus bloqueando o instalador ou o binario | testar no piloto; liberar o caminho e o hash do instalador no antivirus |
+| Antivirus ou EDR bloqueando a captura de tela e a injecao de entrada do EYES (binario sem assinatura, D-07 e R-07 do RFC-001) | medir os alertas no piloto (ADR-023, decisao 5); orientar a liberacao no EDR |
 | Maquinas desligadas durante a onda | repeticao no dia seguinte e lista manual |
 | Certificado invalido no servidor | conferir antes de cada onda (`incidentes.md`, certificado vencido) |
 | Carga no servidor ao registrar muitas maquinas de uma vez | ondas de ate 50; observar `docker stats` e o tempo de resposta |
