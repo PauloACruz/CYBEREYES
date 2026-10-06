@@ -7,11 +7,12 @@ import { Link, useNavigate, useSearchParams } from 'react-router';
 import { agentActionsApi } from '../../api/agentActions';
 import { agentsApi } from '../../api/agents';
 import { queryKeys } from '../../api/queryKeys';
-import { PERMISSIONS, type AgentStatus, type ListAgentsParams } from '../../api/types';
+import { PERMISSIONS, type AgentSortColumn, type AgentStatus, type ListAgentsParams } from '../../api/types';
 import { agentPath } from '../../app/paths';
 import { hasPermission } from '../../auth/permissions';
 import { useMe } from '../../auth/useMe';
 import { PageHeader } from '../../components/PageHeader';
+import { SortableTh, type SortState } from '../../components/SortableTh';
 import { EmptyRow, LoadError, LoadingRows } from '../../components/TableStates';
 import { confirmAction, notifySuccess } from '../../lib/feedback';
 import { totalPages } from '../../lib/format';
@@ -22,6 +23,12 @@ import { InstallAgentModal } from './InstallAgentModal';
 
 const PAGE_SIZE = 50;
 const COLUMNS = 9;
+
+const SORT_COLUMNS: readonly AgentSortColumn[] = ['status', 'hostname', 'client', 'type', 'os', 'user', 'version', 'lastSeen', 'reboot'];
+
+function isSortColumn(value: string | null): value is AgentSortColumn {
+  return SORT_COLUMNS.includes(value as AgentSortColumn);
+}
 
 function isStatus(value: string | null): value is AgentStatus {
   return value !== null && value in STATUS_INFO;
@@ -59,6 +66,17 @@ export function AgentsPage() {
   const statusParam = searchParams.get('status');
   const status = isStatus(statusParam) ? statusParam : undefined;
   const page = toId(searchParams.get('pagina')) ?? 1;
+  const sortParam = searchParams.get('ordem');
+  const sort: SortState<AgentSortColumn> = {
+    key: isSortColumn(sortParam) ? sortParam : 'hostname',
+    direction: searchParams.get('sentido') === 'desc' ? 'desc' : 'asc',
+  };
+  // Nova ordenacao volta para a primeira pagina (updateParams apaga "pagina"); hostname crescente e o padrao.
+  const onSort = (next: SortState<AgentSortColumn>) =>
+    updateParams({
+      ordem: next.key === 'hostname' && next.direction === 'asc' ? undefined : next.key,
+      sentido: next.direction === 'desc' ? 'desc' : undefined,
+    });
   const [search, setSearch] = useState(searchParams.get('busca') ?? '');
 
   const updateParams = (changes: Record<string, string | undefined>) => {
@@ -86,6 +104,8 @@ export function AgentsPage() {
     siteId,
     status,
     search: currentSearch || undefined,
+    sortBy: sort.key,
+    sortDir: sort.direction,
   };
   const agents = useQuery({
     queryKey: queryKeys.agentList(params),
@@ -180,15 +200,15 @@ export function AgentsPage() {
           <Table striped highlightOnHover verticalSpacing="sm">
             <Table.Thead>
               <Table.Tr>
-                <Table.Th>Status</Table.Th>
-                <Table.Th>Hostname</Table.Th>
-                <Table.Th>Cliente / site</Table.Th>
-                <Table.Th>Tipo</Table.Th>
-                <Table.Th>Sistema</Table.Th>
-                <Table.Th>Usuário logado</Table.Th>
-                <Table.Th>Versão</Table.Th>
-                <Table.Th>Visto por último</Table.Th>
-                <Table.Th>Reinício</Table.Th>
+                <SortableTh label="Status" column="status" sort={sort} onSort={onSort} />
+                <SortableTh label="Hostname" column="hostname" sort={sort} onSort={onSort} />
+                <SortableTh label="Cliente / site" column="client" sort={sort} onSort={onSort} />
+                <SortableTh label="Tipo" column="type" sort={sort} onSort={onSort} />
+                <SortableTh label="Sistema" column="os" sort={sort} onSort={onSort} />
+                <SortableTh label="Usuário logado" column="user" sort={sort} onSort={onSort} />
+                <SortableTh label="Versão" column="version" sort={sort} onSort={onSort} />
+                <SortableTh label="Visto por último" column="lastSeen" sort={sort} onSort={onSort} />
+                <SortableTh label="Reinício" column="reboot" sort={sort} onSort={onSort} />
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>

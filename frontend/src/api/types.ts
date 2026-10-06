@@ -325,6 +325,9 @@ export interface AgentDetail extends AgentListItem {
   snmpCollector?: boolean;
 }
 
+/** Colunas que a lista de agentes ordena no servidor. */
+export type AgentSortColumn = 'status' | 'hostname' | 'client' | 'type' | 'os' | 'user' | 'version' | 'lastSeen' | 'reboot';
+
 export interface ListAgentsParams {
   page: number;
   pageSize: number;
@@ -332,6 +335,8 @@ export interface ListAgentsParams {
   siteId?: number;
   status?: AgentStatus;
   search?: string;
+  sortBy?: AgentSortColumn;
+  sortDir?: 'asc' | 'desc';
 }
 
 export interface PingResponse {

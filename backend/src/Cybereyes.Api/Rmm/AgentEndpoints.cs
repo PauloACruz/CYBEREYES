@@ -34,9 +34,22 @@ public static class AgentEndpoints
         app.MapHub<ConsoleHub>("/hubs/console");
     }
 
+    /// <summary>Colunas aceitas em sortBy na lista de agentes (padrao: hostname).</summary>
+    public static readonly string[] SortColumns = ["status", "hostname", "client", "type", "os", "user", "version", "lastSeen", "reboot"];
+
     private static async Task<IResult> ListAsync(CybereyesDbContext db, int? clientId, int? siteId, string? status, string? search,
-        int? page, int? pageSize, CancellationToken ct)
+        int? page, int? pageSize, string? sortBy, string? sortDir, CancellationToken ct)
     {
+        sortBy = string.IsNullOrWhiteSpace(sortBy) ? "hostname" : sortBy;
+        if (!SortColumns.Contains(sortBy, StringComparer.Ordinal))
+        {
+            return Problems.Validation("sortBy", "Use " + string.Join(", ", SortColumns));
+        }
+        if (sortDir is not (null or "" or "asc" or "desc"))
+        {
+            return Problems.Validation("sortDir", "Use asc ou desc");
+        }
+        var desc = sortDir == "desc";
         var (p, size) = Paging.Normalize(page, pageSize, 50);
         var query = db.Agents.AsNoTracking();
         if (clientId is { } c)
@@ -59,13 +72,35 @@ public static class AgentEndpoints
         }
 
         var total = await query.CountAsync(ct);
-        var items = await query.OrderBy(a => a.Hostname).Skip((p - 1) * size).Take(size)
+        var items = await Sort(query, sortBy, desc).Skip((p - 1) * size).Take(size)
             .Select(a => new AgentListItem(a.Id, a.AgentId, a.Hostname, a.Site!.ClientId, a.Site.Client!.Name, a.SiteId, a.Site.Name,
                 a.MonitoringType, a.Plat, a.OperatingSystem, a.Status, a.LastSeen, a.Version, a.LoggedInUsername, a.LastLoggedInUser,
                 a.PublicIp, a.NeedsReboot, a.Description))
             .ToListAsync(ct);
         return TypedResults.Ok(new Paged<AgentListItem>(items, total, p, size));
     }
+
+    /// <summary>Ordena pela coluna pedida; empates pelo hostname e pelo id, para a paginacao ser estavel.</summary>
+    private static IOrderedQueryable<Agent> Sort(IQueryable<Agent> q, string column, bool desc)
+    {
+        IOrderedQueryable<Agent> ordered = column switch
+        {
+            // online, depois atrasado, depois offline (a ordem que importa para o tecnico)
+            "status" => By(q, a => a.Status == AgentStatus.Online ? 0 : a.Status == AgentStatus.Overdue ? 1 : 2, desc),
+            "client" => By(q, a => a.Site!.Client!.Name, desc).ThenBy(a => a.Site!.Name),
+            "type" => By(q, a => a.MonitoringType, desc),
+            "os" => By(q, a => a.OperatingSystem, desc),
+            "user" => By(q, a => a.LoggedInUsername != null && a.LoggedInUsername != "" ? a.LoggedInUsername : a.LastLoggedInUser, desc),
+            "version" => By(q, a => a.Version, desc),
+            "lastSeen" => By(q, a => a.LastSeen, desc),
+            "reboot" => By(q, a => a.NeedsReboot, desc),
+            _ => By(q, a => a.Hostname, desc),
+        };
+        return ordered.ThenBy(a => a.Hostname).ThenBy(a => a.Id);
+    }
+
+    private static IOrderedQueryable<Agent> By<T>(IQueryable<Agent> q, System.Linq.Expressions.Expression<Func<Agent, T>> key, bool desc) =>
+        desc ? q.OrderByDescending(key) : q.OrderBy(key);
 
     private static async Task<IResult> GetAsync(int id, CybereyesDbContext db, CancellationToken ct)
     {
