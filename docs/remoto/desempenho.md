@@ -31,7 +31,8 @@ Causas encontradas:
 ## O que mudou (EYES 3.2.0)
 
 - Captura no Windows pelo DXGI Desktop Duplication (Go puro, chamadas COM pela vtable): a GPU entrega so os
-  quadros com mudanca e a lista de regioes alteradas; tela parada nao custa nada. O GDI fica como alternativa (sessao
+  quadros com mudanca e a lista de regioes alteradas; tela parada nao custa nada. Com adaptador de video basico (VM),
+  a imagem vem da memoria do sistema pelo `MapDesktopSurface`, sem copia na GPU. O GDI fica como alternativa (sessao
   de Area de Trabalho Remota, driver sem suporte, monitor girado, tela segura sem acesso), com nova tentativa do DXGI
   em 3 s (1 minuto quando nao ha suporte). Buffers reaproveitados e conversao BGRA para RGBA em paralelo, fora da
   thread da area de trabalho.

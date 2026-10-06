@@ -43,6 +43,8 @@ const (
 	vDupAcquireNextFrame   = 8
 	vDupGetFrameDirtyRects = 9
 	vDupGetFrameMoveRects  = 10
+	vDupMapDesktopSurface  = 12
+	vDupUnMapDesktopSurf   = 13
 	vDupReleaseFrame       = 14
 
 	vDeviceCreateTexture2D = 5 // ID3D11Device
@@ -138,6 +140,12 @@ type mapped struct {
 	DepthPitch uint32
 }
 
+// mappedRect e o DXGI_MAPPED_RECT do MapDesktopSurface.
+type mappedRect struct {
+	Pitch int32
+	Bits  unsafe.Pointer
+}
+
 type moveRect struct {
 	SrcX, SrcY int32
 	Dst        rect
@@ -152,6 +160,7 @@ type dxgiDup struct {
 	dup     unsafe.Pointer
 	staging unsafe.Pointer
 	w, h    int
+	sysmem  bool   // imagem na memoria do sistema (adaptador basico, VM): lida pelo MapDesktopSurface
 	fresh   bool   // ainda sem a primeira imagem: o proximo quadro copia a tela inteira
 	gen     uint64 // area de trabalho da duplicacao (windesk)
 	meta    []byte
@@ -238,11 +247,13 @@ func duplicate(adapter, output unsafe.Pointer, name string) (*dxgiDup, error) {
 		d.release()
 		return nil, fmt.Errorf("%w: monitor girado", errDXGIUnavailable)
 	}
-	if desc.InSystemMemory != 0 {
-		d.release()
-		return nil, fmt.Errorf("%w: imagem na memoria do sistema", errDXGIUnavailable)
-	}
 	d.w, d.h = int(desc.Width), int(desc.Height)
+	if desc.InSystemMemory != 0 {
+		// Adaptador sem memoria de video propria (VM, driver basico): a imagem ja esta na memoria do sistema e e
+		// lida direto, sem textura de copia.
+		d.sysmem = true
+		return d, nil
+	}
 	td := texture2DDesc{Width: desc.Width, Height: desc.Height, MipLevels: 1, ArraySize: 1, Format: formatB8G8R8A8,
 		SampleCount: 1, Usage: usageStaging, CPUAccessFlags: cpuAccessRead}
 	if hr := comCall(device, vDeviceCreateTexture2D, uintptr(unsafe.Pointer(&td)), 0, uintptr(unsafe.Pointer(&d.staging))); failed(hr) || d.staging == nil {
@@ -286,6 +297,9 @@ func (d *dxgiDup) grab(f *Frame) (regions []image.Rectangle, changed, full bool,
 		// So o ponteiro mudou (logo depois de criar a duplicacao, a imagem pode ainda nao ser valida).
 		return nil, false, false, nil
 	}
+	if d.sysmem {
+		return d.grabSystemMemory(f, info)
+	}
 	var tex unsafe.Pointer
 	if hr := comCall(resource, vQI, uintptr(unsafe.Pointer(&iidID3D11Texture2D)), uintptr(unsafe.Pointer(&tex))); failed(hr) || tex == nil {
 		return nil, false, false, fmt.Errorf("ID3D11Texture2D: %w", hresult(hr))
@@ -322,6 +336,33 @@ func (d *dxgiDup) grab(f *Frame) (regions []image.Rectangle, changed, full bool,
 		convertBGRA(img, src, pitch, r)
 	}
 	comCall(d.context, vCtxUnmap, uintptr(d.staging), 0)
+	d.fresh = false
+	return regions, true, full, nil
+}
+
+// grabSystemMemory le as regioes do quadro adquirido direto da imagem na memoria do sistema (MapDesktopSurface).
+// O ReleaseFrame fica com quem chamou, depois do UnMapDesktopSurface.
+func (d *dxgiDup) grabSystemMemory(f *Frame, info frameInfo) (regions []image.Rectangle, changed, full bool, err error) {
+	full = d.fresh || info.TotalMetadataSize == 0
+	if !full {
+		if regions, err = d.changedRects(info.TotalMetadataSize); err != nil {
+			full = true
+		}
+	}
+	if full {
+		regions = []image.Rectangle{image.Rect(0, 0, d.w, d.h)}
+	}
+	var mr mappedRect
+	if hr := comCall(d.dup, vDupMapDesktopSurface, uintptr(unsafe.Pointer(&mr))); failed(hr) || mr.Bits == nil || mr.Pitch < int32(d.w*4) {
+		return nil, false, false, fmt.Errorf("MapDesktopSurface: %w", hresult(hr))
+	}
+	img := ensureImage(f, d.w, d.h)
+	pitch := int(mr.Pitch)
+	src := unsafe.Slice((*byte)(mr.Bits), pitch*d.h)
+	for _, r := range regions {
+		convertBGRA(img, src, pitch, r)
+	}
+	comCall(d.dup, vDupUnMapDesktopSurf)
 	d.fresh = false
 	return regions, true, full, nil
 }
