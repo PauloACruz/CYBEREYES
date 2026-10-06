@@ -83,6 +83,7 @@ public sealed class ApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseSetting("Seed:AdminUsername", AdminUsername);
         builder.UseSetting("Seed:AdminPassword", AdminPassword);
         builder.UseSetting("RateLimiting:AuthPermitPerMinute", "10000");
+        builder.UseSetting("Remote:MaxCreatePerMinute", "10000");
         builder.UseSetting("Nats:Url", NatsUrl);
         builder.UseSetting("Nats:User", NatsApiUser);
         builder.UseSetting("Nats:Password", NatsApiPassword);

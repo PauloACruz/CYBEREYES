@@ -139,10 +139,20 @@ public static class RemoteEndpoints
         var open = await db.RemoteSessions.AsNoTracking().Where(s => s.State != RemoteSessionState.Ended && (s.AgentId == id || s.UserId == userId))
             .Select(s => new { s.AgentId, s.UserId, s.Channels }).ToListAsync(ct);
         var agentOpen = open.Where(s => s.AgentId == id).ToList();
-        if (agentOpen.Count >= settings.MaxSessionsPerAgent || (wantsDesktop && agentOpen.Any(s => s.Channels.Split(',').Any(RemoteFrames.IsScreen)))
-            || open.Count(s => s.UserId == userId) >= settings.MaxSessionsPerUser || !manager.AllowCreate(userId))
+        // Varias sessoes de tela na mesma estacao sao permitidas; o RDP do GNOME tem uma credencial so e e exclusivo.
+        var rdpOpen = agentOpen.Any(s => s.Channels.Split(',').Contains(RemoteFrames.Rdp));
+        var limit = agentOpen.Count >= settings.MaxSessionsPerAgent
+                ? $"Esta maquina ja tem {agentOpen.Count} acessos remotos abertos (limite de {settings.MaxSessionsPerAgent})"
+            : wantsRdp && agentOpen.Any(s => s.Channels.Split(',').Any(RemoteFrames.IsScreen)) || wantsDesktop && rdpOpen
+                ? "O acesso pelo RDP do GNOME nesta maquina ja esta em uso por outro tecnico"
+            : open.Count(s => s.UserId == userId) >= settings.MaxSessionsPerUser
+                ? $"Voce ja tem {settings.MaxSessionsPerUser} acessos remotos abertos; encerre um para abrir outro"
+            : !manager.AllowCreate(userId)
+                ? "Muitos acessos abertos no ultimo minuto; aguarde um pouco"
+            : null;
+        if (limit is not null)
         {
-            return Error(StatusCodes.Status409Conflict, "Limite de sessoes de acesso remoto atingido", RemoteErrors.SessionLimit);
+            return Error(StatusCodes.Status409Conflict, limit, RemoteErrors.SessionLimit);
         }
 
         var now = time.GetUtcNow();

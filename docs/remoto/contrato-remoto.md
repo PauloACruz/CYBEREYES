@@ -484,7 +484,7 @@ Tabelas `remote_sessions`, `remote_transfers` e `remote_policies`: RFC-001, seca
 
 | Limite | Valor v1 |
 |---|---|
-| Sessoes ativas por agente | 2 (canal de tela, `desktop` ou `rdp`: 1) |
+| Sessoes ativas por agente | 4, com varias de tela (`desktop`) ao mesmo tempo; o canal `rdp` (RDP do GNOME) e exclusivo (EYES 3.2.5) |
 | Sessoes ativas por tecnico | 5 |
 | Criacao de sessao por tecnico | 10 por minuto |
 | Quadro do relay | 2 MiB (`TILE`); 64 KiB (demais JSON); 256 KiB (`CHUNK`); 1 MiB (canal `rdp`) |
@@ -492,6 +492,7 @@ Tabelas `remote_sessions`, `remote_transfers` e `remote_policies`: RFC-001, seca
 | Texto na area de transferencia | 1 MiB |
 | Transferencias simultaneas por sessao | 4 |
 | Buffer do relay por ponta | 1 MiB; acima disso a API para de ler a outra ponta (contrapressao) |
+| Registro da sessao entre replicas | 1 minuto, renovado a cada 15 s pela replica dona; sessao de replica que caiu fecha em ate ~3 min |
 | Tempo para conectar | 60 s (token; mais 85 s com o canal `rdp`, pelo `rdp_enable`); 10 s para o `AUTH` |
 
 ## 11. Versoes e compatibilidade

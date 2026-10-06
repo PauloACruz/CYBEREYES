@@ -17,11 +17,18 @@ public sealed class RemoteSettings
     /// <summary>Endereco interno desta replica para o encaminhamento entre replicas. Vazio: IP do conteiner e porta 8080.</summary>
     public string? AdvertiseUrl { get; set; }
 
-    public int MaxSessionsPerAgent { get; set; } = 2;
+    /// <summary>Sessoes simultaneas na mesma estacao (varios tecnicos podem ver e usar a tela ao mesmo tempo).</summary>
+    public int MaxSessionsPerAgent { get; set; } = 4;
 
     public int MaxSessionsPerUser { get; set; } = 5;
 
     public int MaxCreatePerMinute { get; set; } = 10;
+
+    /// <summary>
+    /// Validade do registro da sessao no diretorio entre replicas. A replica dona renova a cada 15 s; se ela cair ou
+    /// reiniciar, o registro expira e a sessao que ficou aberta no banco e fechada em seguida (nao bloqueia a estacao).
+    /// </summary>
+    public static readonly TimeSpan DirectoryTtl = TimeSpan.FromMinutes(1);
 
     /// <summary>Prazo para as pontas conectarem ao relay depois da criacao da sessao.</summary>
     public int ConnectSeconds { get; set; } = 60;

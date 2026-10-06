@@ -28,7 +28,8 @@ export function createErrorMessage(error: unknown): string {
     case 'REMOTE_WAYLAND':
       return error.title;
     case 'SESSION_LIMIT':
-      return 'Já existe um acesso remoto aberto nesta máquina ou você atingiu o limite de sessões.';
+      // O servidor diz qual limite foi atingido (estação, técnico, RDP em uso ou criações por minuto).
+      return error.title || 'Limite de acessos remotos atingido.';
     case 'NO_INTERACTIVE_SESSION':
       return 'Não há usuário conectado na máquina.';
     case 'AGENT_TIMEOUT':
