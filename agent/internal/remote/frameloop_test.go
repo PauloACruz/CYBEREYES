@@ -271,3 +271,22 @@ func TestFrameLoopRespectsWindowWithoutAcks(t *testing.T) {
 		t.Fatalf("janela de %d quadros, %d sem ACK", want, inflight)
 	}
 }
+
+// Servico EYES caiu (entrada padrao do remote-helper fechada): a sessao termina com BYE, sem seguir mostrando a tela.
+func TestWatchControlEndsWhenServiceGoes(t *testing.T) {
+	screen := newFakeScreen(64, 64)
+	v, s := startFrameLoop(t, screen, proto.SettingsBody{Quality: 60, Scale: 1, MaxFPS: 5})
+	_ = v
+	control := make(chan Control)
+	close(control)
+	done := make(chan error, 1)
+	go func() { done <- s.watchControl(context.Background(), control) }()
+	select {
+	case err := <-done:
+		if err != context.Canceled {
+			t.Fatalf("erro = %v", err)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("o remote-helper seguiu com a sessao sem o servico")
+	}
+}

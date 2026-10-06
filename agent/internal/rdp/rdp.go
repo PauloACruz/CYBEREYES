@@ -15,6 +15,7 @@ import (
 	"math/big"
 	"regexp"
 	"strconv"
+	"sync/atomic"
 	"time"
 
 	"github.com/pauloacruz/cybereyes/agent/internal/env"
@@ -32,11 +33,21 @@ type Access struct {
 	User     string `json:"user"` // usuario da sessao compartilhada
 }
 
-// Register registra rdp_enable e rdp_disable.
+// ServiceUnit e o servico do gnome-remote-desktop na sessao do usuario.
+const ServiceUnit = "gnome-remote-desktop.service"
+
+// active conta as ativacoes em uso: a limpeza da partida nao desliga um RDP que um tecnico esta usando.
+var active atomic.Int32
+
+// Register registra rdp_enable e rdp_disable e, na partida, desliga o RDP que tenha ficado ligado de antes (EYES
+// reiniciado no meio de uma sessao, versao antiga que deixava o servico habilitado): o compartilhamento de tela so
+// existe entre o "Acessar" e o "Encerrar" do tecnico.
 func Register(e *env.Env) error {
 	e.Reg.HandleTimeout("rdp_enable", 80*time.Second, func(ctx context.Context, req rpc.Request) any {
+		active.Add(1)
 		a, err := enable(ctx, req.Payload().Bool("view_only"))
 		if err != nil {
+			active.Add(-1)
 			e.Log.Warn("RDP: falha ao ativar", "erro", err)
 			return "error: " + err.Error()
 		}
@@ -44,16 +55,36 @@ func Register(e *env.Env) error {
 		return a
 	})
 	e.Reg.HandleTimeout("rdp_disable", 40*time.Second, func(ctx context.Context, _ rpc.Request) any {
-		if err := disable(ctx); err != nil {
+		if err := Disable(ctx); err != nil {
 			return "error: " + err.Error()
 		}
 		return "ok"
 	})
+	e.Go("rdp-limpeza", func(ctx context.Context) { cleanupAtStart(ctx, e) })
 	return nil
 }
 
 // Disable desliga o compartilhamento RDP do GNOME (fim da sessao do canal rdp).
-func Disable(ctx context.Context) error { return disable(ctx) }
+func Disable(ctx context.Context) error {
+	if active.Load() > 0 {
+		active.Add(-1)
+	}
+	return disableFn(ctx)
+}
+
+// disableFn e o desligamento do sistema (trocado nos testes).
+var disableFn = disable
+
+// disableSteps desliga tudo o que o rdp_enable ligou: o RDP, a credencial temporaria, o servico do usuario e a
+// habilitacao no login (versoes ate o EYES 3.2.3 deixavam o servico habilitado).
+func disableSteps() [][]string {
+	return [][]string{
+		{"grdctl", "rdp", "disable"},
+		{"grdctl", "rdp", "clear-credentials"},
+		{"systemctl", "--user", "stop", ServiceUnit},
+		{"systemctl", "--user", "disable", ServiceUnit},
+	}
+}
 
 const passwordChars = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
