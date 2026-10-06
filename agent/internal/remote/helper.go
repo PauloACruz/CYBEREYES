@@ -181,9 +181,11 @@ func (s *desktopSession) watchControl(ctx context.Context, control <-chan Contro
 			return ctx.Err()
 		case c, ok := <-control:
 			if !ok {
-				// Sem canal de controle (entrada padrao fechada): segue ate o relay ou o servico encerrar.
-				<-ctx.Done()
-				return ctx.Err()
+				// Entrada padrao fechada: o servico EYES caiu ou reiniciou e nao acompanha mais esta sessao (nem o
+				// aviso ao usuario). A tela so e compartilhada enquanto o servico controla a sessao: encerra.
+				_ = sendJSON(ctx, s.conn, proto.Bye, proto.ReasonBody{Reason: "agent"})
+				_ = s.conn.Close(websocket.StatusNormalClosure, "agent")
+				return context.Canceled
 			}
 			if len(c.ClipboardFiles) > 0 {
 				if err := s.clip.SetFiles(c.ClipboardFiles); err != nil {

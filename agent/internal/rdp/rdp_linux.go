@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pauloacruz/cybereyes/agent/internal/env"
 	"github.com/pauloacruz/cybereyes/agent/internal/execx"
 )
 
@@ -103,11 +104,9 @@ func enable(ctx context.Context, viewOnly bool) (Access, error) {
 			return Access{}, fmt.Errorf("configuracao do gnome-remote-desktop falhou: %v (%s)", err, out)
 		}
 	}
-	// Reinicia o servico do usuario para aplicar credencial e certificado novos.
-	if _, err := asUser(ctx, "systemctl", "--user", "enable", "gnome-remote-desktop.service"); err != nil {
-		return Access{}, fmt.Errorf("falha ao habilitar o servico gnome-remote-desktop do usuario: %w", err)
-	}
-	if _, err := asUser(ctx, "systemctl", "--user", "restart", "gnome-remote-desktop.service"); err != nil {
+	// Inicia (ou reinicia) o servico do usuario para aplicar credencial e certificado novos. Sem "enable": o servico
+	// so roda durante a sessao e nao volta sozinho no proximo login.
+	if _, err := asUser(ctx, "systemctl", "--user", "restart", ServiceUnit); err != nil {
 		return Access{}, fmt.Errorf("falha ao iniciar o gnome-remote-desktop do usuario: %w", err)
 	}
 	time.Sleep(2 * time.Second)
@@ -120,9 +119,54 @@ func disable(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if _, err := asUser(ctx, grd, "rdp", "disable"); err != nil {
-		return err
+	var first error
+	for _, step := range disableSteps() {
+		path := step[0]
+		if path == "grdctl" {
+			path = grd
+		}
+		// Segue mesmo com falha (servico ja parado, sem credencial): o objetivo e nao sobrar nada ligado.
+		if _, err := asUser(ctx, path, step[1:]...); err != nil && first == nil && step[0] == "grdctl" && step[2] == "disable" {
+			first = err
+		}
 	}
-	_, _ = asUser(ctx, "systemctl", "--user", "restart", "gnome-remote-desktop.service")
-	return nil
+	return first
+}
+
+// cleanupAtStart desliga, uma vez por partida do EYES, o RDP que tenha ficado ligado. So age onde o EYES ja usou o
+// RDP (certificado proprio na pasta do usuario) e espera alguem logado, porque o servico e da sessao do usuario.
+func cleanupAtStart(ctx context.Context, e *env.Env) {
+	for wait := 20 * time.Second; ; wait = 5 * time.Minute {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(wait):
+		}
+		if active.Load() > 0 {
+			return // um tecnico ja abriu sessao; o fim dela desliga o RDP
+		}
+		if _, err := grdctl(); err != nil {
+			return
+		}
+		name, err := execx.ConsoleUser()
+		if err != nil {
+			continue
+		}
+		u, err := user.Lookup(name)
+		if err != nil {
+			continue
+		}
+		if _, err := os.Stat(filepath.Join(u.HomeDir, ".local", "share", "gnome-remote-desktop", "eyes-tls.crt")); err != nil {
+			return // o EYES nunca ligou o RDP nesta maquina
+		}
+		if active.Load() > 0 {
+			return
+		}
+		if err := disable(ctx); err != nil {
+			e.Log.Warn("RDP: falha ao desligar o compartilhamento que ficou ligado", "erro", err)
+			continue
+		}
+		e.Log.Info("RDP do GNOME desligado na partida (so liga durante o acesso remoto)", "usuario", name)
+		return
+	}
 }

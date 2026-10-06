@@ -294,6 +294,9 @@ Regras de entrada:
   mudanca e sem entrada do tecnico a captura cai para 4 por segundo; a entrada do tecnico volta ao ritmo na hora.
   Com o DXGI Desktop Duplication (Windows 8 ou mais novo) o sistema avisa as mudancas e a tela parada nao custa nada.
 - O agente rele os monitores a cada 3 s e manda `DISPLAYS` quando mudam (resolucao, monitor ligado ou desligado).
+- O `remote-helper` so existe durante a sessao: nasce no `remote_start` e termina no `remote_stop`, no fim do relay ou
+  quando perde a ligacao com o servico EYES (entrada padrao fechada, por exemplo numa atualizacao), avisando o
+  visualizador com `BYE` `agent`.
 
 ### 5.4 Canal rdp (RDP do GNOME em Linux com Wayland)
 
@@ -329,6 +332,11 @@ Regras:
 - **Somente visualizar**: o `rdp_enable` liga o modo so de visualizacao do GNOME.
 - **Estado no console**: o cliente RDP nao conhece o pedido de acesso nem o motivo do fim; o visualizador consulta `GET /api/remote/sessions/{id}` enquanto a sessao esta aberta.
 - **Navegador**: o WASM do cliente RDP vem embutido numa URL `data:`. A CSP do console precisa de `'wasm-unsafe-eval'` em `script-src` e de `data:` em `connect-src`.
+- Ciclo de vida (EYES 3.2.4): o RDP do GNOME so existe entre o "Acessar" e o "Encerrar". O `rdp_enable` configura a
+  credencial temporaria e so inicia o `gnome-remote-desktop.service` do usuario (sem habilitar no login). No fim da
+  sessao (Encerrar, janela fechada, queda do visualizador, tempo limite) o EYES desliga o RDP, apaga a credencial,
+  para o servico e desfaz a habilitacao no login deixada por versoes anteriores. Na partida, o EYES faz a mesma
+  limpeza onde ja usou o RDP, se nenhuma sessao estiver em uso.
 
 ## 6. Area de transferencia
 
