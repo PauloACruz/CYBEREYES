@@ -19,7 +19,6 @@ import (
 
 	"github.com/pauloacruz/cybereyes/agent/internal/api"
 	"github.com/pauloacruz/cybereyes/agent/internal/remote/capture"
-	"github.com/pauloacruz/cybereyes/agent/internal/remote/encode"
 	"github.com/pauloacruz/cybereyes/agent/internal/remote/input"
 	"github.com/pauloacruz/cybereyes/agent/internal/remote/proto"
 )
@@ -45,39 +44,39 @@ type Control struct {
 	ClipboardFiles []string `json:"clipboardFiles,omitempty"`
 }
 
-// Limites do controle de fluxo (contrato, secao 5.3).
+// Padroes da sessao de tela (contrato, secao 5.3).
 const (
-	maxInflightFrames = 2
-	maxInflightBytes  = 4 << 20
-	defaultQuality    = 60
-	defaultFPS        = 15
-	minQuality        = 25
+	defaultQuality = 60
+	defaultFPS     = 15
+	minQuality     = 25
 )
 
 // desktopSession e o estado de uma sessao de tela no remote-helper.
 type desktopSession struct {
-	conn   *websocket.Conn
-	screen capture.Screen
-	input  *input.Tracker
-	log    *slog.Logger
-	params HelperParams
-	clip   clipboardSync
+	conn    *websocket.Conn
+	screen  capture.Screen
+	grabber capture.Grabber
+	input   *input.Tracker
+	log     *slog.Logger
+	params  HelperParams
+	clip    clipboardSync
 
-	mu       sync.Mutex
-	settings proto.SettingsBody
-	displays []capture.Display
-	display  capture.Display
-	quality  int
-	reset    bool
-	inflight map[uint32]inflightFrame
-	bytes    int
-	seq      uint32
-	wake     chan struct{}
-}
+	mu        sync.Mutex
+	settings  proto.SettingsBody
+	displays  []capture.Display
+	display   capture.Display
+	quality   int
+	reset     bool
+	flow      flowControl
+	seq       uint32
+	lastInput time.Time
+	wake      chan struct{}
 
-type inflightFrame struct {
-	size int
-	sent time.Time
+	// Estado do cursor enviado (so a goroutine dos quadros mexe).
+	cursorSent   proto.CursorBody
+	cursorKnown  bool
+	cursorShapes map[uint32]bool
+	stats        frameStats
 }
 
 // RunHelper executa uma sessao de tela ate o relay fechar, ctx terminar ou o servico mandar o fim.
@@ -106,7 +105,8 @@ func RunHelper(ctx context.Context, p HelperParams, control <-chan Control, log 
 		return err
 	}
 	defer screen.Close()
-	s := &desktopSession{conn: conn, screen: screen, log: log, params: p, quality: defaultQuality, inflight: map[uint32]inflightFrame{}, wake: make(chan struct{}, 1)}
+	s := &desktopSession{conn: conn, screen: screen, grabber: capture.AsGrabber(screen), log: log, params: p, quality: defaultQuality,
+		flow: newFlowControl(), wake: make(chan struct{}, 1), cursorShapes: map[uint32]bool{}}
 	s.settings = proto.SettingsBody{Quality: defaultQuality, Scale: 1, MaxFPS: defaultFPS}
 	if !p.ViewOnly {
 		if in, err := input.Open(); err != nil {
@@ -276,6 +276,10 @@ func toProto(ds []capture.Display) []proto.Display {
 
 func (s *desktopSession) sendHello(ctx context.Context) error {
 	features := []string{"desktop", "view-only"}
+	if _, err := s.grabber.Pointer(s.display); err == nil {
+		// Cursor separado: o visualizador desenha o ponteiro na hora, sem esperar o quadro (contrato, secao 5.1).
+		features = append(features, "cursor")
+	}
 	features = append(features, s.clip.Features()...)
 	features = append(features, platformFeatures()...)
 	s.mu.Lock()
@@ -339,7 +343,13 @@ func (s *desktopSession) handleInput(frame []byte) error {
 	}
 	s.mu.Lock()
 	area := s.display.Rect()
+	// Entrada do tecnico: a tela deve mudar logo; sai da captura lenta de tela parada.
+	idle := time.Since(s.lastInput) > idleAfter
+	s.lastInput = time.Now()
 	s.mu.Unlock()
+	if idle {
+		s.poke()
+	}
 	switch frame[0] {
 	case proto.Key:
 		var k proto.KeyBody
@@ -376,7 +386,7 @@ func (s *desktopSession) applySettings(st proto.SettingsBody) {
 	st.Scale = max(0.25, min(1, st.Scale))
 	st.MaxFPS = max(1, min(30, st.MaxFPS))
 	s.mu.Lock()
-	changed := st.Display != s.settings.Display || st.Scale != s.settings.Scale
+	changed := st.Display != s.settings.Display || st.Scale != s.settings.Scale || st.Cursor != s.settings.Cursor
 	s.settings = st
 	s.quality = st.Quality
 	if changed {
@@ -392,96 +402,6 @@ func (s *desktopSession) poke() {
 	case s.wake <- struct{}{}:
 	default:
 	}
-}
-
-// ack libera a janela e ajusta a qualidade pelo tempo de ida e volta.
-func (s *desktopSession) ack(id uint32) {
-	s.mu.Lock()
-	f, ok := s.inflight[id]
-	if ok {
-		delete(s.inflight, id)
-		s.bytes -= f.size
-		rtt := time.Since(f.sent)
-		switch {
-		case rtt > 600*time.Millisecond && s.quality > minQuality:
-			s.quality = max(minQuality, s.quality-10)
-		case rtt < 200*time.Millisecond && s.quality < s.settings.Quality:
-			s.quality = min(s.settings.Quality, s.quality+5)
-		}
-	}
-	s.mu.Unlock()
-	s.poke()
-}
-
-// frameLoop captura, codifica e envia quadros respeitando a janela de quadros sem ACK.
-func (s *desktopSession) frameLoop(ctx context.Context) error {
-	var enc encode.Encoder
-	var lastDisplay capture.Display
-	var lastScale float64
-	for {
-		s.mu.Lock()
-		fps, quality, scale, display := s.settings.MaxFPS, s.quality, s.settings.Scale, s.display
-		full := len(s.inflight) >= maxInflightFrames || s.bytes >= maxInflightBytes
-		reset := s.reset
-		s.reset = false
-		s.mu.Unlock()
-		if !full {
-			if reset || display != lastDisplay || scale != lastScale {
-				enc.Reset()
-				lastDisplay, lastScale = display, scale
-			}
-			if err := s.sendFrame(ctx, &enc, display, scale, quality); err != nil {
-				return err
-			}
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(time.Second / time.Duration(fps)):
-		case <-s.wake:
-		}
-	}
-}
-
-func (s *desktopSession) sendFrame(ctx context.Context, enc *encode.Encoder, display capture.Display, scale float64, quality int) error {
-	img, err := s.screen.Capture(display)
-	if err != nil {
-		// A tela pode mudar (resolucao, monitor removido): relê os monitores e avisa o visualizador.
-		if lerr := s.loadDisplays(); lerr == nil {
-			s.mu.Lock()
-			msg := displaysBody{Displays: toProto(s.displays), Active: s.display.ID}
-			s.reset = true
-			s.mu.Unlock()
-			return sendJSON(ctx, s.conn, proto.Displays, msg)
-		}
-		return fmt.Errorf("captura: %w", err)
-	}
-	frame := encode.Scale(img, scale)
-	tiles, err := enc.Encode(frame, quality)
-	if err != nil {
-		return err
-	}
-	if len(tiles) == 0 {
-		return nil
-	}
-	s.mu.Lock()
-	s.seq++
-	id := s.seq
-	s.mu.Unlock()
-	size := 0
-	for _, t := range tiles {
-		data := proto.TileFrame(id, t.X, t.Y, t.W, t.H, t.JPEG)
-		size += len(data)
-		if err := s.conn.Write(ctx, websocket.MessageBinary, data); err != nil {
-			return err
-		}
-	}
-	b := frame.Bounds()
-	s.mu.Lock()
-	s.inflight[id] = inflightFrame{size: size, sent: time.Now()}
-	s.bytes += size
-	s.mu.Unlock()
-	return s.conn.Write(ctx, websocket.MessageBinary, proto.FrameEndFrame(id, len(tiles), b.Dx(), b.Dy()))
 }
 
 // displaysBody e o corpo do DISPLAYS.

@@ -33,6 +33,7 @@ function handlers() {
     onHello: vi.fn<ConnectionHandlers['onHello']>(),
     onDisplays: vi.fn<ConnectionHandlers['onDisplays']>(),
     onTile: vi.fn<ConnectionHandlers['onTile']>(),
+    onCursor: vi.fn<NonNullable<ConnectionHandlers['onCursor']>>(),
     onFrameEnd: vi.fn<ConnectionHandlers['onFrameEnd']>(() => Promise.resolve()),
     onConsent: vi.fn<ConnectionHandlers['onConsent']>(),
     onClipboard: vi.fn<ConnectionHandlers['onClipboard']>(),
@@ -82,6 +83,14 @@ describe('RemoteConnection', () => {
     expect(h.onHello).toHaveBeenCalledWith(expect.objectContaining({ os: 'linux' }));
     expect(h.onConsent).toHaveBeenCalledWith('waiting');
     expect(h.onError).toHaveBeenCalledWith('CAPTURE', 'falhou');
+  });
+
+  it('repassa o cursor remoto', () => {
+    const { socket, h } = setup();
+    socket.open();
+    const cursor = { visible: true, x: 10, y: 20, id: 3, hotX: 1, hotY: 2, png: null };
+    socket.receive(jsonFrame(FRAME.cursor, cursor));
+    expect(h.onCursor).toHaveBeenCalledWith(cursor);
   });
 
   it('envia o ACK so depois de desenhar o quadro', async () => {

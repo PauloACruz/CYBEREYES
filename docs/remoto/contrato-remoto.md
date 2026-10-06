@@ -245,14 +245,23 @@ Regras de imagem:
 - Blocos de ate 256 x 256 px; o agente so envia blocos alterados desde o quadro anterior confirmado.
 - `TILE` traz JPEG baseline (o `image/jpeg` do Go gera esse formato) **[S2]**.
 - O visualizador desenha os blocos ao receber e so considera o quadro completo no `FRAME_END`.
-- `CURSOR` com `png = null` reaproveita o desenho ja recebido com o mesmo `id`.
-- `features` da v1: `desktop`, `clipboard-text`, `files-copied`, `cad`, `view-only`. A segunda etapa acrescenta `clipboard-png`.
+- Com a tela parada, o agente reenvia em qualidade 90 (em partes de ate 96 blocos de 64 px) os blocos que foram com
+  qualidade menor: o texto fica nitido sem pesar durante o movimento. O refinamento usa os mesmos `TILE` e `FRAME_END`.
+- Cursor separado (feature `cursor`, pedido com `settings.cursor = true`): o agente para de desenhar o ponteiro na
+  imagem e manda `CURSOR` quando a posicao, a visibilidade ou o desenho mudam (verificados a cada 33 ms, entre as
+  capturas tambem). `x` e `y` sao o ponto ativo no quadro, ja na escala do `SETTINGS`; `hotX`, `hotY` e o PNG ficam em
+  pixels do monitor. `png` vai so na primeira vez de cada `id` (base64); `png = null` reaproveita o desenho com o mesmo
+  `id`. Sem o pedido, o agente desenha o ponteiro na imagem, como antes.
+- O visualizador mostra o cursor remoto pela forma do ponteiro local (controlando) ou desenhado sobre a tela
+  (somente visualizar, mouse fora da tela ou cursor movido do outro lado).
+- `features` da v1: `desktop`, `clipboard-text`, `files-copied`, `cad`, `view-only`, `cursor`. A segunda etapa
+  acrescenta `clipboard-png`.
 
 ### 5.2 Quadros do visualizador para o agente
 
 | Tipo | Nome | Corpo |
 |---|---|---|
-| `0x20` | `SETTINGS` | JSON `{ "quality": 1-100, "scale": 0.25-1, "maxFps": 1-30, "display": id }` |
+| `0x20` | `SETTINGS` | JSON `{ "quality": 1-100, "scale": 0.25-1, "maxFps": 1-30, "display": id, "cursor": bool }` (`cursor` opcional, padrao `false`) |
 | `0x21` | `KEY` | JSON `{ "code": str, "down": bool }`, `code` igual a `KeyboardEvent.code` |
 | `0x22` | `TEXT` | JSON `{ "text": str }`, ate 4 KB por quadro |
 | `0x23` | `MOUSE` | JSON `{ "x": int, "y": int, "buttons": int }` |
@@ -267,12 +276,24 @@ Regras de entrada:
 - `KEY`: o agente traduz `code` para a tecla fisica do sistema (scancode no Windows, keycode no X11, keycode virtual no macOS), entao o layout do teclado remoto vale. Teclas presas: no fim da sessao ou em `PEER_GONE`, o agente solta todas as teclas e botoes pressionados.
 - `TEXT`: digitacao por Unicode (acentos e IME), sem depender de layout.
 - `view-only`: o agente descarta `KEY`, `TEXT`, `MOUSE`, `WHEEL`, `CAD` e `CLIPBOARD` vindos do visualizador.
+- O visualizador junta `MOUSE` e `WHEEL` em no maximo um a cada 16 ms (o ultimo movimento; a soma da roda). Botao
+  apertado ou solto e tecla saem na hora, depois do movimento pendente.
 
-### 5.3 Controle de fluxo
+### 5.3 Controle de fluxo e ritmo
 
-- O agente mantem no maximo **2 quadros sem `ACK`** e no maximo **4 MiB** de blocos sem `ACK`.
 - O visualizador manda `ACK` ao terminar de desenhar cada quadro.
-- O agente mede o tempo entre `FRAME_END` e o `ACK` e ajusta qualidade, escala e quadros por segundo dentro dos limites do `SETTINGS` **[S2]**.
+- O agente mede a ida e volta de cada quadro (`FRAME_END` ate o `ACK`) e a taxa de entrega (bytes confirmados por
+  tempo), como o BBR: minimo da ida e volta nos ultimos ~40 s e maximo da taxa nos ultimos ~10 s.
+- Quadros sem `ACK`: o bastante para cobrir a ida e volta minima no ritmo pedido (`minRTT / (1 / maxFps) + 2`), entre
+  **2 e 12**. Bytes sem `ACK`: 2 x taxa x ida e volta minima, entre **128 KiB e 4 MiB** (4 MiB enquanto nao houver
+  medida). Com a janela cheia o agente espera; o proximo quadro sai com a tela do momento (quadros intermediarios
+  sao descartados, nunca enfileirados).
+- Qualidade: comeca na do `SETTINGS` e nunca passa dela; cai 10 quando a fila (ida e volta menos a minima) passa de
+  300 ms, cai 5 quando a janela segurou quadros, e sobe 5 por segundo com fila abaixo de 100 ms. Minimo 25.
+- Ritmo: no maximo `maxFps` capturas por segundo. Com captura por leitura da tela (GDI, X11), depois de 2 s sem
+  mudanca e sem entrada do tecnico a captura cai para 4 por segundo; a entrada do tecnico volta ao ritmo na hora.
+  Com o DXGI Desktop Duplication (Windows 8 ou mais novo) o sistema avisa as mudancas e a tela parada nao custa nada.
+- O agente rele os monitores a cada 3 s e manda `DISPLAYS` quando mudam (resolucao, monitor ligado ou desligado).
 
 ### 5.4 Canal rdp (RDP do GNOME em Linux com Wayland)
 

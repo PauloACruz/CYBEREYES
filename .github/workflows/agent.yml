@@ -135,3 +135,7 @@ jobs:
       - name: Smoke (Windows, administrador)
         if: runner.os == 'Windows'
         run: go test -count=1 -tags smoke -v -timeout 20m ./smoke/...
+      # Captura do acesso remoto no Windows (DXGI Desktop Duplication e GDI) na area de trabalho do runner.
+      - name: Captura de tela (Windows)
+        if: runner.os == 'Windows'
+        run: go test -count=1 -v -run 'TestWindowsGrab|TestDXGIMatchesGDI' ./internal/remote/capture/

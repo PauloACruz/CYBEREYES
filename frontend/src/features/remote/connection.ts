@@ -7,6 +7,7 @@ import {
   parseTile,
   readJson,
   type ClipboardBody,
+  type CursorBody,
   type FilesCopiedBody,
   type FrameEndFrame,
   type HelloBody,
@@ -21,6 +22,8 @@ export interface ConnectionHandlers {
   onHello: (hello: HelloBody) => void;
   onDisplays: (displays: RemoteDisplay[], active: number) => void;
   onTile: (tile: TileFrame) => void;
+  /** Cursor remoto separado da imagem (quando o visualizador pediu settings.cursor). */
+  onCursor?: (cursor: CursorBody) => void;
   /** Deve devolver uma promessa que termina quando o quadro foi desenhado (o ACK sai depois dela). */
   onFrameEnd: (end: FrameEndFrame) => Promise<void>;
   onConsent: (state: 'waiting' | 'accepted' | 'denied' | 'timeout') => void;
@@ -105,7 +108,7 @@ export class RemoteConnection {
     this.socket = socket;
   }
 
-  private dispatch(frame: Uint8Array): void {
+  private dispatch(frame: Uint8Array<ArrayBuffer>): void {
     if (frame.length === 0) return;
     switch (frame[0]) {
       case FRAME.authOk:
@@ -124,6 +127,9 @@ export class RemoteConnection {
       }
       case FRAME.tile:
         this.handlers.onTile(parseTile(frame));
+        break;
+      case FRAME.cursor:
+        this.handlers.onCursor?.(readJson(frame) as CursorBody);
         break;
       case FRAME.frameEnd: {
         const end = parseFrameEnd(frame);
