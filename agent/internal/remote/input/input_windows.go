@@ -113,7 +113,7 @@ func send(events unsafe.Pointer, n int) error {
 	if n == 0 {
 		return nil
 	}
-	return windesk.Do(func(bool) error {
+	return windesk.DoInput(func(uint64) error {
 		r, _, err := procSendInput.Call(uintptr(n), uintptr(events), inputSize)
 		if int(r) != n {
 			return fmt.Errorf("SendInput: %w", err)

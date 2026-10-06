@@ -1,9 +1,10 @@
 //go:build windows
 
-// A captura e a entrada rodam numa thread fixa, presa a area de
+// A captura e a entrada rodam em threads fixas, presas a area de
 // trabalho que recebe a entrada naquele momento: "Default" no uso normal e "Winlogon" na tela bloqueada, na
-// tela de login e na confirmacao do UAC (contrato, secao 5; RFC-001, fase 12.3). O GDI e o SendInput so
-// enxergam a area de trabalho da thread que chama, por isso tudo passa por Do.
+// tela de login e na confirmacao do UAC (contrato, secao 5; RFC-001, fase 12.3). O GDI, o DXGI e o SendInput so
+// enxergam a area de trabalho da thread que chama, por isso tudo passa por Do (captura) ou DoInput (entrada).
+// Sao duas threads: uma captura demorada nunca atrasa o mouse e o teclado.
 
 package windesk
 
@@ -36,14 +37,22 @@ const (
 )
 
 type job struct {
-	fn   func(changed bool) error
+	fn   func(gen uint64) error
 	done chan error
+}
+
+// worker e uma thread presa a area de trabalho de entrada.
+type worker struct {
+	once sync.Once
+	jobs chan job
+	err  error
 }
 
 var (
 	once    sync.Once
-	jobs    chan job
 	initErr error
+	capture worker
+	input   worker
 )
 
 // Ensure prepara o processo (DPI e estacao WinSta0) sem executar nada; a area de transferencia usa a estacao.
@@ -52,15 +61,30 @@ func Ensure() error {
 	return initErr
 }
 
-// Do executa fn na thread da area de trabalho de entrada. changed vale true quando a area de trabalho mudou desde a
-// chamada anterior (quem guarda recursos do GDI deve recria-los).
-func Do(fn func(changed bool) error) error {
+// Do executa fn na thread de captura, presa a area de trabalho de entrada. gen identifica a area de trabalho da
+// thread e muda a cada troca: quem guarda recursos do GDI ou do DXGI compara com o valor que usou da ultima vez e
+// os recria quando mudou (cada um com o seu, entao nenhuma chamada "consome" a troca de outra).
+func Do(fn func(gen uint64) error) error { return capture.do(fn) }
+
+// DoInput executa fn na thread de entrada (SendInput), separada da captura.
+func DoInput(fn func(gen uint64) error) error { return input.do(fn) }
+
+func (w *worker) do(fn func(gen uint64) error) error {
 	once.Do(start)
 	if initErr != nil {
 		return initErr
 	}
+	w.once.Do(func() {
+		w.jobs = make(chan job)
+		ready := make(chan error, 1)
+		go loop(w.jobs, ready)
+		w.err = <-ready
+	})
+	if w.err != nil {
+		return w.err
+	}
 	j := job{fn: fn, done: make(chan error, 1)}
-	jobs <- j
+	w.jobs <- j
 	return <-j.done
 }
 
@@ -77,13 +101,17 @@ func start() {
 			procSetProcessWindowStation.Call(h)
 		}
 	}
-	jobs = make(chan job)
-	ready := make(chan error, 1)
-	go loop(ready)
-	initErr = <-ready
+	// A primeira thread confirma que a area de trabalho de entrada esta acessivel.
+	capture.once.Do(func() {
+		capture.jobs = make(chan job)
+		ready := make(chan error, 1)
+		go loop(capture.jobs, ready)
+		capture.err = <-ready
+	})
+	initErr = capture.err
 }
 
-func loop(ready chan<- error) {
+func loop(jobs <-chan job, ready chan<- error) {
 	runtime.LockOSThread()
 	var current uintptr
 	var currentName string
@@ -112,22 +140,24 @@ func loop(ready chan<- error) {
 	if err != nil {
 		return
 	}
-	first := true
+	gen := uint64(1)
 	for j := range jobs {
 		changed, err := follow()
 		if err != nil {
 			j.done <- err
 			continue
 		}
-		j.done <- j.fn(changed || first)
-		first = false
+		if changed {
+			gen++
+		}
+		j.done <- j.fn(gen)
 	}
 }
 
 // Name devolve o nome da area de trabalho de entrada atual ("Default", "Winlogon", "Screen-saver").
 func Name() string {
 	var out string
-	_ = Do(func(bool) error {
+	_ = Do(func(uint64) error {
 		h, _, _ := procOpenInputDesktop.Call(0, 0, 0)
 		if h != 0 {
 			out = objectName(h)

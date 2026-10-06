@@ -108,12 +108,26 @@ type Display struct {
 	Primary bool    `json:"primary"`
 }
 
-// SettingsBody e o corpo do SETTINGS.
+// SettingsBody e o corpo do SETTINGS. Cursor verdadeiro: o visualizador desenha o ponteiro a partir dos quadros
+// CURSOR e o agente nao o desenha mais na imagem (contrato, secao 5.1).
 type SettingsBody struct {
 	Quality int     `json:"quality"`
 	Scale   float64 `json:"scale"`
 	MaxFPS  int     `json:"maxFps"`
 	Display int     `json:"display"`
+	Cursor  bool    `json:"cursor,omitempty"`
+}
+
+// CursorBody e o corpo do CURSOR: posicao do ponto ativo no quadro (ja na escala), id do desenho e, so na primeira
+// vez de cada id, o PNG em base64 com o ponto ativo em pixels do desenho.
+type CursorBody struct {
+	Visible bool    `json:"visible"`
+	X       int     `json:"x"`
+	Y       int     `json:"y"`
+	ID      uint32  `json:"id"`
+	HotX    int     `json:"hotX"`
+	HotY    int     `json:"hotY"`
+	PNG     *string `json:"png"`
 }
 
 // KeyBody e o corpo do KEY.

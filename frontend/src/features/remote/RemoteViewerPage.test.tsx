@@ -114,6 +114,47 @@ describe('visualizador de acesso remoto', () => {
     expect(socket.sent.filter((f) => f[0] === FRAME.key)).toHaveLength(2);
   });
 
+  it('pede o cursor separado e junta os movimentos do mouse', async () => {
+    mockFetch({
+      'GET /api/auth/me': () => json(me),
+      'POST /api/agents/1/remote/sessions': () => json(session, 201),
+      [`DELETE /api/remote/sessions/${session.sessionId}`]: () => new Response(null, { status: 204 }),
+    });
+    vi.stubGlobal('WebSocket', FakeSocket);
+    renderApp('/acesso-remoto/1');
+    await waitFor(() => expect(FakeSocket.last).not.toBeNull());
+    const socket = FakeSocket.last!;
+    socket.readyState = FakeSocket.OPEN;
+    socket.onopen?.();
+    const receive = (frame: Uint8Array) => {
+      const copy = new Uint8Array(frame.length);
+      copy.set(frame);
+      socket.onmessage?.({ data: copy.buffer });
+    };
+    receive(new Uint8Array([FRAME.paired]));
+    receive(jsonFrame(FRAME.hello, { proto: 1, os: 'windows', displays: [{ id: 0, name: '', x: 0, y: 0, w: 800, h: 600, scale: 1, primary: true }], active: 0, features: ['desktop', 'cursor'], user: null }));
+    const settings = () =>
+      socket.sent.filter((f) => f[0] === FRAME.settings).map((f) => JSON.parse(new TextDecoder().decode(f.subarray(1))) as { cursor: boolean; maxFps: number });
+    await waitFor(() => expect(settings().at(-1)).toMatchObject({ cursor: true, maxFps: 24 }));
+
+    const canvas = screen.getByTestId('remote-canvas');
+    socket.sent.length = 0;
+    // Relogio parado durante a rajada: o resultado nao depende da carga da maquina.
+    const clock = vi.spyOn(performance, 'now').mockReturnValue(1000);
+    try {
+      for (let i = 0; i < 20; i++) fireEvent.pointerMove(canvas, { clientX: i, clientY: i, buttons: 0 });
+      const mouse = () => socket.sent.filter((f) => f[0] === FRAME.mouse);
+      expect(mouse().length).toBeLessThanOrEqual(2);
+      // O clique sai na hora, depois do movimento pendente.
+      fireEvent.pointerDown(canvas, { clientX: 30, clientY: 30, buttons: 1 });
+      const last = JSON.parse(new TextDecoder().decode(mouse().at(-1)?.subarray(1))) as { buttons: number };
+      expect(last.buttons).toBe(1);
+      expect(mouse()).toHaveLength(3);
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
   it('arquivos copiados na estacao viram um link para baixar', async () => {
     const created: unknown[] = [];
     mockFetch({

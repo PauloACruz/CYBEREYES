@@ -24,7 +24,9 @@ type x11 struct {
 	depth byte
 	randr bool
 	// cursor: XFixes disponivel para desenhar o ponteiro (o GetImage nao inclui o cursor).
-	cursor bool
+	cursor      bool
+	shape       *CursorShape
+	shapeSerial uint32
 }
 
 // Open conecta ao servidor X do DISPLAY atual. Sessoes Wayland sem Xwayland na tela inteira
@@ -81,10 +83,24 @@ func anyPrimary(ds []Display) bool {
 }
 
 func (s *x11) Capture(d Display) (*image.RGBA, error) {
+	var f Frame
+	if err := s.Grab(d, &f, false); err != nil {
+		return nil, err
+	}
+	return f.Img, nil
+}
+
+// Backend e Polling: o X11 precisa reler a tela para descobrir mudancas.
+func (s *x11) Backend() string { return "x11" }
+func (s *x11) Polling() bool   { return true }
+
+// Grab captura o monitor no Frame reaproveitado. Com separateCursor o ponteiro nao entra na imagem e vai em
+// f.Cursor (desenho do XFixes).
+func (s *x11) Grab(d Display, f *Frame, separateCursor bool) error {
 	if d.W <= 0 || d.H <= 0 {
 		d = Display{W: s.width, H: s.heigh}
 	}
-	img := image.NewRGBA(image.Rect(0, 0, d.W, d.H))
+	img := ensureImage(f, d.W, d.H)
 	// Faixas de ate 256 linhas: mantem cada resposta abaixo do limite de requisicao sem BIG-REQUESTS.
 	const band = 256
 	for y := 0; y < d.H; y += band {
@@ -92,18 +108,66 @@ func (s *x11) Capture(d Display) (*image.RGBA, error) {
 		reply, err := xproto.GetImage(s.conn, xproto.ImageFormatZPixmap, xproto.Drawable(s.root),
 			int16(d.X), int16(d.Y+y), uint16(d.W), uint16(h), 0xffffffff).Reply()
 		if err != nil {
-			return nil, fmt.Errorf("GetImage: %w", err)
+			return fmt.Errorf("GetImage: %w", err)
 		}
 		if err := bgrxToRGBA(img, y, d.W, h, reply.Data); err != nil {
-			return nil, err
+			return err
 		}
 	}
-	if s.cursor {
-		if c, err := xfixes.GetCursorImage(s.conn).Reply(); err == nil {
-			drawCursor(img, int(c.X)-int(c.Xhot)-d.X, int(c.Y)-int(c.Yhot)-d.Y, int(c.Width), int(c.Height), c.CursorImage)
-		}
+	f.Changed, f.Dirty, f.Cursor = true, nil, Cursor{}
+	if !s.cursor {
+		return nil
 	}
-	return img, nil
+	c, err := xfixes.GetCursorImage(s.conn).Reply()
+	if err != nil {
+		return nil
+	}
+	if separateCursor {
+		f.Cursor = s.toCursor(c, d)
+		return nil
+	}
+	drawCursor(img, int(c.X)-int(c.Xhot)-d.X, int(c.Y)-int(c.Yhot)-d.Y, int(c.Width), int(c.Height), c.CursorImage)
+	return nil
+}
+
+// Pointer le so o cursor (posicao e desenho) pelo XFixes.
+func (s *x11) Pointer(d Display) (Cursor, error) {
+	if !s.cursor {
+		return Cursor{}, ErrUnsupported
+	}
+	c, err := xfixes.GetCursorImage(s.conn).Reply()
+	if err != nil {
+		return Cursor{}, err
+	}
+	return s.toCursor(c, d), nil
+}
+
+func (s *x11) toCursor(c *xfixes.GetCursorImageReply, d Display) Cursor {
+	out := Cursor{Visible: true, X: int(c.X) - d.X, Y: int(c.Y) - d.Y}
+	if s.shape != nil && s.shapeSerial == c.CursorSerial {
+		out.Shape = s.shape
+		return out
+	}
+	w, h := int(c.Width), int(c.Height)
+	if w <= 0 || h <= 0 || w > 256 || h > 256 || len(c.CursorImage) < w*h {
+		return out
+	}
+	img := image.NewRGBA(image.Rect(0, 0, w, h))
+	for i, v := range c.CursorImage[:w*h] {
+		a := v >> 24
+		p := img.Pix[i*4 : i*4+4]
+		if a == 0 {
+			continue
+		}
+		// ARGB pre-multiplicado para RGBA comum.
+		p[0] = uint8(min(255, ((v>>16)&0xff)*255/a))
+		p[1] = uint8(min(255, ((v>>8)&0xff)*255/a))
+		p[2] = uint8(min(255, (v&0xff)*255/a))
+		p[3] = uint8(a)
+	}
+	s.shape, s.shapeSerial = NewCursorShape(img, int(c.Xhot), int(c.Yhot)), c.CursorSerial
+	out.Shape = s.shape
+	return out
 }
 
 // drawCursor mistura o cursor do XFixes (ARGB pre-multiplicado, um uint32 por pixel) na imagem, em (x, y).

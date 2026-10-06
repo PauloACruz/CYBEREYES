@@ -62,7 +62,7 @@ export interface TileFrame {
   y: number;
   w: number;
   h: number;
-  jpeg: Uint8Array;
+  jpeg: Uint8Array<ArrayBuffer>;
 }
 
 export interface FrameEndFrame {
@@ -70,6 +70,17 @@ export interface FrameEndFrame {
   tiles: number;
   width: number;
   height: number;
+}
+
+/** CURSOR (contrato, secao 5.1): ponto ativo em pixels do quadro; png so na primeira vez de cada id. */
+export interface CursorBody {
+  visible: boolean;
+  x: number;
+  y: number;
+  id: number;
+  hotX: number;
+  hotY: number;
+  png: string | null;
 }
 
 export interface ClipboardBody {
@@ -98,7 +109,7 @@ export function readJson(frame: Uint8Array): unknown {
   return JSON.parse(decoder.decode(frame.subarray(1)));
 }
 
-export function parseTile(frame: Uint8Array): TileFrame {
+export function parseTile(frame: Uint8Array<ArrayBuffer>): TileFrame {
   const view = new DataView(frame.buffer, frame.byteOffset, frame.byteLength);
   return {
     frame: view.getUint32(1),

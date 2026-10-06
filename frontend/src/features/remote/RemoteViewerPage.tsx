@@ -1,7 +1,7 @@
 import { Alert, Anchor, Badge, Box, Button, Center, Drawer, Group, Loader, SegmentedControl, Select, Stack, Switch, Text, Tooltip } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { IconClipboardCheck, IconFolders, IconKeyboard, IconMaximize, IconPlugConnectedX, IconScreenShare } from '@tabler/icons-react';
-import { useCallback, useEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent, type PointerEvent, type WheelEvent } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent, type PointerEvent, type WheelEvent } from 'react';
 import { useParams, useSearchParams } from 'react-router';
 import { remoteFilesApi } from '../../api/remote';
 import { PERMISSIONS } from '../../api/types';
@@ -9,25 +9,43 @@ import { hasPermission } from '../../auth/permissions';
 import { useMe } from '../../auth/useMe';
 import { formatBytes } from '../../lib/format';
 import { ClipboardBridge } from './clipboard';
+import { CursorShapes, cssCursor, placeCursor, type CursorShape } from './cursor';
 import { FilesPanel } from './FilesPanel';
 import { RdpViewer } from './RdpViewer';
 import { useTransfers } from './useTransfers';
-import { FRAME, type ClipboardBody, type FilesCopiedBody, type FrameEndFrame, type HelloBody, type RemoteDisplay, type TileFrame } from './protocol';
-import { shouldCapture, toRemotePoint, wheelUnits } from './inputMap';
+import { FRAME, type ClipboardBody, type CursorBody, type FilesCopiedBody, type FrameEndFrame, type HelloBody, type RemoteDisplay, type TileFrame } from './protocol';
+import { Coalescer, shouldCapture, toRemotePoint, wheelUnits } from './inputMap';
 import { useRemoteSession, type SessionStatus } from './useRemoteSession';
 
 type QualityPreset = 'alta' | 'media' | 'baixa';
 
+// Qualidade inicial e limite de quadros por segundo; o agente baixa a qualidade sozinho quando a rede aperta e
+// refina a tela parada (contrato, secao 5.3).
 const PRESETS: Record<QualityPreset, { quality: number; scale: number; maxFps: number }> = {
-  alta: { quality: 80, scale: 1, maxFps: 20 },
-  media: { quality: 60, scale: 1, maxFps: 15 },
-  baixa: { quality: 40, scale: 0.75, maxFps: 10 },
+  alta: { quality: 80, scale: 1, maxFps: 30 },
+  media: { quality: 60, scale: 1, maxFps: 24 },
+  baixa: { quality: 40, scale: 0.75, maxFps: 15 },
 };
 
 interface DecodedTile {
   tile: TileFrame;
   bitmap: ImageBitmap;
 }
+
+interface MouseBody {
+  x: number;
+  y: number;
+  buttons: number;
+}
+
+interface WheelBody {
+  dx: number;
+  dy: number;
+}
+
+// Tecnico parado ha este tempo e cursor remoto longe do ponteiro local: outra pessoa (ou um programa) moveu o
+// cursor, e ele aparece desenhado sobre a tela.
+const REMOTE_MOVED_AFTER_MS = 1000;
 
 function statusText(status: SessionStatus, consent: string | null): { label: string; color: string } {
   if (status.kind === 'creating') return { label: 'Abrindo sessão', color: 'gray' };
@@ -89,7 +107,26 @@ function DesktopViewer({ onWayland }: { onWayland: () => void }) {
   );
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const cursorRef = useRef<HTMLDivElement | null>(null);
+  // Cursor remoto separado da imagem (contrato, secao 5.1) e estado do ponteiro local.
+  const remoteCursor = useRef<{ body: CursorBody; shape: CursorShape | null } | null>(null);
+  const local = useRef<{ inside: boolean; lastMove: number; sent: { x: number; y: number } | null; buttons: number }>({
+    inside: false,
+    lastMove: 0,
+    sent: null,
+    buttons: 0,
+  });
+  const view = useRef<{ viewOnly: boolean; display: RemoteDisplay | undefined; separateCursor: boolean }>({
+    viewOnly: options.viewOnly,
+    display: undefined,
+    separateCursor: false,
+  });
+  const [cursorShapes] = useState(() => new CursorShapes());
+  // Movimentos e roda: no maximo um envio a cada 16 ms (o relay limita os quadros por segundo).
+  const [moves] = useState(() => new Coalescer<MouseBody>((_, next) => next));
+  const [wheels] = useState(() => new Coalescer<WheelBody>((a, b) => ({ dx: a.dx + b.dx, dy: a.dy + b.dy })));
   const pending = useRef<Promise<DecodedTile | null>[]>([]);
   const pressed = useRef(new Set<string>());
   const [hello, setHello] = useState<HelloBody | null>(null);
@@ -115,32 +152,83 @@ function DesktopViewer({ onWayland }: { onWayland: () => void }) {
   // Ctrl+V: espera o evento paste para mandar o texto antes das teclas.
   const paste = useRef<{ waiting: boolean; ignoreUp: boolean; timer: number | undefined }>({ waiting: false, ignoreUp: false, timer: undefined });
 
+  // Desenha o cursor remoto sobre a tela quando o ponteiro local nao o representa: somente visualizar, mouse fora da
+  // tela ou cursor movido por outra pessoa. Controlando, o ponteiro local ganha a forma do cursor remoto.
+  const showCursor = useCallback(() => {
+    const el = cursorRef.current;
+    const canvas = canvasRef.current;
+    const box = containerRef.current;
+    if (!el || !canvas || !box) return;
+    const rc = remoteCursor.current;
+    const { viewOnly: onlyView, display: shownDisplay, separateCursor } = view.current;
+    const pointerState = local.current;
+    const visible = separateCursor && rc !== null && rc.body.visible;
+    canvas.style.cursor = visible && !onlyView ? cssCursor(rc.shape) : 'default';
+    let placement = null;
+    if (visible && rc.shape && shownDisplay && canvas.width > 0 && canvas.height > 0) {
+      const remoteMoved =
+        pointerState.sent !== null &&
+        performance.now() - pointerState.lastMove > REMOTE_MOVED_AFTER_MS &&
+        Math.hypot(
+          (rc.body.x * shownDisplay.w) / canvas.width - pointerState.sent.x,
+          (rc.body.y * shownDisplay.h) / canvas.height - pointerState.sent.y,
+        ) > 12;
+      if (onlyView || !pointerState.inside || remoteMoved) {
+        const c = canvas.getBoundingClientRect();
+        const b = box.getBoundingClientRect();
+        placement = placeCursor(
+          rc.body,
+          rc.shape,
+          { width: canvas.width, height: canvas.height },
+          { left: c.left - b.left, top: c.top - b.top, width: c.width, height: c.height },
+          shownDisplay.w,
+        );
+      }
+    }
+    if (!placement || !rc?.shape) {
+      el.style.display = 'none';
+      return;
+    }
+    el.style.display = 'block';
+    el.style.width = `${String(placement.width)}px`;
+    el.style.height = `${String(placement.height)}px`;
+    el.style.backgroundImage = `url("${rc.shape.url}")`;
+    el.style.transform = `translate(${String(placement.left)}px, ${String(placement.top)}px)`;
+  }, []);
+
   const onTile = useCallback((tile: TileFrame) => {
-    const bytes = new Uint8Array(tile.jpeg.length);
-    bytes.set(tile.jpeg);
+    // O quadro chega num ArrayBuffer proprio: o Blob le direto do trecho do JPEG, sem copia extra.
     pending.current.push(
-      createImageBitmap(new Blob([bytes], { type: 'image/jpeg' }))
+      createImageBitmap(new Blob([tile.jpeg], { type: 'image/jpeg' }))
         .then((bitmap) => ({ tile, bitmap }))
         .catch(() => null),
     );
   }, []);
 
-  const onFrameEnd = useCallback(async (end: FrameEndFrame) => {
-    const decoded = await Promise.all(pending.current.splice(0));
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
-    if (!canvas || !ctx) return;
-    if (canvas.width !== end.width || canvas.height !== end.height) {
-      canvas.width = end.width;
-      canvas.height = end.height;
-    }
-    for (const item of decoded) {
-      if (!item) continue;
-      ctx.drawImage(item.bitmap, item.tile.x, item.tile.y);
-      item.bitmap.close();
-    }
-    setFirstFrame(true);
-  }, []);
+  const onFrameEnd = useCallback(
+    async (end: FrameEndFrame) => {
+      const decoded = await Promise.all(pending.current.splice(0));
+      const canvas = canvasRef.current;
+      if (canvas && ctxRef.current?.canvas !== canvas) ctxRef.current = canvas.getContext('2d', { alpha: false });
+      const ctx = ctxRef.current;
+      if (!canvas || !ctx) {
+        for (const item of decoded) item?.bitmap.close();
+        return;
+      }
+      if (canvas.width !== end.width || canvas.height !== end.height) {
+        canvas.width = end.width;
+        canvas.height = end.height;
+      }
+      for (const item of decoded) {
+        if (!item) continue;
+        ctx.drawImage(item.bitmap, item.tile.x, item.tile.y);
+        item.bitmap.close();
+      }
+      setFirstFrame(true);
+      showCursor();
+    },
+    [showCursor],
+  );
 
   const { status, connection } = useRemoteSession(agentId, options, {
     onHello: (h) => {
@@ -154,6 +242,10 @@ function DesktopViewer({ onWayland }: { onWayland: () => void }) {
       setActiveDisplay(a);
     },
     onTile,
+    onCursor: (body) => {
+      remoteCursor.current = { body, shape: cursorShapes.update(body) };
+      showCursor();
+    },
     onFrameEnd,
     onConsent: setConsent,
     onClipboard: (body) => void bridge().fromRemote(body),
@@ -192,13 +284,37 @@ function DesktopViewer({ onWayland }: { onWayland: () => void }) {
     };
   }, [connection, viewOnly]);
 
-  // Ajustes de imagem: enviados no HELLO e a cada mudanca.
+  // Ajustes de imagem: enviados no HELLO e a cada mudanca. Com o cursor separado, o agente nao desenha o ponteiro
+  // na imagem e manda o CURSOR (contrato, secao 5.1).
+  const separateCursor = hello?.features.includes('cursor') ?? false;
   useEffect(() => {
     if (!connected || !hello) return;
-    connection.current?.sendJson(FRAME.settings, { ...PRESETS[preset], display: activeDisplay });
-  }, [connected, hello, preset, activeDisplay, connection]);
+    connection.current?.sendJson(FRAME.settings, { ...PRESETS[preset], display: activeDisplay, cursor: separateCursor });
+  }, [connected, hello, preset, activeDisplay, connection, separateCursor]);
 
   const display = displays.find((d) => d.id === activeDisplay) ?? displays[0];
+  useLayoutEffect(() => {
+    view.current = { viewOnly, display, separateCursor };
+    showCursor();
+  });
+
+  // Tela redimensionada: o cursor desenhado acompanha.
+  useEffect(() => {
+    const box = containerRef.current;
+    if (!box) return;
+    const observer = new ResizeObserver(() => showCursor());
+    observer.observe(box);
+    return () => observer.disconnect();
+  }, [showCursor]);
+
+  useEffect(
+    () => () => {
+      moves.cancel();
+      wheels.cancel();
+    },
+    [moves, wheels],
+  );
+
   const send = (type: number, body: unknown) => {
     if (!viewOnly) connection.current?.sendJson(type, body);
   };
@@ -207,7 +323,19 @@ function DesktopViewer({ onWayland }: { onWayland: () => void }) {
     if (!display || viewOnly) return;
     const rect = event.currentTarget.getBoundingClientRect();
     const point = toRemotePoint(event.clientX - rect.left, event.clientY - rect.top, rect, display);
-    send(FRAME.mouse, { ...point, buttons: event.buttons });
+    const state = local.current;
+    const buttonsChanged = event.buttons !== state.buttons;
+    state.lastMove = performance.now();
+    state.sent = point;
+    state.buttons = event.buttons;
+    const body = { ...point, buttons: event.buttons };
+    if (event.type === 'pointermove' && !buttonsChanged) {
+      moves.push(body, (b) => send(FRAME.mouse, b));
+      return;
+    }
+    // Botao apertado ou solto: o movimento pendente vai antes e o botao sai na hora.
+    moves.flush();
+    send(FRAME.mouse, body);
   };
 
   const sendPasteKeys = () => {
@@ -241,6 +369,7 @@ function DesktopViewer({ onWayland }: { onWayland: () => void }) {
     event.preventDefault();
     if (down) pressed.current.add(event.code);
     else pressed.current.delete(event.code);
+    moves.flush();
     send(FRAME.key, { code: event.code, down });
   };
 
@@ -271,7 +400,10 @@ function DesktopViewer({ onWayland }: { onWayland: () => void }) {
   };
 
   const wheel = (event: WheelEvent<HTMLCanvasElement>) => {
-    send(FRAME.wheel, { dx: wheelUnits(event.deltaX, event.deltaMode), dy: wheelUnits(event.deltaY, event.deltaMode) });
+    moves.flush();
+    wheels.push({ dx: wheelUnits(event.deltaX, event.deltaMode), dy: wheelUnits(event.deltaY, event.deltaMode) }, (b) => {
+      if (b.dx !== 0 || b.dy !== 0) send(FRAME.wheel, b);
+    });
   };
 
   const fullscreen = async () => {
@@ -377,8 +509,16 @@ function DesktopViewer({ onWayland }: { onWayland: () => void }) {
           tabIndex={0}
           aria-label={`Tela de ${hostname}`}
           data-testid="remote-canvas"
-          style={{ maxWidth: '100%', maxHeight: '100%', outline: 'none', cursor: 'default', display: firstFrame ? 'block' : 'none' }}
+          style={{ maxWidth: '100%', maxHeight: '100%', outline: 'none', display: firstFrame ? 'block' : 'none' }}
           onPointerMove={pointer}
+          onPointerEnter={() => {
+            local.current.inside = true;
+            showCursor();
+          }}
+          onPointerLeave={() => {
+            local.current.inside = false;
+            showCursor();
+          }}
           onPointerDown={(e) => {
             e.currentTarget.focus();
             void bridge().flushPending();
@@ -394,6 +534,12 @@ function DesktopViewer({ onWayland }: { onWayland: () => void }) {
           onKeyUp={(e) => key(e, false)}
           onBlur={releaseAll}
           onContextMenu={(e) => e.preventDefault()}
+        />
+        <div
+          ref={cursorRef}
+          aria-hidden
+          data-testid="remote-cursor"
+          style={{ position: 'absolute', left: 0, top: 0, display: 'none', pointerEvents: 'none', backgroundSize: '100% 100%', willChange: 'transform' }}
         />
         {!firstFrame && (
           <Center pos="absolute" inset={0}>

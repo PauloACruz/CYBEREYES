@@ -223,11 +223,11 @@ public sealed class RemoteRelay(RemoteSessionManager manager, RemoteForwarder fo
         }
         var windowStart = time.GetUtcNow();
         var inWindow = 0;
-        var limit = rdp ? RemoteFrames.MaxRdpFrame : RemoteFrames.MaxDesktopFrame;
+        using var reader = new FrameReader(self.Socket, rdp ? RemoteFrames.MaxRdpFrame : RemoteFrames.MaxDesktopFrame);
         while (!handle.Ended.IsCancellationRequested)
         {
-            var frame = await ReceiveAsync(self.Socket, limit, handle.Ended.Token);
-            if (frame is null)
+            // O quadro fica no buffer do leitor ate a proxima leitura: o repasse termina antes dela.
+            if (await reader.ReadAsync(handle.Ended.Token) is not { } frame)
             {
                 return;
             }
@@ -235,7 +235,7 @@ public sealed class RemoteRelay(RemoteSessionManager manager, RemoteForwarder fo
             {
                 continue;
             }
-            var type = frame[0];
+            var type = frame.Span[0];
             if (role == "viewer" && rdp)
             {
                 // RDP puro: sem limite de quadros por segundo (o cliente junta a entrada em pacotes do proprio RDP).
@@ -273,7 +273,7 @@ public sealed class RemoteRelay(RemoteSessionManager manager, RemoteForwarder fo
                     await manager.MarkFirstFrameAsync(handle);
                 }
                 handle.CountToViewer(frame.Length - 1, false);
-                await peer.SendAsync(frame.AsMemory(1), handle.Ended.Token);
+                await peer.SendAsync(frame[1..], handle.Ended.Token);
                 continue;
             }
             else
@@ -285,7 +285,7 @@ public sealed class RemoteRelay(RemoteSessionManager manager, RemoteForwarder fo
         }
     }
 
-    private async Task ObserveAgentFrameAsync(RemoteSessionHandle handle, byte type, byte[] frame)
+    private async Task ObserveAgentFrameAsync(RemoteSessionHandle handle, byte type, ReadOnlyMemory<byte> frame)
     {
         switch (type)
         {
@@ -319,11 +319,11 @@ public sealed class RemoteRelay(RemoteSessionManager manager, RemoteForwarder fo
         }
     }
 
-    private static string? ReadString(byte[] frame, string property)
+    private static string? ReadString(ReadOnlyMemory<byte> frame, string property)
     {
         try
         {
-            using var doc = JsonDocument.Parse(frame.AsMemory(1));
+            using var doc = JsonDocument.Parse(frame[1..]);
             return doc.RootElement.TryGetProperty(property, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
         }
         catch (JsonException)
@@ -339,6 +339,55 @@ public sealed class RemoteRelay(RemoteSessionManager manager, RemoteForwarder fo
         frame[0] = type;
         json.CopyTo(frame, 1);
         return end.SendAsync(frame, ct);
+    }
+
+    /// <summary>
+    /// Leitor de mensagens com um buffer reaproveitado (do ArrayPool): o canal de tela repassa cada quadro antes de ler
+    /// o proximo, entao o mesmo buffer serve para todos, sem alocar nem copiar por quadro.
+    /// </summary>
+    public sealed class FrameReader(WebSocket socket, int limit) : IDisposable
+    {
+        private byte[] buffer = ArrayPool<byte>.Shared.Rent(64 << 10);
+
+        /// <summary>
+        /// Le uma mensagem inteira, valida ate a proxima leitura. Devolve null no fechamento; fecha com 4413 acima do
+        /// limite.
+        /// </summary>
+        public async Task<ReadOnlyMemory<byte>?> ReadAsync(CancellationToken ct)
+        {
+            var length = 0;
+            while (true)
+            {
+                if (length == buffer.Length)
+                {
+                    var bigger = ArrayPool<byte>.Shared.Rent(Math.Min(buffer.Length * 2, limit + 1));
+                    buffer.AsSpan(0, length).CopyTo(bigger);
+                    ArrayPool<byte>.Shared.Return(buffer);
+                    buffer = bigger;
+                }
+                var result = await socket.ReceiveAsync(buffer.AsMemory(length), ct);
+                if (result.MessageType == WebSocketMessageType.Close)
+                {
+                    return null;
+                }
+                length += result.Count;
+                if (length > limit)
+                {
+                    await socket.CloseOutputAsync((WebSocketCloseStatus)RemoteFrames.CloseTooLarge, "quadro grande demais", CancellationToken.None);
+                    return null;
+                }
+                if (result.EndOfMessage)
+                {
+                    return buffer.AsMemory(0, length);
+                }
+            }
+        }
+
+        public void Dispose()
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+            buffer = [];
+        }
     }
 
     /// <summary>Le uma mensagem inteira. Devolve null no fechamento; fecha com 4413 acima do limite.</summary>
