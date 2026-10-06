@@ -51,14 +51,8 @@ public sealed partial class AccountEmails(UserManager<AppUser> userManager, Cybe
         await userManager.UpdateSecurityStampAsync(user);
         var token = await userManager.GenerateUserTokenAsync(user, InviteTokenProviderOptions.ProviderName, InvitePurpose);
         var link = Link(publicUrl, "/convite", user.Id, token);
-        var body =
-            $"Ola, {user.FullName}.\n\n" +
-            "Voce foi convidado para o console Cybereyes.\n" +
-            $"Seu usuario: {user.UserName}\n\n" +
-            $"Defina sua senha pelo link abaixo (valido por {InviteLifespan.TotalHours:0} horas):\n{link}\n\n" +
-            "No primeiro acesso sera pedida a verificacao em duas etapas (Google Authenticator, Microsoft Authenticator ou similar).\n\n" +
-            "Se voce nao esperava este convite, ignore esta mensagem.";
-        await sender.SendEmailAsync(settings, [user.Email!], "[Cybereyes] Convite para o console", body, ct);
+        var content = EmailTemplates.Invite(user.FullName, user.UserName!, link, (int)InviteLifespan.TotalHours, publicUrl);
+        await sender.SendEmailAsync(settings, [user.Email!], content, ct);
     }
 
     public Task<bool> VerifyInviteAsync(AppUser user, string token) =>
@@ -87,28 +81,23 @@ public sealed partial class AccountEmails(UserManager<AppUser> userManager, Cybe
 
         var token = await userManager.GeneratePasswordResetTokenAsync(user);
         var link = Link(publicUrl, "/redefinir-senha", user.Id, token);
-        var body =
-            $"Ola, {user.FullName}.\n\n" +
-            $"Recebemos um pedido para redefinir a senha do usuario {user.UserName} no console Cybereyes.\n\n" +
-            $"Defina uma nova senha pelo link abaixo (valido por {ResetLifespan.TotalHours:0} horas e uma unica vez):\n{link}\n\n" +
-            "A verificacao em duas etapas continua sendo pedida no login.\n\n" +
-            "Se nao foi voce, ignore esta mensagem: sua senha atual continua valendo.";
+        var content = EmailTemplates.PasswordReset(user.FullName, user.UserName!, link, (int)ResetLifespan.TotalHours, publicUrl);
         var email = user.Email!;
         var username = user.UserName;
 
         // Sem o contexto da requisicao: ela termina antes do envio (o HttpContext ja estaria descartado).
         using (ExecutionContext.SuppressFlow())
         {
-            _ = Task.Run(() => SendResetAsync(settings, email, body, userId, username), CancellationToken.None);
+            _ = Task.Run(() => SendResetAsync(settings, email, content, userId, username), CancellationToken.None);
         }
         return true;
     }
 
-    private async Task SendResetAsync(CoreSettings settings, string email, string body, string userId, string? username)
+    private async Task SendResetAsync(CoreSettings settings, string email, EmailContent content, string userId, string? username)
     {
         try
         {
-            await sender.SendEmailAsync(settings, [email], "[Cybereyes] Redefinicao de senha", body, CancellationToken.None);
+            await sender.SendEmailAsync(settings, [email], content, CancellationToken.None);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

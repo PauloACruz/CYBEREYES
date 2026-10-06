@@ -100,7 +100,7 @@ func main() {
 		MinWidth:         360,
 		MinHeight:        480,
 		Hidden:           startHidden,
-		BackgroundColour: application.NewRGB(246, 247, 249),
+		BackgroundColour: application.NewRGB(10, 12, 14),
 		URL:              "/",
 	})
 	svc.window = window

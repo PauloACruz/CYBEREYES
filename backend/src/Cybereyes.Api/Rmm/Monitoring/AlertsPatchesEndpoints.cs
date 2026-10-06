@@ -88,11 +88,11 @@ public static class AlertsPatchesEndpoints
         var st = app.MapGroup("/api/settings").WithTags("Configuracoes").RequireAuthorization(settings);
         st.MapGet("/", async (CybereyesDbContext db, CancellationToken ct) => TypedResults.Ok(SettingsDto(await SettingsStore.GetAsync(db, ct))));
         st.MapPut("/", SaveSettingsAsync);
-        st.MapPost("/test-email", async (TestEmailRequest r, CybereyesDbContext db, INotificationSender sender, CancellationToken ct) =>
+        st.MapPost("/test-email", async (TestEmailRequest r, CybereyesDbContext db, INotificationSender sender, IConfiguration config, CancellationToken ct) =>
         {
             try
             {
-                await sender.SendEmailAsync(await SettingsStore.GetAsync(db, ct), [r.To], "[Cybereyes] Teste de e-mail", "Se voce recebeu esta mensagem, o SMTP esta configurado corretamente.", ct);
+                await sender.SendEmailAsync(await SettingsStore.GetAsync(db, ct), [r.To], EmailTemplates.SmtpTest(config["App:PublicUrl"]), ct);
                 return TypedResults.Ok(new { success = true, message = "E-mail enviado" });
             }
             catch (Exception ex) when (ex is not OperationCanceledException)

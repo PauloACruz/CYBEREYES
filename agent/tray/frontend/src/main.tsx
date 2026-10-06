@@ -2,6 +2,8 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { BackendContext, loadBackend } from './lib/backend';
+import '@fontsource-variable/space-grotesk';
+import '@fontsource/jetbrains-mono/500.css';
 import './styles.css';
 
 const root = document.getElementById('root');
