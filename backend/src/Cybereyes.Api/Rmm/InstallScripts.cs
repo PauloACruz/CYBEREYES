@@ -48,8 +48,35 @@ public static class InstallScripts
             $"curl -fsSL -o /tmp/eyes \"{p.ApiUrl}/api/agent/download/darwin/{arch}\" && chmod +x /tmp/eyes && sudo /tmp/eyes install --api {p.ApiUrl} --client-id {p.ClientId} --site-id {p.SiteId} --agent-type {Concrete(p.AgentType)} --auth {p.Token} && rm -f /tmp/eyes");
     }
 
-    /// <summary>Script PowerShell para Windows. Sem goarch, detecta amd64, arm64 ou 386.</summary>
+    /// <summary>
+    /// Script PowerShell para Windows. Sem goarch, detecta amd64, arm64 ou 386. Sem privilegio de administrador,
+    /// reabre o PowerShell elevado (aviso do UAC) com a mesma instalacao em -EncodedCommand; a janela elevada fica
+    /// aberta para mostrar o resultado.
+    /// </summary>
     public static string Windows(InstallParameters p, string? goarch = null)
+    {
+        var install = WindowsInstall(p, goarch);
+        // -EncodedCommand e base64 de UTF-16LE.
+        var encoded = Convert.ToBase64String(Encoding.Unicode.GetBytes(
+            "$Host.UI.RawUI.WindowTitle = 'Instalacao do EYES (administrador)'\r\n" + install +
+            "\r\nWrite-Host ''\r\nWrite-Host 'EYES instalado. Pode fechar esta janela.'"));
+        return string.Create(CultureInfo.InvariantCulture, $$"""
+            $eyesAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+            if ($eyesAdmin) {
+            {{install}}
+            } else {
+                Write-Host 'O EYES precisa de privilegio de administrador: abrindo o PowerShell como administrador (confirme o aviso do Windows)...'
+                try {
+                    Start-Process -FilePath (Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe') -Verb RunAs -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-NoExit', '-EncodedCommand', '{{encoded}}' -ErrorAction Stop
+                    Write-Host 'A instalacao continua na janela do administrador.'
+                } catch {
+                    Write-Host 'ERRO: o Windows nao concedeu privilegio de administrador. Abra o PowerShell com "Executar como administrador" e rode o comando de novo.' -ForegroundColor Red
+                }
+            }
+            """).ReplaceLineEndings("\r\n");
+    }
+
+    private static string WindowsInstall(InstallParameters p, string? goarch)
     {
         var arch = goarch is null
             ? "$arch = if ($env:PROCESSOR_ARCHITEW6432 -eq 'ARM64' -or $env:PROCESSOR_ARCHITECTURE -eq 'ARM64') { 'arm64' } elseif ([Environment]::Is64BitOperatingSystem) { 'amd64' } else { '386' }"
