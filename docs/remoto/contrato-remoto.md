@@ -65,7 +65,7 @@ Mesmo padrao das fases anteriores: cookie com 2FA, camelCase, ProblemDetails com
 
 | Metodo | Rota | Permissao | Resposta |
 |---|---|---|---|
-| POST | `/api/agents/{id}/remote/sessions` | `agents.remote`; `agents.files` se pedir o canal `files` | 201 `RemoteSessionDto` |
+| POST | `/api/agents/{id}/remote/sessions` | `agents.remote` para `desktop` ou `rdp`; `agents.files` se pedir o canal `files` | 201 `RemoteSessionDto` |
 | GET | `/api/remote/sessions/{sessionId}` | dono da sessao ou `settings.manage` | 200 `RemoteSessionDto` (sem tokens) |
 | DELETE | `/api/remote/sessions/{sessionId}` | dono da sessao ou `settings.manage` | 204 |
 | GET | `/api/remote/sessions?agentId=&ticketId=&userId=&active=&page=` | `agents.view` | 200 lista paginada de `RemoteSessionDto` (sem tokens) |
@@ -93,7 +93,7 @@ Mesmo padrao das fases anteriores: cookie com 2FA, camelCase, ProblemDetails com
 { "channels": ["desktop", "files"], "viewOnly": false, "ticketId": 123 }
 ```
 
-- `channels`: pelo menos um de `desktop` e `files`. Sessao so com `files` atende a aba "Arquivos" do agente.
+- `channels`: pelo menos um de `desktop`, `rdp` e `files`, com no maximo um canal de tela (`desktop` ou `rdp`). Sessao so com `files` atende a aba "Arquivos" do agente. `rdp` e o RDP do GNOME para Linux com sessao Wayland (secao 5.4) e so vale para agentes Linux.
 - `ticketId`: opcional; liga a sessao ao chamado (historico e sugestao de apontamento de tempo).
 
 `RemoteSessionDto`:
@@ -113,9 +113,12 @@ Mesmo padrao das fases anteriores: cookie com 2FA, camelCase, ProblemDetails com
   "endReason": null,
   "relayUrl": "wss://rmm.exemplo.com/api/remote/relay/9f0c...",
   "viewerToken": "so na resposta do POST",
-  "expiresAt": "momento limite para conectar"
+  "expiresAt": "momento limite para conectar",
+  "rdp": "so na resposta do POST com o canal rdp (secao 5.4)"
 }
 ```
+
+`rdp` (canal `rdp`): `{ "destination": "<hostname>", "username": "eyes", "password": "<senha temporaria>", "user": "<usuario da sessao>", "clipboard": true }`. A senha e criada pelo EYES a cada sessao; `clipboard` diz se o visualizador liga a area de transferencia do RDP (secao 5.4).
 
 `FileEntryDto`: `{ name, path, kind: "file" | "dir" | "link", size, modifiedAt, hidden }`.
 
@@ -128,7 +131,8 @@ Mesmo padrao das fases anteriores: cookie com 2FA, camelCase, ProblemDetails com
 | 403 | (padrao) | sem a permissao, ou politica desliga o recurso pedido |
 | 404 | (padrao) | agente, sessao ou transferencia inexistente, ou sessao de outro tecnico |
 | 409 | `AGENT_OFFLINE` | agente desconectado do NATS |
-| 409 | `REMOTE_UNSUPPORTED` | versao do EYES abaixo de `Remote:MinimumAgentVersion` (secao 11) ou sistema sem suporte na v1 |
+| 409 | `REMOTE_UNSUPPORTED` | versao do EYES abaixo de `Remote:MinimumAgentVersion` (secao 11), sistema sem suporte na v1 ou canal `rdp` fora do Linux |
+| 409 | `REMOTE_WAYLAND` | canal `desktop` numa sessao so Wayland; o console abre a mesma maquina pelo canal `rdp` |
 | 409 | `SESSION_LIMIT` | limite de sessoes do agente ou do tecnico (secao 10) |
 | 409 | `NO_INTERACTIVE_SESSION` | canal `desktop` sem usuario conectado e politica `allowAtLoginScreen = false` |
 | 409 | `FILE_EXISTS` | destino ja existe e `overwrite = false` |
@@ -146,13 +150,16 @@ Mesmas regras da secao 4 do contrato do EYES: mapa msgpack com `func`; `payload`
 
 | `func` | Modo | Timeout no servidor | `payload` | Resposta |
 |---|---|---|---|---|
-| `remote_start` | request | 15 s | `session_id`, `relay_url` (base `wss://.../api/remote/relay/<sessao>`), `token` (`agentToken`), `channels` (`"desktop,files"`), `view_only` (`"true"`/`"false"`), `policy` (texto JSON, secao 8.2), `technician` (nome exibido ao usuario) | `"ok"` ou `"error: <motivo>"` |
+| `remote_start` | request | 15 s | `session_id`, `relay_url` (base `wss://.../api/remote/relay/<sessao>`), `token` (`agentToken`), `channels` (`"desktop,files"` ou `"rdp,files"`), `view_only` (`"true"`/`"false"`), `policy` (texto JSON, secao 8.2), `technician` (nome exibido ao usuario), `rdp_port` (so com `rdp`: porta local do RDP do GNOME) | `"ok"` ou `"error: <motivo>"` |
+| `rdp_enable` | request | 85 s | `view_only` (`"true"`/`"false"`) | `{ port, username, password, user }` ou `"error: <motivo>"` |
+| `rdp_disable` | publish | | | |
 | `remote_stop` | publish | | `session_id`, `reason` (`"user"`, `"technician"`, `"permission"`, `"timeout"`, `"server"`) | |
 | `wol` | request | 15 s | `macs` (texto JSON, lista de `"AA:BB:CC:DD:EE:FF"`), `broadcast` (texto JSON, lista de enderecos IPv4 de broadcast) | `"ok"` ou `"error: <motivo>"` |
 
 - O EYES usa o **caminho** de `relay_url` sobre o endereco da API configurado nele (`https` vira `wss`): so conecta ao servidor que ja conhece, mesmo que o servidor anuncie outro nome.
 - `remote_start` responde **antes** do consentimento. O resultado do consentimento chega pelo relay (quadro `CONSENT`).
-- Motivos padronizados de erro em `remote_start`: `unsupported`, `busy` (limite local), `no session` (sem usuario e sem tela de login permitida), `policy` (recurso desligado no agente).
+- Motivos padronizados de erro em `remote_start`: `unsupported`, `wayland` (canal `desktop` numa sessao so Wayland), `busy` (limite local), `no session` (sem usuario e sem tela de login permitida), `policy` (recurso desligado no agente).
+- `rdp_enable` (so Linux): liga o RDP do GNOME (`grdctl rdp`) na sessao do usuario conectado, com certificado TLS proprio, usuario `eyes` e senha nova a cada pedido; `view_only` liga o modo so de visualizacao do proprio GNOME. A API chama antes do `remote_start` com o canal `rdp`; o EYES desliga (`rdp_disable`) quando a sessao termina, e a API publica `rdp_disable` se o `remote_start` falhar.
 - `wol`: o EYES envia o pacote magico (6 bytes `0xFF` seguidos de 16 repeticoes do MAC) por UDP para cada broadcast, nas portas 7 e 9. A API escolhe o agente que envia: online, mesmo site e com interface na mesma sub-rede do alvo, pelo inventario.
 
 ## 4. Relay: conexao, autenticacao e quadros
@@ -199,6 +206,7 @@ Regras:
 - No `desktop`, a API so repassa quadros depois do `PAIRED`. Quadros da faixa `0x10` a `0x3F` sao repassados sem leitura do corpo, com excecao de `CLIPBOARD` e `CONSENT`, que a API le so para contar e auditar (nunca registra o conteudo).
 - Sem a outra ponta em 60 s depois do `AUTH_OK`: fecha com `4408`.
 - Se uma ponta cair, a API manda `PEER_GONE` a outra e encerra a sessao em 30 s, salvo reconexao com sessao ativa **[S3]**. O visualizador reconecta pedindo uma sessao nova.
+- Canal `rdp`: o visualizador nao manda `AUTH`; o token vem no pedido RDCleanPath (secao 5.4). Ele nao recebe `AUTH_OK`, `PAIRED` nem `PEER_GONE`; o agente recebe `AUTH_OK` e `PAIRED` como no `desktop`.
 
 Codigos de fechamento:
 
@@ -265,6 +273,41 @@ Regras de entrada:
 - O agente mantem no maximo **2 quadros sem `ACK`** e no maximo **4 MiB** de blocos sem `ACK`.
 - O visualizador manda `ACK` ao terminar de desenhar cada quadro.
 - O agente mede o tempo entre `FRAME_END` e o `ACK` e ajusta qualidade, escala e quadros por segundo dentro dos limites do `SETTINGS` **[S2]**.
+
+### 5.4 Canal rdp (RDP do GNOME em Linux com Wayland)
+
+O remote-helper nao captura sessoes so Wayland (D-06). Nelas, a tela vem do RDP do proprio GNOME (`gnome-remote-desktop`), levado pelo relay; o navegador usa o cliente RDP do IronRDP (`@devolutions/iron-remote-desktop`, licenca MIT ou Apache-2.0), que fala o protocolo RDCleanPath com um proxy. O EYES e esse proxy.
+
+```mermaid
+sequenceDiagram
+    participant V as Navegador (IronRDP)
+    participant A as API (relay)
+    participant E as EYES
+    participant G as gnome-remote-desktop
+    V->>A: POST sessions {channels:["rdp","files"]}
+    A->>E: rdp_enable -> {port, username, password}
+    A->>E: remote_start {channels:"rdp,files", rdp_port}
+    A-->>V: 201 com viewerToken e rdp
+    V->>A: WS /relay/{id}/rdp: pedido RDCleanPath (proxy_auth = viewerToken, X.224)
+    E->>A: WS /relay/{id}/rdp: AUTH (agente)
+    A->>E: AUTH_OK, PAIRED, pedido RDCleanPath
+    E->>G: TCP 127.0.0.1:port, X.224, TLS
+    E->>A: RDP_DATA(resposta RDCleanPath: X.224 e certificados)
+    A->>V: resposta RDCleanPath
+    V-->>G: RDP (CredSSP, graficos, entrada) sem TLS ate o EYES, que leva para dentro do TLS
+```
+
+Regras:
+- **RDCleanPath** (`crates/ironrdp-rdcleanpath`): DER, `SEQUENCE` com campos de tag de contexto EXPLICIT, versao 3390. O pedido traz `destination`, `proxy_auth` e o X.224 Connection Request; a resposta traz o X.224 Connection Confirm, a cadeia de certificados do servidor e `server_addr`. Erros: geral (codigo 1) com codigo HTTP ou alerta TLS, e negociacao (codigo 2) com o X.224 de falha do servidor.
+- **Visualizador para API**: a primeira mensagem e o pedido RDCleanPath. A API le so o `proxy_auth` e confere com o `viewerToken` (uso unico) e com o usuario da sessao; com falha, responde o erro RDCleanPath com HTTP 401 e fecha com `4401` (409 e `4409` para canal ja conectado; 504 e `4408` sem o agente no prazo). O pedido fica guardado e vai ao agente depois do emparelhamento. As mensagens seguintes sao RDP puro, repassadas sem leitura e sem o limite de quadros por segundo (o cliente ja agrupa a entrada nos pacotes do RDP).
+- **Agente para API**: `RDP_DATA` (`0x50`) com os bytes do RDP depois do tipo; a API tira o byte de tipo antes de entregar ao navegador. `CONSENT` e `BYE` funcionam como no `desktop` e ficam na API (nao seguem para o navegador).
+- **EYES**: depois do `PAIRED`, aplica a politica de aviso e de pedido de acesso (secao 8.3). So entao le o pedido, conecta em `127.0.0.1:<rdp_port>` (nunca no `destination` pedido), manda o X.224, le a resposta (TPKT), faz o TLS com o servidor e responde com a cadeia de certificados. Depois leva os bytes nos dois sentidos. No fim da sessao, desliga o RDP do GNOME.
+- O TLS entre o EYES e o `gnome-remote-desktop` fica em `127.0.0.1` e usa o certificado que o proprio EYES gerou no `rdp_enable`, por isso o EYES nao valida a cadeia. O CredSSP do navegador amarra a credencial a chave publica que vai na resposta.
+- **Area de transferencia**: e a do proprio RDP (`cliprdr`), que a API nao le. A API manda `rdp.clipboard = clipboardToRemote e clipboardToLocal e nao viewOnly`, e o visualizador liga ou desliga a area de transferencia do cliente RDP com esse valor. A politica por sentido vale so no canal `desktop`.
+- **Arquivos**: o canal `files` funciona igual (secao 7) na mesma sessao.
+- **Somente visualizar**: o `rdp_enable` liga o modo so de visualizacao do GNOME.
+- **Estado no console**: o cliente RDP nao conhece o pedido de acesso nem o motivo do fim; o visualizador consulta `GET /api/remote/sessions/{id}` enquanto a sessao esta aberta.
+- **Navegador**: o WASM do cliente RDP vem embutido numa URL `data:`. A CSP do console precisa de `'wasm-unsafe-eval'` em `script-src` e de `data:` em `connect-src`.
 
 ## 6. Area de transferencia
 
@@ -387,7 +430,7 @@ Texto JSON com o efetivo para aquele agente, nos mesmos nomes: `{ "consent", "co
 
 | Chave | Uso |
 |---|---|
-| `agents.remote` | sessao com canal `desktop` (tela e area de transferencia) |
+| `agents.remote` | sessao com canal `desktop` ou `rdp` (tela e area de transferencia) |
 | `agents.files` (nova) | canal `files`, aba "Arquivos" e transferencias |
 | `agents.control` | Wake-on-LAN (como hoje) |
 | `settings.manage` | politicas; encerrar sessao de outro tecnico |
@@ -412,15 +455,15 @@ Tabelas `remote_sessions`, `remote_transfers` e `remote_policies`: RFC-001, seca
 
 | Limite | Valor v1 |
 |---|---|
-| Sessoes ativas por agente | 2 (canal `desktop`: 1) |
+| Sessoes ativas por agente | 2 (canal de tela, `desktop` ou `rdp`: 1) |
 | Sessoes ativas por tecnico | 5 |
 | Criacao de sessao por tecnico | 10 por minuto |
-| Quadro do relay | 2 MiB (`TILE`); 64 KiB (demais JSON); 256 KiB (`CHUNK`) |
-| Quadros do visualizador | 200 por segundo |
+| Quadro do relay | 2 MiB (`TILE`); 64 KiB (demais JSON); 256 KiB (`CHUNK`); 1 MiB (canal `rdp`) |
+| Quadros do visualizador | 200 por segundo (sem limite no canal `rdp`) |
 | Texto na area de transferencia | 1 MiB |
 | Transferencias simultaneas por sessao | 4 |
 | Buffer do relay por ponta | 1 MiB; acima disso a API para de ler a outra ponta (contrapressao) |
-| Tempo para conectar | 60 s (token); 10 s para o `AUTH` |
+| Tempo para conectar | 60 s (token; mais 85 s com o canal `rdp`, pelo `rdp_enable`); 10 s para o `AUTH` |
 
 ## 11. Versoes e compatibilidade
 
@@ -445,3 +488,4 @@ Cada item vira teste automatizado na fase indicada.
 - [ ] Envio com retomada, download com `Range`, zip de pasta, hash divergente, caminhos invalidos (12.5).
 - [ ] `FILES_COPIED` e `clipboard-files` no Windows (12.5).
 - [ ] `wol` com escolha do agente vizinho (12.7).
+- [x] Canal `rdp`: RDCleanPath com os vetores do IronRDP, token no `proxy_auth`, repasse sem o byte de tipo, `REMOTE_WAYLAND` e desligamento do RDP do GNOME (`agent/internal/remote/rdp_test.go`, `agent/internal/remote/rdcleanpath`, `Tests/RemoteTests.cs`, `front/features/remote/RdpViewer.test.tsx`).

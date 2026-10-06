@@ -17,7 +17,14 @@ public sealed record CreateRemoteSessionRequest(string[]? Channels, bool ViewOnl
 public sealed record RemoteSessionDto(
     string SessionId, int AgentId, string Hostname, string User, string[] Channels, bool ViewOnly, string State, string Consent,
     DateTimeOffset StartedAt, DateTimeOffset? EndedAt, string? EndReason, string? RelayUrl, string? ViewerToken, DateTimeOffset? ExpiresAt,
-    int? TicketId, DateTimeOffset? FirstFrameAt, long BytesToViewer, long BytesToAgent, int ClipboardToRemote, int ClipboardToLocal);
+    int? TicketId, DateTimeOffset? FirstFrameAt, long BytesToViewer, long BytesToAgent, int ClipboardToRemote, int ClipboardToLocal,
+    RemoteRdpAccessDto? Rdp = null);
+
+/// <summary>
+/// Credencial temporaria do RDP do GNOME (canal rdp): so vai na resposta da criacao, ao tecnico da sessao. Clipboard diz
+/// se o visualizador liga a area de transferencia do RDP (politica nos dois sentidos e sessao com controle).
+/// </summary>
+public sealed record RemoteRdpAccessDto(string Destination, string Username, string Password, string? User, bool Clipboard);
 
 public sealed record RemotePolicyDto(
     string Scope, int ScopeId, [property: AllowedValues(null, RemoteConsent.None, RemoteConsent.Notify, RemoteConsent.Ask)] string? Consent,
@@ -31,6 +38,7 @@ public static class RemoteErrors
     public const string Disabled = "REMOTE_DISABLED";
     public const string AgentOffline = "AGENT_OFFLINE";
     public const string Unsupported = "REMOTE_UNSUPPORTED";
+    public const string Wayland = "REMOTE_WAYLAND";
     public const string SessionLimit = "SESSION_LIMIT";
     public const string NoInteractiveSession = "NO_INTERACTIVE_SESSION";
     public const string AgentError = "AGENT_ERROR";
@@ -89,11 +97,12 @@ public static class RemoteEndpoints
             return Error(StatusCodes.Status503ServiceUnavailable, "Acesso remoto desligado no servidor", RemoteErrors.Disabled);
         }
         var channels = (request.Channels is { Length: > 0 } c ? c : [RemoteFrames.Desktop]).Distinct(StringComparer.Ordinal).ToArray();
-        if (channels.Any(ch => ch is not (RemoteFrames.Desktop or RemoteFrames.Files)))
+        if (channels.Any(ch => ch is not (RemoteFrames.Desktop or RemoteFrames.Files or RemoteFrames.Rdp)) || channels.Count(RemoteFrames.IsScreen) > 1)
         {
-            return Problems.Validation("channels", "Canais validos: desktop e files");
+            return Problems.Validation("channels", "Canais validos: desktop ou rdp, e files");
         }
-        var wantsDesktop = channels.Contains(RemoteFrames.Desktop);
+        var wantsDesktop = channels.Any(RemoteFrames.IsScreen);
+        var wantsRdp = channels.Contains(RemoteFrames.Rdp);
         var wantsFiles = channels.Contains(RemoteFrames.Files);
         if ((wantsDesktop && !principal.HasPermission(Permissions.AgentsRemote)) || (wantsFiles && !principal.HasPermission(Permissions.AgentsFiles)))
         {
@@ -101,7 +110,7 @@ public static class RemoteEndpoints
         }
         var userId = principal.UserId()!.Value;
         var agent = await db.Agents.AsNoTracking().Where(a => a.Id == id)
-            .Select(a => new { a.Id, a.AgentId, a.Hostname, a.SiteId, a.Status, a.Version }).FirstOrDefaultAsync(ct);
+            .Select(a => new { a.Id, a.AgentId, a.Hostname, a.SiteId, a.Status, a.Version, a.Plat }).FirstOrDefaultAsync(ct);
         if (agent is null)
         {
             return Problems.NotFound("Agente");
@@ -113,6 +122,10 @@ public static class RemoteEndpoints
         if (agent.Status != AgentStatus.Online)
         {
             return Error(StatusCodes.Status409Conflict, "Agente desconectado", RemoteErrors.AgentOffline);
+        }
+        if (wantsRdp && agent.Plat != "linux")
+        {
+            return Error(StatusCodes.Status409Conflict, "O RDP do GNOME so existe em maquinas Linux", RemoteErrors.Unsupported);
         }
         var policy = await RemotePolicies.ForSiteAsync(db, agent.SiteId, ct);
         if (wantsFiles && !policy.FilesUpload && !policy.FilesDownload)
@@ -126,7 +139,7 @@ public static class RemoteEndpoints
         var open = await db.RemoteSessions.AsNoTracking().Where(s => s.State != RemoteSessionState.Ended && (s.AgentId == id || s.UserId == userId))
             .Select(s => new { s.AgentId, s.UserId, s.Channels }).ToListAsync(ct);
         var agentOpen = open.Where(s => s.AgentId == id).ToList();
-        if (agentOpen.Count >= settings.MaxSessionsPerAgent || (wantsDesktop && agentOpen.Any(s => s.Channels.Contains(RemoteFrames.Desktop, StringComparison.Ordinal)))
+        if (agentOpen.Count >= settings.MaxSessionsPerAgent || (wantsDesktop && agentOpen.Any(s => s.Channels.Split(',').Any(RemoteFrames.IsScreen)))
             || open.Count(s => s.UserId == userId) >= settings.MaxSessionsPerUser || !manager.AllowCreate(userId))
         {
             return Error(StatusCodes.Status409Conflict, "Limite de sessoes de acesso remoto atingido", RemoteErrors.SessionLimit);
@@ -152,7 +165,8 @@ public static class RemoteEndpoints
             AgentTokenHash = RemoteTokens.Hash(agentToken),
             HopKey = RemoteTokens.New(),
             CreatedAt = now,
-            ConnectDeadline = now.AddSeconds(settings.ConnectSeconds),
+            // O rdp_enable pode levar ate 85 s antes do remote_start (reinicio do gnome-remote-desktop).
+            ConnectDeadline = now.AddSeconds(settings.ConnectSeconds + (wantsRdp ? 85 : 0)),
         };
         db.RemoteSessions.Add(new RemoteSession
         {
@@ -176,37 +190,59 @@ public static class RemoteEndpoints
         var relayUrl = publicUrl.Replace("https://", "wss://", StringComparison.Ordinal).Replace("http://", "ws://", StringComparison.Ordinal)
             + "/api/remote/relay/" + handle.SessionId;
         var technician = await db.Users.AsNoTracking().Where(u => u.Id == userId).Select(u => u.FullName).FirstOrDefaultAsync(ct);
+        RemoteRdpAccessDto? rdp = null;
+        var payload = new Dictionary<string, string>
+        {
+            ["session_id"] = handle.SessionId,
+            ["relay_url"] = relayUrl,
+            ["token"] = agentToken,
+            ["channels"] = string.Join(',', channels),
+            ["view_only"] = request.ViewOnly ? "true" : "false",
+            ["policy"] = policy.ToAgentJson(),
+            ["technician"] = string.IsNullOrWhiteSpace(technician) ? username : technician,
+        };
         string reply;
         try
         {
-            var answer = await rpc.RequestAsync(agent.AgentId, new Dictionary<string, object?>
+            if (wantsRdp)
             {
-                ["func"] = "remote_start",
-                ["payload"] = new Dictionary<string, string>
+                // Liga o RDP do GNOME na sessao do usuario (credencial nova a cada vez); o EYES desliga no fim da sessao.
+                var enabled = await rpc.RequestAsync(agent.AgentId, new Dictionary<string, object?>
                 {
-                    ["session_id"] = handle.SessionId,
-                    ["relay_url"] = relayUrl,
-                    ["token"] = agentToken,
-                    ["channels"] = string.Join(',', channels),
-                    ["view_only"] = request.ViewOnly ? "true" : "false",
-                    ["policy"] = policy.ToAgentJson(),
-                    ["technician"] = string.IsNullOrWhiteSpace(technician) ? username : technician,
-                },
-            }, TimeSpan.FromSeconds(15), ct);
+                    ["func"] = "rdp_enable",
+                    ["payload"] = new Dictionary<string, string> { ["view_only"] = request.ViewOnly ? "true" : "false" },
+                }, TimeSpan.FromSeconds(85), ct);
+                if (enabled is not IReadOnlyDictionary<string, object?> access || access.GetString("password") is not { Length: > 0 } password
+                    || access.GetNumber("port") is not { } port)
+                {
+                    await manager.EndAsync(handle, "agent-refused", notifyAgent: false);
+                    var why = enabled as string ?? "resposta invalida";
+                    return Error(StatusCodes.Status502BadGateway, "O RDP do GNOME nao foi ativado: " + (why.StartsWith("error: ", StringComparison.Ordinal) ? why[7..] : why),
+                        RemoteErrors.AgentError);
+                }
+                payload["rdp_port"] = ((int)port).ToString(CultureInfo.InvariantCulture);
+                rdp = new RemoteRdpAccessDto(agent.Hostname, access.GetString("username") ?? "eyes", password, access.GetString("user"),
+                    policy.ClipboardToRemote && policy.ClipboardToLocal && !request.ViewOnly);
+            }
+            var answer = await rpc.RequestAsync(agent.AgentId, new Dictionary<string, object?> { ["func"] = "remote_start", ["payload"] = payload },
+                TimeSpan.FromSeconds(15), ct);
             reply = answer as string ?? "error: resposta invalida";
         }
         catch (AgentRpcTimeoutException)
         {
             await manager.EndAsync(handle, "agent-timeout", notifyAgent: false);
+            await DisableRdpAsync(rpc, agent.AgentId, rdp);
             return Problems.AgentTimeout();
         }
         if (reply != "ok")
         {
             var reason = reply.StartsWith("error: ", StringComparison.Ordinal) ? reply[7..] : reply;
             await manager.EndAsync(handle, "agent-refused", notifyAgent: false);
+            await DisableRdpAsync(rpc, agent.AgentId, rdp);
             return reason switch
             {
-                "unsupported" => Error(StatusCodes.Status409Conflict, "Esta maquina nao tem acesso remoto suportado (por exemplo, sessao Wayland)", RemoteErrors.Unsupported),
+                "wayland" => Error(StatusCodes.Status409Conflict, "Sessao Wayland: a tela desta maquina vai pelo RDP do GNOME", RemoteErrors.Wayland),
+                "unsupported" => Error(StatusCodes.Status409Conflict, "Esta maquina nao tem acesso remoto suportado", RemoteErrors.Unsupported),
                 "busy" => Error(StatusCodes.Status409Conflict, "Limite de sessoes no agente", RemoteErrors.SessionLimit),
                 "no session" => Error(StatusCodes.Status409Conflict, "Nao ha usuario conectado na maquina", RemoteErrors.NoInteractiveSession),
                 "policy" => Problems.Forbidden("A politica do agente nao permite este acesso"),
@@ -215,7 +251,24 @@ public static class RemoteEndpoints
         }
         return TypedResults.Created($"/api/remote/sessions/{handle.SessionId}", new RemoteSessionDto(
             handle.SessionId, agent.Id, agent.Hostname, username, channels, request.ViewOnly, handle.State, policy.Consent, now, null, null,
-            relayUrl, viewerToken, handle.ConnectDeadline, request.TicketId, null, 0, 0, 0, 0));
+            relayUrl, viewerToken, handle.ConnectDeadline, request.TicketId, null, 0, 0, 0, 0, rdp));
+    }
+
+    /// <summary>Desliga o RDP do GNOME quando a sessao nao chegou a comecar no agente.</summary>
+    private static async Task DisableRdpAsync(IAgentRpc rpc, string agentId, RemoteRdpAccessDto? rdp)
+    {
+        if (rdp is null)
+        {
+            return;
+        }
+        try
+        {
+            await rpc.PublishAsync(agentId, new Dictionary<string, object?> { ["func"] = "rdp_disable" });
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // o agente desliga de novo no proximo rdp_enable; nada a fazer aqui
+        }
     }
 
     private static IQueryable<RemoteSessionDto> Project(CybereyesDbContext db, IQueryable<RemoteSession> query) =>

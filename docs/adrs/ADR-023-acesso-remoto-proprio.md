@@ -21,6 +21,6 @@
 ## Consequencias
 - Um agente por estacao, um dominio, um login e a auditoria toda no Cybereyes.
 - Ate o fim da fase 12.8, estacoes novas ficam sem tela remota (o terminal do EYES continua), e a migracao das 400 estacoes espera.
-- Linux com Wayland e macOS dependem das provas S5 e S6; sem o MeshCentral, nao ha alternativa para essas maquinas ate la.
+- Linux com Wayland e macOS dependem das provas S5 e S6; sem o MeshCentral, nao ha alternativa para essas maquinas ate la. Atualizacao: Linux com Wayland ganhou a tela pelo RDP do GNOME levado pelo relay proprio (contrato, secao 5.4).
 - Binarios sem assinatura podem gerar alertas de antivirus e EDR na captura de tela e na injecao de entrada.
 - Pendentes: ordem dos sistemas (D-02), destino e limite dos arquivos (D-05), Wayland (D-06), gravacao de sessao (D-09) e a parte de LGPD do D-04.

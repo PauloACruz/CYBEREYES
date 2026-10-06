@@ -50,7 +50,10 @@ public static class RemoteFrames
     public const byte FilesCredit = 0x43;
     public const byte FilesCancel = 0x44;
 
+    public const byte RdpData = 0x50;
+
     public const int MaxDesktopFrame = 2 << 20;
+    public const int MaxRdpFrame = 1 << 20;
     public const int MaxFilesFrame = (256 << 10) + 64;
     public const int MaxViewerFramesPerSecond = 200;
 
@@ -64,6 +67,10 @@ public static class RemoteFrames
 
     public const string Desktop = "desktop";
     public const string Files = "files";
+    public const string Rdp = "rdp";
+
+    /// <summary>Canais de tela: a Tela propria (desktop) ou o RDP do GNOME (rdp); uma sessao tem no maximo um.</summary>
+    public static bool IsScreen(string channel) => channel is Desktop or Rdp;
 }
 
 /// <summary>Tokens das pontas: 32 bytes aleatorios em base64url; so o SHA-256 fica guardado.</summary>

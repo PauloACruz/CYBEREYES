@@ -122,6 +122,12 @@ public sealed class RemoteSessionHandle
     }
 
     public bool HasChannel(string channel) => Channels.Contains(channel, StringComparer.Ordinal);
+
+    /// <summary>Sessao com tela (desktop ou rdp).</summary>
+    public bool HasScreen => Channels.Any(RemoteFrames.IsScreen);
+
+    /// <summary>Canal de tela da sessao (desktop ou rdp), ou null.</summary>
+    public string? ScreenChannel => Channels.FirstOrDefault(RemoteFrames.IsScreen);
 }
 
 /// <summary>Sessoes de acesso remoto desta replica: criacao, encerramento, auditoria e avisos ao console.</summary>
@@ -295,7 +301,7 @@ public sealed class RemoteSessionReaper(RemoteSessionManager manager, IRemoteDir
             var now = time.GetUtcNow();
             foreach (var s in manager.Local.ToList())
             {
-                var waitingDesktop = s.HasChannel(RemoteFrames.Desktop) && !s.Paired.Task.IsCompleted;
+                var waitingDesktop = s.HasScreen && !s.Paired.Task.IsCompleted;
                 if (waitingDesktop && now > s.ConnectDeadline && s.State != RemoteSessionState.WaitingConsent)
                 {
                     await manager.EndAsync(s, "timeout");
@@ -346,7 +352,7 @@ public sealed class RemoteSessionReaper(RemoteSessionManager manager, IRemoteDir
         var allowed = await RemoteAccess.UsersWithPermissionsAsync(db, userIds, ct);
         foreach (var s in active)
         {
-            var needs = s.HasChannel(RemoteFrames.Desktop) ? Core.Security.Permissions.AgentsRemote : Core.Security.Permissions.AgentsFiles;
+            var needs = s.HasScreen ? Core.Security.Permissions.AgentsRemote : Core.Security.Permissions.AgentsFiles;
             if (!allowed.TryGetValue(s.UserId, out var perms) || !perms.Contains(needs))
             {
                 await manager.EndAsync(s, "permission");

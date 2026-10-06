@@ -10,7 +10,8 @@ namespace Cybereyes.Api.Rmm.Remote;
 
 /// <summary>
 /// Relay WebSocket do acesso remoto (contrato, secao 4): autentica cada ponta pelo primeiro quadro, emparelha o
-/// visualizador com o remote-helper no canal desktop e entrega o canal files ao <see cref="RemoteFilesChannel"/>.
+/// visualizador com o remote-helper no canal desktop (ou o cliente RDP do navegador com o EYES no canal rdp) e
+/// entrega o canal files ao <see cref="RemoteFilesChannel"/>.
 /// So le o tipo de cada quadro, salvo AUTH, CLIPBOARD, CONSENT e BYE (contagem, estado e auditoria).
 /// </summary>
 public sealed class RemoteRelay(RemoteSessionManager manager, RemoteForwarder forwarder, TimeProvider time)
@@ -26,7 +27,7 @@ public sealed class RemoteRelay(RemoteSessionManager manager, RemoteForwarder fo
             ctx.Response.StatusCode = StatusCodes.Status400BadRequest;
             return;
         }
-        if (channel is not (RemoteFrames.Desktop or RemoteFrames.Files))
+        if (channel is not (RemoteFrames.Desktop or RemoteFrames.Files or RemoteFrames.Rdp))
         {
             ctx.Response.StatusCode = StatusCodes.Status404NotFound;
             return;
@@ -43,7 +44,7 @@ public sealed class RemoteRelay(RemoteSessionManager manager, RemoteForwarder fo
 
         using var socket = await ctx.WebSockets.AcceptWebSocketAsync();
         using var end = new RelayEnd(socket);
-        var role = await AuthenticateAsync(ctx, end, handle, channel);
+        var (role, pending) = await AuthenticateAsync(ctx, end, handle, channel);
         if (role is null)
         {
             return;
@@ -55,7 +56,7 @@ public sealed class RemoteRelay(RemoteSessionManager manager, RemoteForwarder fo
                 var files = new RemoteFilesChannel(end, handle, time);
                 handle.Files = files;
                 handle.FilesReady.TrySetResult();
-                if (!handle.HasChannel(RemoteFrames.Desktop))
+                if (!handle.HasScreen)
                 {
                     // Sessao so de arquivos: fica ativa quando o agente conecta.
                     await manager.SetStateAsync(handle, RemoteSessionState.Active);
@@ -63,7 +64,7 @@ public sealed class RemoteRelay(RemoteSessionManager manager, RemoteForwarder fo
                 await files.RunAsync(handle.Ended.Token);
                 return;
             }
-            await RunDesktopAsync(end, role, handle);
+            await RunScreenAsync(end, role, handle, channel == RemoteFrames.Rdp, pending);
         }
         catch (Exception ex) when (ex is WebSocketException or OperationCanceledException)
         {
@@ -71,10 +72,11 @@ public sealed class RemoteRelay(RemoteSessionManager manager, RemoteForwarder fo
         }
         finally
         {
-            if (channel == RemoteFrames.Desktop && handle.State != RemoteSessionState.Ended)
+            if (RemoteFrames.IsScreen(channel) && handle.State != RemoteSessionState.Ended)
             {
                 var peer = role == "viewer" ? handle.AgentDesktop : handle.ViewerDesktop;
-                if (peer is not null)
+                // No canal rdp as duas pontas levam RDP puro: sem PEER_GONE, cada uma ve o fechamento.
+                if (peer is not null && channel == RemoteFrames.Desktop)
                 {
                     await SendJsonAsync(peer, RemoteFrames.PeerGone, new { reason = role == "viewer" ? "viewer" : "agent" }, CancellationToken.None);
                 }
@@ -83,8 +85,11 @@ public sealed class RemoteRelay(RemoteSessionManager manager, RemoteForwarder fo
         }
     }
 
-    /// <summary>Le o AUTH e confere token, papel, canal e identidade externa. Devolve o papel ou null (ja fechado).</summary>
-    private async Task<string?> AuthenticateAsync(HttpContext ctx, RelayEnd end, RemoteSessionHandle handle, string channel)
+    /// <summary>
+    /// Le o AUTH e confere token, papel, canal e identidade externa. Devolve o papel ou null (ja fechado). No canal rdp
+    /// o visualizador e o cliente RDP do navegador: o token vem no pedido RDCleanPath, que fica guardado para o agente.
+    /// </summary>
+    private async Task<(string? Role, byte[]? Pending)> AuthenticateAsync(HttpContext ctx, RelayEnd end, RemoteSessionHandle handle, string channel)
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(handle.Ended.Token);
         timeout.CancelAfter(TimeSpan.FromSeconds(10));
@@ -98,6 +103,7 @@ public sealed class RemoteRelay(RemoteSessionManager manager, RemoteForwarder fo
             frame = null;
         }
         AuthMessage? auth = null;
+        byte[]? pending = null;
         if (frame is { Length: > 1 } && frame[0] == RemoteFrames.Auth)
         {
             try
@@ -109,17 +115,28 @@ public sealed class RemoteRelay(RemoteSessionManager manager, RemoteForwarder fo
                 auth = null;
             }
         }
-        var role = auth?.Role;
-        var ok = auth is { Proto: >= 1 } && role switch
+        else if (channel == RemoteFrames.Rdp && frame is not null && RdCleanPath.ReadProxyAuth(frame) is { } token)
+        {
+            auth = new AuthMessage(token, "rdp-viewer", 1);
+            pending = frame;
+        }
+        var role = auth?.Role == "rdp-viewer" ? "viewer" : auth?.Role;
+        var ok = auth is { Proto: >= 1 } && auth.Role switch
         {
             "viewer" => channel == RemoteFrames.Desktop && IsSessionUser(ctx.User, handle) && RemoteTokens.Matches(handle.ViewerTokenHash, auth.Token),
+            "rdp-viewer" => IsSessionUser(ctx.User, handle) && RemoteTokens.Matches(handle.ViewerTokenHash, auth.Token),
             "agent" => IsSessionAgent(ctx.User, handle) && RemoteTokens.Matches(handle.AgentTokenHash, auth.Token),
             _ => false,
         };
+        var rdpViewer = channel == RemoteFrames.Rdp && auth?.Role != "agent";
         if (!ok || !handle.HasChannel(channel) || time.GetUtcNow() > handle.ConnectDeadline)
         {
+            if (rdpViewer && frame is not null)
+            {
+                await end.SendAsync(RdCleanPath.HttpError(StatusCodes.Status401Unauthorized), CancellationToken.None);
+            }
             await end.CloseAsync(RemoteFrames.CloseAuth, "autenticacao invalida");
-            return null;
+            return (null, null);
         }
         lock (handle.Gate)
         {
@@ -128,7 +145,7 @@ public sealed class RemoteRelay(RemoteSessionManager manager, RemoteForwarder fo
             {
                 ok = false;
             }
-            else if (channel == RemoteFrames.Desktop)
+            else if (RemoteFrames.IsScreen(channel))
             {
                 if (role == "viewer")
                 {
@@ -142,11 +159,18 @@ public sealed class RemoteRelay(RemoteSessionManager manager, RemoteForwarder fo
         }
         if (!ok)
         {
+            if (rdpViewer)
+            {
+                await end.SendAsync(RdCleanPath.HttpError(StatusCodes.Status409Conflict), CancellationToken.None);
+            }
             await end.CloseAsync(RemoteFrames.CloseDuplicate, "canal ja conectado");
-            return null;
+            return (null, null);
         }
-        await SendJsonAsync(end, RemoteFrames.AuthOk, new { sessionId = handle.SessionId }, handle.Ended.Token);
-        return role;
+        if (!rdpViewer)
+        {
+            await SendJsonAsync(end, RemoteFrames.AuthOk, new { sessionId = handle.SessionId }, handle.Ended.Token);
+        }
+        return (role, pending);
     }
 
     private static bool IsSessionUser(ClaimsPrincipal user, RemoteSessionHandle handle) =>
@@ -155,7 +179,12 @@ public sealed class RemoteRelay(RemoteSessionManager manager, RemoteForwarder fo
     private static bool IsSessionAgent(ClaimsPrincipal user, RemoteSessionHandle handle) =>
         user.FindFirstValue(CybereyesClaims.AgentPk) == handle.AgentPk.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
-    private async Task RunDesktopAsync(RelayEnd self, string role, RemoteSessionHandle handle)
+    /// <summary>
+    /// Canal de tela: emparelha e repassa. No canal rdp (contrato, secao 5.4) o visualizador manda RDP puro, que vai
+    /// ao agente como chegou (primeiro o pedido RDCleanPath guardado); do agente so seguem os quadros RdpData, sem o
+    /// byte de tipo, e CONSENT e BYE ficam no relay.
+    /// </summary>
+    private async Task RunScreenAsync(RelayEnd self, string role, RemoteSessionHandle handle, bool rdp, byte[]? pending)
     {
         var bothConnected = false;
         lock (handle.Gate)
@@ -164,7 +193,10 @@ public sealed class RemoteRelay(RemoteSessionManager manager, RemoteForwarder fo
         }
         if (bothConnected && handle.Paired.TrySetResult())
         {
-            await SendJsonAsync(handle.ViewerDesktop!, RemoteFrames.Paired, new { }, handle.Ended.Token);
+            if (!rdp)
+            {
+                await SendJsonAsync(handle.ViewerDesktop!, RemoteFrames.Paired, new { }, handle.Ended.Token);
+            }
             await SendJsonAsync(handle.AgentDesktop!, RemoteFrames.Paired, new { }, handle.Ended.Token);
             await manager.SetStateAsync(handle, RemoteSessionState.Active);
         }
@@ -175,15 +207,26 @@ public sealed class RemoteRelay(RemoteSessionManager manager, RemoteForwarder fo
         }
         catch (TimeoutException)
         {
+            if (rdp && role == "viewer")
+            {
+                await self.SendAsync(RdCleanPath.HttpError(StatusCodes.Status504GatewayTimeout), CancellationToken.None);
+            }
             await self.CloseAsync(RemoteFrames.ClosePeerTimeout, "a outra ponta nao conectou");
             return;
         }
         var peer = role == "viewer" ? handle.AgentDesktop! : handle.ViewerDesktop!;
+        if (pending is not null)
+        {
+            handle.LastActivity = time.GetUtcNow();
+            handle.CountToAgent(pending.Length, false);
+            await peer.SendAsync(pending, handle.Ended.Token);
+        }
         var windowStart = time.GetUtcNow();
         var inWindow = 0;
+        var limit = rdp ? RemoteFrames.MaxRdpFrame : RemoteFrames.MaxDesktopFrame;
         while (!handle.Ended.IsCancellationRequested)
         {
-            var frame = await ReceiveAsync(self.Socket, RemoteFrames.MaxDesktopFrame, handle.Ended.Token);
+            var frame = await ReceiveAsync(self.Socket, limit, handle.Ended.Token);
             if (frame is null)
             {
                 return;
@@ -193,7 +236,13 @@ public sealed class RemoteRelay(RemoteSessionManager manager, RemoteForwarder fo
                 continue;
             }
             var type = frame[0];
-            if (role == "viewer")
+            if (role == "viewer" && rdp)
+            {
+                // RDP puro: sem limite de quadros por segundo (o cliente junta a entrada em pacotes do proprio RDP).
+                handle.LastActivity = time.GetUtcNow();
+                handle.CountToAgent(frame.Length, false);
+            }
+            else if (role == "viewer")
             {
                 var now = time.GetUtcNow();
                 if (now - windowStart >= TimeSpan.FromSeconds(1))
@@ -211,6 +260,21 @@ public sealed class RemoteRelay(RemoteSessionManager manager, RemoteForwarder fo
                     handle.LastActivity = now;
                 }
                 handle.CountToAgent(frame.Length, type == RemoteFrames.Clipboard);
+            }
+            else if (rdp)
+            {
+                if (type != RemoteFrames.RdpData)
+                {
+                    await ObserveAgentFrameAsync(handle, type, frame);
+                    continue;
+                }
+                if (handle.FirstFrameAt is null)
+                {
+                    await manager.MarkFirstFrameAsync(handle);
+                }
+                handle.CountToViewer(frame.Length - 1, false);
+                await peer.SendAsync(frame.AsMemory(1), handle.Ended.Token);
+                continue;
             }
             else
             {

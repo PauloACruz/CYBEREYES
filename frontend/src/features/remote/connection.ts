@@ -74,9 +74,9 @@ export function endReasonText(reason: string | null | undefined): string {
 }
 
 /** Endereco do relay na mesma origem do console (o Nginx e o proxy do Vite repassam o WebSocket). */
-export function relayUrl(sessionId: string, location: Pick<Location, 'protocol' | 'host'> = window.location): string {
+export function relayUrl(sessionId: string, location: Pick<Location, 'protocol' | 'host'> = window.location, channel: 'desktop' | 'rdp' = 'desktop'): string {
   const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
-  return `${scheme}://${location.host}/api/remote/relay/${sessionId}/desktop`;
+  return `${scheme}://${location.host}/api/remote/relay/${sessionId}/${channel}`;
 }
 
 /** Conexao do visualizador com o relay: AUTH, emparelhamento, quadros e ACK depois do desenho. */

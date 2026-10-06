@@ -55,7 +55,7 @@ Cada abertura de acesso remoto gera o registro de auditoria `agent.remote-sessio
 
 ## Tela via RDP em Linux com Wayland
 
-> Removida na fase 12.8 junto com o MeshCentral (dependia do tunel do MeshAgent); ver `docs/remoto/fase12-8.md`.
+> Removida na fase 12.8 junto com o MeshCentral (dependia do tunel do MeshAgent). Substituida pelo canal `rdp` do acesso remoto proprio, que leva o RDP do GNOME pelo relay (`docs/remoto/contrato-remoto.md`, secao 5.4, e `docs/remoto/fase12-8.md`).
 
 O MeshAgent so captura a tela de sessoes X11. Em distribuicoes com GNOME recente (por exemplo Ubuntu com GNOME 50), a sessao e sempre Wayland e a "Tela" do MeshCentral abre sem imagem.
 

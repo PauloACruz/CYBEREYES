@@ -54,7 +54,8 @@ server {
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     # O visualizador de acesso remoto abre em janela propria da mesma origem, nunca em iframe: frame-src e frame-ancestors ficam 'none'.
     # style-src precisa de 'unsafe-inline' porque o Mantine e o Monaco injetam estilos em tempo de execucao.
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' wss://${CYBEREYES_HOST}; worker-src 'self' blob:; frame-src 'none'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'" always;
+    # 'wasm-unsafe-eval' e connect-src data: sao do cliente RDP do navegador (IronRDP): o WASM vem embutido numa URL data:.
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' wss://${CYBEREYES_HOST} data:; worker-src 'self' blob:; frame-src 'none'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-Frame-Options "DENY" always;
     add_header Referrer-Policy "no-referrer" always;

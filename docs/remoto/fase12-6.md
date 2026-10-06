@@ -8,7 +8,7 @@ Referencias: RFC-001 (secao 4.5, D-06 e D-07), ADR-023, `docs/remoto/contrato-re
 
 - Tela, entrada, area de transferencia e arquivos ja vinham das fases 12.2, 12.4 e 12.5 (Xvfb no CI).
 - Ponteiro do mouse desenhado na imagem pelo XFixes (`GetCursorImage`), porque o `GetImage` nao inclui o cursor.
-- Wayland segue fora da v1 (D-06): a sessao so Wayland responde "nao suportado".
+- Wayland segue fora da captura propria (D-06): a sessao so Wayland responde `wayland`, e o console abre a tela pelo RDP do GNOME levado pelo relay (canal `rdp`, contrato secao 5.4, `docs/remoto/fase12-8.md`).
 
 ### macOS (sem CGO, com `ebitengine/purego` 0.11.1, Apache 2.0)
 

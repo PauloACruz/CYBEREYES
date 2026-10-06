@@ -35,6 +35,7 @@ export type ErrorCode =
   | 'REMOTE_DISABLED'
   | 'AGENT_OFFLINE'
   | 'REMOTE_UNSUPPORTED'
+  | 'REMOTE_WAYLAND'
   | 'SESSION_LIMIT'
   | 'NO_INTERACTIVE_SESSION'
   | 'AGENT_ERROR'
@@ -960,7 +961,7 @@ export interface SaveGlobalSettingsRequest extends Omit<GlobalSettingsDto, 'smtp
 
 // Acesso remoto proprio (docs/remoto/contrato-remoto.md)
 
-export type RemoteChannel = 'desktop' | 'files';
+export type RemoteChannel = 'desktop' | 'rdp' | 'files';
 export type RemoteSessionState = 'starting' | 'waiting-consent' | 'active' | 'ended';
 export type RemoteConsentMode = 'none' | 'notify' | 'ask';
 
@@ -993,6 +994,18 @@ export interface RemoteSessionDto {
   bytesToAgent: number;
   clipboardToRemote: number;
   clipboardToLocal: number;
+  /** So na criacao de sessao com o canal rdp (RDP do GNOME em Linux com Wayland). */
+  rdp?: RemoteRdpAccessDto | null;
+}
+
+/** Credencial temporaria do RDP do GNOME: o EYES cria uma senha nova a cada sessao e desliga o RDP no fim. */
+export interface RemoteRdpAccessDto {
+  destination: string;
+  username: string;
+  password: string;
+  user: string | null;
+  /** Area de transferencia do RDP ligada (politica nos dois sentidos e sessao com controle). */
+  clipboard: boolean;
 }
 
 export interface RemoteHomeDto {

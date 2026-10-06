@@ -16,13 +16,14 @@ import (
 )
 
 // findDesktop acha a sessao X11 do usuario: o DISPLAY do proprio EYES (execucao em primeiro plano, testes) ou o
-// de algum processo de usuario em /proc. Sessoes so Wayland respondem errUnsupported (RFC-001, D-06).
+// de algum processo de usuario em /proc. Sessoes so Wayland respondem errWayland (RFC-001, D-06) junto com o alvo
+// da sessao Wayland (usuario, DBus e Wayland), que o canal rdp usa para o aviso e o pedido de acesso.
 func findDesktop(allowLogin bool) (target, error) {
 	if d := os.Getenv("DISPLAY"); d != "" && os.Getenv("XDG_SESSION_TYPE") != "wayland" {
 		return target{Env: []string{"DISPLAY=" + d, "XAUTHORITY=" + os.Getenv("XAUTHORITY")}}, nil
 	}
 	procs, _ := filepath.Glob("/proc/[0-9]*/environ")
-	wayland := false
+	var wayland *target
 	var fallback *target
 	for _, p := range procs {
 		data, err := os.ReadFile(p)
@@ -30,17 +31,23 @@ func findDesktop(allowLogin bool) (target, error) {
 			continue
 		}
 		vars := parseEnviron(data)
-		if vars["XDG_SESSION_TYPE"] == "wayland" && vars["DISPLAY"] == "" {
-			wayland = wayland || vars["WAYLAND_DISPLAY"] != ""
+		if vars["XDG_SESSION_TYPE"] == "wayland" || (vars["WAYLAND_DISPLAY"] != "" && vars["DISPLAY"] == "") {
+			// Xwayland so mostra as janelas X: a tela inteira do usuario nao aparece.
+			if wayland == nil && (vars["WAYLAND_DISPLAY"] != "" || vars["DISPLAY"] != "") {
+				if uid, owner := procOwner(filepath.Dir(p)); uid != 0 {
+					t := target{User: owner}
+					for _, k := range []string{"WAYLAND_DISPLAY", "XDG_RUNTIME_DIR", "DBUS_SESSION_BUS_ADDRESS", "DISPLAY", "XAUTHORITY"} {
+						if v := vars[k]; v != "" {
+							t.Env = append(t.Env, k+"="+v)
+						}
+					}
+					wayland = &t
+				}
+			}
 			continue
 		}
 		display := vars["DISPLAY"]
 		if display == "" {
-			continue
-		}
-		if vars["XDG_SESSION_TYPE"] == "wayland" {
-			// Xwayland so mostra as janelas X: a tela inteira do usuario nao aparece.
-			wayland = true
 			continue
 		}
 		uid, owner := procOwner(filepath.Dir(p))
@@ -62,8 +69,8 @@ func findDesktop(allowLogin bool) (target, error) {
 		// Tela de login (gerenciador de exibicao rodando como root).
 		return *fallback, nil
 	}
-	if wayland {
-		return target{}, errUnsupported
+	if wayland != nil {
+		return *wayland, errWayland
 	}
 	return target{}, errNoSession
 }

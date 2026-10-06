@@ -81,7 +81,10 @@ Este roteiro valida em maquinas reais o que o CI nao alcanca: Windows (prova S1)
 | 6.2 | Linux: copiar e colar texto nos dois sentidos | igual aos itens 4.1 e 4.2 |
 | 6.3 | Linux: politica `ask` com zenity e com kdialog (KDE) | a caixa "Acesso remoto" aparece com Permitir e Recusar e o resultado chega ao visualizador |
 | 6.4 | Linux: politica `notify` | notificacao do sistema "... esta acessando este computador" |
-| 6.5 | Linux com sessao Wayland | o console mostra que o sistema nao e suportado |
+| 6.5 | Linux com sessao Wayland (GNOME com o pacote `gnome-remote-desktop`): abrir "Acesso remoto > Tela" | a janela troca para "RDP do GNOME", a tela do usuario aparece com mouse, teclado e acentos; Ctrl+Alt+Del, tela cheia e "Arquivos" funcionam; ao encerrar, `grdctl status` mostra o RDP desligado |
+| 6.5.1 | Wayland com politica `ask` e com `notify` | o pedido aparece pelo eyes-tray (ou zenity) e o visualizador mostra "Aguardando o usuário aceitar"; recusar mostra "O usuário recusou o acesso." |
+| 6.5.2 | Wayland com "Somente visualizar" e com a area de transferencia desligada na politica | a imagem chega e a entrada nao age; copiar e colar nao passa |
+| 6.5.3 | Wayland sem o pacote `gnome-remote-desktop` | a janela explica que o gnome-remote-desktop nao esta instalado |
 | 6.6 | macOS: primeiro acesso | o macOS pede Gravacao de Tela; depois de liberar, a tela aparece; sem Acessibilidade, a sessao fica so de visualizacao |
 | 6.7 | macOS: liberar Acessibilidade e repetir | mouse, teclado (Command, Option, acentos) e rolagem funcionam |
 | 6.8 | macOS com Retina e monitor externo | os dois monitores aparecem e os cliques caem no ponto certo |

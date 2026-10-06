@@ -1,6 +1,7 @@
 // Package rdp ativa o compartilhamento de tela por RDP do GNOME (gnome-remote-desktop) na sessao do
-// usuario conectado. E o caminho de acesso grafico em Linux com sessao Wayland, que o MeshAgent nao captura:
-// o tecnico conecta pelo Web-RDP do MeshCentral, num tunel do proprio MeshAgent ate a porta local.
+// usuario conectado. E o caminho de acesso grafico em Linux com sessao Wayland, que o remote-helper nao captura:
+// o tecnico conecta pelo cliente RDP do navegador, e o EYES leva o RDP pelo relay do acesso remoto ate a porta
+// local (canal rdp, docs/remoto/contrato-remoto.md).
 package rdp
 
 import (
@@ -33,8 +34,8 @@ type Access struct {
 
 // Register registra rdp_enable e rdp_disable.
 func Register(e *env.Env) error {
-	e.Reg.HandleTimeout("rdp_enable", 80*time.Second, func(ctx context.Context, _ rpc.Request) any {
-		a, err := enable(ctx)
+	e.Reg.HandleTimeout("rdp_enable", 80*time.Second, func(ctx context.Context, req rpc.Request) any {
+		a, err := enable(ctx, req.Payload().Bool("view_only"))
 		if err != nil {
 			e.Log.Warn("RDP: falha ao ativar", "erro", err)
 			return "error: " + err.Error()
@@ -50,6 +51,9 @@ func Register(e *env.Env) error {
 	})
 	return nil
 }
+
+// Disable desliga o compartilhamento RDP do GNOME (fim da sessao do canal rdp).
+func Disable(ctx context.Context) error { return disable(ctx) }
 
 const passwordChars = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 

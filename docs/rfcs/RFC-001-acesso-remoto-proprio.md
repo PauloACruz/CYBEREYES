@@ -481,6 +481,7 @@ Tamanho relativo: **P** (pequeno), **M** (medio) e **G** (grande), comparados en
 | 12.6 | codigo concluido: cursor no Linux pelo XFixes; macOS sem CGO (purego) com captura por `CGDisplayCreateImage`, `CGEventPost`, `NSPasteboard` e remote-helper como o usuario do console; aviso e pedido de acesso pela caixa do sistema no Linux e no macOS quando nao ha eyes-tray. Mudanca: ScreenCaptureKit trocado por `CGDisplayCreateImage` na v1. Pendentes: macOS real (S6, D-07) e Linux real com GNOME e KDE (piloto, secao 6) | `docs/remoto/fase12-6.md` |
 | 12.7 | concluida: Wake-on-LAN pelo EYES (comando `wol`, MAC das placas no Linux e no macOS, vizinho online da mesma rede escolhido pela API), Terminal e Arquivos no menu de acesso remoto, politicas em Configuracoes, aba "Acessos remotos" em Relatorios com sessoes e transferencias. Pendente: WoL em rede real (piloto, secao 7) | `docs/remoto/fase12-7.md` |
 | 12.8 | remocao concluida no repositorio (API, banco, agente, console, infra, CI e documentacao, checklist da secao 14). Pendentes fora do repositorio: o piloto em homologacao (`docs/remoto/roteiro-piloto.md`) e a limpeza da VPS (DNS, certificado e volumes do MeshCentral) | `docs/remoto/fase12-8.md` |
+| RDP do GNOME | codigo concluido: Linux com sessao Wayland abre a tela pelo RDP do GNOME levado pelo relay (canal `rdp`; o EYES e o proxy RDCleanPath e o navegador usa o cliente RDP do IronRDP). Pendente: `gnome-remote-desktop` real e navegador real no piloto (item 6.5) | contrato secao 5.4, `docs/remoto/fase12-8.md` |
 
 ---
 
@@ -560,7 +561,7 @@ Consequencia aceita: ate o fim da fase 12.8, as estacoes que entrarem no Cyberey
 | D-03 | Visualizador so no navegador ou tambem um app nativo para o tecnico | **Decidido**: comecar pelo navegador; app nativo fica como fase futura opcional |
 | D-04 | Consentimento padrao | **Decidido**: sem aviso por padrao; "avisar" e "perguntar" podem ser ligados em Configuracoes, por cliente ou site. Texto do aviso e retencao da auditoria ainda a definir (LGPD) |
 | D-05 | Destino padrao do arrastar e soltar e limite de tamanho de arquivo | Pendente. Recomendacao: Area de Trabalho do usuario conectado; limite configuravel por politica |
-| D-06 | Linux com Wayland na v1 ou depois | **Decidido na 12.1** (recomendacao adotada): fora da v1; a sessao Wayland responde `REMOTE_UNSUPPORTED` e o terminal e os arquivos continuam funcionando |
+| D-06 | Linux com Wayland na v1 ou depois | **Decidido na 12.1** (recomendacao adotada): captura propria fora da v1. Depois da 12.8, a sessao Wayland responde `REMOTE_WAYLAND` e o console abre a tela pelo RDP do GNOME levado pelo relay (contrato, secao 5.4); o terminal e os arquivos continuam funcionando |
 | D-07 | Assinatura de codigo (Windows e macOS) | **Decidido**: comecar sem assinatura (risco R-07 aceito) |
 | D-08 | A migracao das 400 estacoes espera o acesso novo? | **Decidido**: servidor limpo; a migracao comeca so depois da remocao do MeshCentral (secao 9) |
 | D-09 | Gravacao de sessao | Pendente. Recomendacao: fora da v1 |

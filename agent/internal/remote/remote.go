@@ -8,12 +8,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/url"
 	"os"
 	"os/exec"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -27,8 +29,10 @@ const MaxSessions = 2
 
 var (
 	errUnsupported = errors.New("acesso remoto nao suportado nesta sessao")
-	errNoSession   = errors.New("sem usuario conectado")
-	sessionIDRe    = regexp.MustCompile(`^[0-9a-f]{32}$`)
+	// errWayland indica sessao so Wayland: a Tela nao captura, o console usa o canal rdp (RDP do GNOME).
+	errWayland   = fmt.Errorf("%w: sessao Wayland", errUnsupported)
+	errNoSession = errors.New("sem usuario conectado")
+	sessionIDRe  = regexp.MustCompile(`^[0-9a-f]{32}$`)
 )
 
 // target e a sessao grafica onde o remote-helper roda.
@@ -87,9 +91,25 @@ func (m *Manager) start(_ context.Context, req rpc.Request) any {
 	}
 	var t target
 	desktop := contains(channels, "desktop")
-	if desktop {
+	rdpPort, _ := strconv.Atoi(p.Str("rdp_port"))
+	useRDP := contains(channels, "rdp")
+	switch {
+	case useRDP && (desktop || rdpPort <= 0 || rdpPort > 65535):
+		m.mu.Unlock()
+		return "error: pedido invalido"
+	case useRDP:
+		// RDP do GNOME: o alvo so serve para o aviso e o pedido de acesso na sessao do usuario.
+		t, err = m.find(false)
+		if err != nil && !errors.Is(err, errWayland) {
+			m.mu.Unlock()
+			return "error: no session"
+		}
+	case desktop:
 		t, err = m.find(policy.AllowAtLoginScreen)
 		switch {
+		case errors.Is(err, errWayland):
+			m.mu.Unlock()
+			return "error: wayland"
 		case errors.Is(err, errUnsupported):
 			m.mu.Unlock()
 			return "error: unsupported"
@@ -97,7 +117,7 @@ func (m *Manager) start(_ context.Context, req rpc.Request) any {
 			m.mu.Unlock()
 			return "error: no session"
 		}
-	} else {
+	default:
 		// So arquivos: o usuario conectado define as pastas (home); sem usuario, o resto continua funcionando.
 		t, _ = m.find(true)
 	}
@@ -115,6 +135,15 @@ func (m *Manager) start(_ context.Context, req rpc.Request) any {
 			defer wg.Done()
 			if err := m.runDesktop(ctx, t, params, technician, control); err != nil && ctx.Err() == nil {
 				log.Warn("sessao de tela encerrada com erro", "erro", err)
+			}
+		})
+	}
+	if useRDP {
+		wg.Add(1)
+		m.e.Go("remote-rdp", func(context.Context) {
+			defer wg.Done()
+			if err := runRDP(ctx, t, params, rdpPort, technician, log); err != nil && ctx.Err() == nil {
+				log.Warn("sessao RDP encerrada com erro", "erro", err)
 			}
 		})
 	}

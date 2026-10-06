@@ -17,9 +17,21 @@ Referencias: RFC-001 (secoes 9, 10 e 14), ADR-023, `docs/remoto/roteiro-piloto.m
 
 ## Tela via RDP para Linux com Wayland
 
-A rota `POST /api/agents/{id}/remote/rdp` e o item "Tela via RDP (Wayland)" do console (EYES 3.0.2, vindos do `main`) abriam o Web-RDP pelo tunel do MeshAgent ate a porta local da maquina. Sem o MeshCentral nao ha esse tunel, entao a rota e o item sairam junto com ele. Os comandos `rdp_enable` e `rdp_disable` do EYES continuam no agente (nao dependem do MeshCentral), sem uso pelo console.
+A rota `POST /api/agents/{id}/remote/rdp` e o item "Tela via RDP (Wayland)" do console (EYES 3.0.2, vindos do `main`) abriam o Web-RDP pelo tunel do MeshAgent ate a porta local da maquina. Sem o MeshCentral nao ha esse tunel, entao a rota e o item sairam junto com ele.
 
-Consequencia: estacoes Linux so com sessao Wayland voltam a ficar sem tela remota (D-06). Uma proxima etapa pode levar o RDP do GNOME pelo relay proprio (o EYES liga o `grdctl` e o canal do relay carrega o RDP ate o visualizador).
+Depois da remocao, o RDP do GNOME passou a ir pelo relay proprio (canal `rdp`, contrato secao 5.4):
+
+- **Console**: "Acesso remoto > Tela" continua sendo o unico item. Se a maquina responde `REMOTE_WAYLAND`, a janela troca sozinha para o RDP do GNOME, com o cliente RDP do navegador do IronRDP (`@devolutions/iron-remote-desktop` 0.11.0 e `@devolutions/iron-remote-desktop-rdp` 0.7.0, licenca MIT ou Apache-2.0). O WASM (cerca de 6 MB, 2,2 MB com gzip) so e baixado nessa hora. A janela mostra o pedido de acesso e o motivo do fim pelo estado da sessao na API, e tem Ctrl+Alt+Del, tela cheia e o painel de arquivos (canal `files` na mesma sessao).
+- **API**: com o canal `rdp`, chama `rdp_enable` no EYES (senha nova a cada sessao, modo so de visualizacao quando pedido), manda a porta no `remote_start` e devolve a credencial temporaria so ao tecnico da sessao. No relay, autentica o navegador pelo `proxy_auth` do pedido RDCleanPath, guarda o pedido ate o emparelhamento e repassa o RDP sem ler; do EYES, entrega so os quadros `RDP_DATA` sem o byte de tipo e fica com `CONSENT` e `BYE`.
+- **EYES**: `findDesktop` devolve `wayland` com o alvo da sessao (usuario, Wayland e DBus) para o aviso e o pedido de acesso. O canal `rdp` faz o papel de proxy RDCleanPath: aplica a politica de aviso, conecta so em `127.0.0.1` na porta do `rdp_enable`, faz o X.224 e o TLS com o `gnome-remote-desktop`, responde com a cadeia de certificados e leva os bytes nos dois sentidos. No fim, desliga o RDP do GNOME.
+- **Nginx**: a CSP ganhou `'wasm-unsafe-eval'` em `script-src` e `data:` em `connect-src`, porque o WASM do cliente RDP vem embutido numa URL `data:`.
+
+Limites conhecidos:
+
+- A area de transferencia e a do proprio RDP. A politica por sentido nao se aplica: o visualizador so liga a area de transferencia do RDP quando os dois sentidos estao permitidos e a sessao nao e so de visualizacao. Essa regra e aplicada no navegador.
+- O EYES nao valida o certificado do `gnome-remote-desktop` (e o certificado que ele mesmo gerou, em `127.0.0.1`).
+- Precisa do pacote `gnome-remote-desktop` na maquina; sem ele, a criacao responde `AGENT_ERROR` com o motivo.
+- Os testes cobrem o RDCleanPath com os vetores do IronRDP (Go e C#), o proxy do EYES contra um servidor RDP falso com TLS, o relay com o EYES simulado e a troca automatica no console. A conexao com um `gnome-remote-desktop` real e o cliente IronRDP num navegador real ficam para o piloto (roteiro, item 6.5).
 
 ## Verificacao
 

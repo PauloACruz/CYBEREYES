@@ -43,6 +43,9 @@ const (
 	FilesChunk    byte = 0x42
 	FilesCredit   byte = 0x43
 	FilesCancel   byte = 0x44
+
+	// RdpData leva os bytes do RDP do agente para o visualizador no canal rdp (contrato, secao 5.4).
+	RdpData byte = 0x50
 )
 
 // Codigos de fechamento do relay.

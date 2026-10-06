@@ -13,7 +13,7 @@ export interface RemoteSessionOptions {
 export type SessionStatus =
   | { kind: 'creating' }
   | { kind: 'open'; phase: ConnectionPhase; session: RemoteSessionDto }
-  | { kind: 'failed'; message: string }
+  | { kind: 'failed'; message: string; code?: string }
   | { kind: 'ended'; message: string };
 
 /** Mensagem amigavel para os erros da criacao de sessao (contrato, secao 2.3). */
@@ -25,6 +25,7 @@ export function createErrorMessage(error: unknown): string {
     case 'AGENT_OFFLINE':
       return 'A máquina está desconectada.';
     case 'REMOTE_UNSUPPORTED':
+    case 'REMOTE_WAYLAND':
       return error.title;
     case 'SESSION_LIMIT':
       return 'Já existe um acesso remoto aberto nesta máquina ou você atingiu o limite de sessões.';
@@ -62,7 +63,7 @@ export function useRemoteSession(agentId: number, options: RemoteSessionOptions,
       try {
         created = await remoteApi.createSession(agentId, { channels: channelKey.split(',') as RemoteChannel[], viewOnly, ticketId });
       } catch (error) {
-        if (!cancelled()) setStatus({ kind: 'failed', message: createErrorMessage(error) });
+        if (!cancelled()) setStatus({ kind: 'failed', message: createErrorMessage(error), code: error instanceof ApiError ? error.code : undefined });
         return;
       }
       if (cancelled()) return;

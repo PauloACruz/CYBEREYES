@@ -10,6 +10,7 @@ import { useMe } from '../../auth/useMe';
 import { formatBytes } from '../../lib/format';
 import { ClipboardBridge } from './clipboard';
 import { FilesPanel } from './FilesPanel';
+import { RdpViewer } from './RdpViewer';
 import { useTransfers } from './useTransfers';
 import { FRAME, type ClipboardBody, type FilesCopiedBody, type FrameEndFrame, type HelloBody, type RemoteDisplay, type TileFrame } from './protocol';
 import { shouldCapture, toRemotePoint, wheelUnits } from './inputMap';
@@ -47,7 +48,30 @@ function statusText(status: SessionStatus, consent: string | null): { label: str
 
 type KeyboardLock = { keyboard?: { lock?: () => Promise<void> } };
 
+/**
+ * Janela do acesso remoto. Comeca pela Tela propria; se a maquina responde que a sessao e Wayland, troca para o RDP do
+ * GNOME pelo relay (canal rdp). O parametro "rdp=1" abre direto no RDP.
+ */
 export function RemoteViewerPage() {
+  const params = useParams();
+  const [search] = useSearchParams();
+  const [rdp, setRdp] = useState(search.get('rdp') === '1');
+  const { data: me } = useMe();
+  if (rdp) {
+    const ticket = search.get('chamado');
+    return (
+      <RdpViewer
+        agentId={Number(params.agentId)}
+        viewOnly={search.get('visualizar') === '1'}
+        ticketId={ticket ? Number(ticket) : null}
+        canFiles={hasPermission(me, PERMISSIONS.agentsFiles)}
+      />
+    );
+  }
+  return <DesktopViewer onWayland={() => setRdp(true)} />;
+}
+
+function DesktopViewer({ onWayland }: { onWayland: () => void }) {
   const params = useParams();
   const agentId = Number(params.agentId);
   const [search] = useSearchParams();
@@ -136,6 +160,11 @@ export function RemoteViewerPage() {
     onFilesCopied: setCopied,
     onError: (_code, message) => setAgentError(message),
   });
+
+  const wayland = status.kind === 'failed' && status.code === 'REMOTE_WAYLAND';
+  useEffect(() => {
+    if (wayland) onWayland();
+  }, [wayland, onWayland]);
 
   const connected = status.kind === 'open' && status.phase === 'connected';
   const sessionId = status.kind === 'open' && status.session.channels.includes('files') ? status.session.sessionId : null;
