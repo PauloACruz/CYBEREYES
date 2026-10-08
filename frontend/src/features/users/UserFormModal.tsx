@@ -31,6 +31,7 @@ function UserForm({ user, onDone }: { user: UserDto | null; onDone: () => void }
   const queryClient = useQueryClient();
   const isEdit = user !== null;
   const roles = useQuery({ queryKey: ['roles', 'options'], queryFn: () => rolesApi.options() });
+  const clients = useQuery({ queryKey: ['users', 'client-options'], queryFn: () => usersApi.clientOptions() });
 
   const form = useForm({
     initialValues: {
@@ -41,12 +42,15 @@ function UserForm({ user, onDone }: { user: UserDto | null; onDone: () => void }
       passwordMode: 'invite' as PasswordMode,
       roleIds: user?.roles.map((r) => r.id) ?? [],
       isActive: user?.isActive ?? true,
+      allClients: user?.allClients ?? true,
+      clientIds: user?.clients.map((c) => String(c.id)) ?? [],
     },
     validate: {
       username: (v) => (isEdit || v.trim() ? null : 'Informe o nome de usuário'),
       email: (v) => (EMAIL_RE.test(v.trim()) ? null : 'Informe um e-mail válido'),
       fullName: (v) => (v.trim() ? null : 'Informe o nome completo'),
       password: (v, values) => (isEdit || values.passwordMode === 'invite' || v ? null : 'Informe a senha inicial'),
+      clientIds: (v, values) => (values.allClients || v.length > 0 ? null : 'Selecione ao menos um cliente'),
     },
   });
 
@@ -57,6 +61,8 @@ function UserForm({ user, onDone }: { user: UserDto | null; onDone: () => void }
         fullName: values.fullName.trim(),
         roleIds: values.roleIds,
         isActive: values.isActive,
+        allClients: values.allClients,
+        clientIds: values.allClients ? [] : values.clientIds.map(Number),
       };
       if (isEdit) return usersApi.update(user.id, common);
       const username = values.username.trim();
@@ -87,6 +93,9 @@ function UserForm({ user, onDone }: { user: UserDto | null; onDone: () => void }
   const roleOptions = roles.data
     ? roles.data.map((r) => ({ value: r.id, label: r.name }))
     : (user?.roles.map((r) => ({ value: r.id, label: r.name })) ?? []);
+  const clientOptions = clients.data
+    ? clients.data.map((c) => ({ value: String(c.id), label: c.name }))
+    : (user?.clients.map((c) => ({ value: String(c.id), label: c.name })) ?? []);
 
   return (
     <form onSubmit={form.onSubmit((values) => save.mutate(values))} noValidate>
@@ -144,6 +153,34 @@ function UserForm({ user, onDone }: { user: UserDto | null; onDone: () => void }
           disabled={roles.isPending}
           {...form.getInputProps('roleIds')}
         />
+        <Stack gap={6}>
+          <Switch
+            label="Acesso a todos os clientes"
+            description="Desligue para escolher quais clientes o usuário pode ver. Papéis de administrador veem todos."
+            {...form.getInputProps('allClients', { type: 'checkbox' })}
+          />
+          {!form.values.allClients && (
+            <>
+              {clients.isError && (
+                <Alert color="yellow" variant="light">
+                  Não foi possível carregar a lista de clientes.
+                </Alert>
+              )}
+              <MultiSelect
+                label="Clientes visíveis"
+                description="Máquinas, alertas, chamados, inventário e relatórios dos demais clientes ficam ocultos."
+                placeholder="Selecione os clientes"
+                data={clientOptions}
+                searchable
+                clearable
+                required
+                nothingFoundMessage="Nenhum cliente encontrado"
+                disabled={clients.isPending}
+                {...form.getInputProps('clientIds')}
+              />
+            </>
+          )}
+        </Stack>
         <Switch label="Usuário ativo" {...form.getInputProps('isActive', { type: 'checkbox' })} />
         {isEdit && <UserSsoLogins user={user} canManage />}
         <Group justify="flex-end" mt="sm">

@@ -74,6 +74,26 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
     public DbSet<RemoteSession> RemoteSessions => Set<RemoteSession>();
     public DbSet<RemoteTransfer> RemoteTransfers => Set<RemoteTransfer>();
     public DbSet<RemotePolicy> RemotePolicies => Set<RemotePolicy>();
+    public DbSet<UserClient> UserClients => Set<UserClient>();
+
+    // Escopo de clientes do usuario da requisicao. Nulo = sem restricao (agentes, servicos internos e
+    // usuarios com acesso a todos os clientes). Os filtros globais de ConfigureClientScope leem estes campos.
+    private int[]? scopeClientIds;
+    private Guid? scopeUserId;
+    private string? scopeUsername;
+
+    /// <summary>Restringe as consultas deste contexto aos clientes informados, inclusive dados ligados a eles.</summary>
+    public void RestrictToClients(IEnumerable<int> clientIds, Guid userId, string username)
+    {
+        scopeClientIds = clientIds.Distinct().ToArray();
+        scopeUserId = userId;
+        scopeUsername = username;
+    }
+
+    public bool IsClientRestricted => scopeClientIds is not null;
+
+    /// <summary>Clientes visiveis, ou nulo quando o contexto nao tem restricao.</summary>
+    public IReadOnlyCollection<int>? VisibleClientIds => scopeClientIds;
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -116,6 +136,80 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
         });
     
         ConfigureRmm(builder);
+
+        builder.Entity<UserClient>(e =>
+        {
+            e.ToTable("user_clients");
+            e.HasKey(x => new { x.UserId, x.ClientId });
+            e.HasIndex(x => x.ClientId);
+            e.HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<Client>().WithMany().HasForeignKey(x => x.ClientId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        ConfigureClientScope(builder);
+    }
+
+    /// <summary>
+    /// Filtros globais do escopo de clientes: sem restricao a condicao some do SQL; com restricao, tudo que pertence
+    /// a um cliente (direto, pelo site, pelo agente ou pelo dispositivo SNMP) fica invisivel fora da lista.
+    /// </summary>
+    private void ConfigureClientScope(ModelBuilder builder)
+    {
+        builder.Entity<Client>().HasQueryFilter(c => scopeClientIds == null || scopeClientIds.Contains(c.Id));
+        builder.Entity<Site>().HasQueryFilter(s => scopeClientIds == null || scopeClientIds.Contains(s.ClientId));
+        builder.Entity<Agent>().HasQueryFilter(a => scopeClientIds == null || scopeClientIds.Contains(a.Site!.ClientId));
+        builder.Entity<Deployment>().HasQueryFilter(d => scopeClientIds == null || scopeClientIds.Contains(d.Site!.ClientId));
+
+        builder.Entity<AgentSoftware>().HasQueryFilter(x => scopeClientIds == null || Agents.Any(a => a.Id == x.AgentId));
+        builder.Entity<AgentHistory>().HasQueryFilter(x => scopeClientIds == null || Agents.Any(a => a.Id == x.AgentId));
+        builder.Entity<AgentHealth>().HasQueryFilter(x => scopeClientIds == null || Agents.Any(a => a.Id == x.AgentId));
+        builder.Entity<CheckResult>().HasQueryFilter(x => scopeClientIds == null || Agents.Any(a => a.Id == x.AgentId));
+        builder.Entity<CheckHistory>().HasQueryFilter(x => scopeClientIds == null || Agents.Any(a => a.Id == x.AgentId));
+        builder.Entity<TaskResult>().HasQueryFilter(x => scopeClientIds == null || Agents.Any(a => a.Id == x.AgentId));
+        builder.Entity<WinUpdate>().HasQueryFilter(x => scopeClientIds == null || Agents.Any(a => a.Id == x.AgentId));
+        builder.Entity<PendingAction>().HasQueryFilter(x => scopeClientIds == null || Agents.Any(a => a.Id == x.AgentId));
+        builder.Entity<CareRun>().HasQueryFilter(x => scopeClientIds == null || Agents.Any(a => a.Id == x.AgentId));
+        builder.Entity<RemoteSession>().HasQueryFilter(x => scopeClientIds == null || Agents.Any(a => a.Id == x.AgentId));
+        builder.Entity<RemoteTransfer>().HasQueryFilter(x => scopeClientIds == null || Agents.Any(a => a.Id == x.AgentId));
+
+        // Checks, tarefas e politicas de patch sem agente pertencem a politicas, que sao globais.
+        builder.Entity<Check>().HasQueryFilter(x => scopeClientIds == null || x.AgentId == null || Agents.Any(a => a.Id == x.AgentId));
+        builder.Entity<AutomatedTask>().HasQueryFilter(x => scopeClientIds == null || x.AgentId == null || Agents.Any(a => a.Id == x.AgentId));
+        builder.Entity<PatchPolicy>().HasQueryFilter(x => scopeClientIds == null || x.AgentId == null || Agents.Any(a => a.Id == x.AgentId));
+        builder.Entity<Alert>().HasQueryFilter(x => scopeClientIds == null ||
+            (x.AgentId == null || Agents.Any(a => a.Id == x.AgentId)) && (x.SnmpDeviceId == null || SnmpDevices.Any(d => d.Id == x.SnmpDeviceId)));
+
+        // Chamado sem cliente (aberto sem maquina) fica visivel so para quem abriu ou para o responsavel.
+        builder.Entity<Ticket>().HasQueryFilter(t => scopeClientIds == null ||
+            (t.ClientId != null ? scopeClientIds.Contains(t.ClientId.Value) : t.CreatedById == scopeUserId || t.AssignedToId == scopeUserId));
+        builder.Entity<TicketMessage>().HasQueryFilter(x => scopeClientIds == null || Tickets.Any(t => t.Id == x.TicketId));
+        builder.Entity<TicketAttachment>().HasQueryFilter(x => scopeClientIds == null || Tickets.Any(t => t.Id == x.TicketId));
+        builder.Entity<TimeEntry>().HasQueryFilter(x => scopeClientIds == null || Tickets.Any(t => t.Id == x.TicketId));
+
+        builder.Entity<Asset>().HasQueryFilter(x => scopeClientIds == null || scopeClientIds.Contains(x.ClientId));
+        builder.Entity<Person>().HasQueryFilter(x => scopeClientIds == null || scopeClientIds.Contains(x.ClientId));
+        builder.Entity<AssetAssignment>().HasQueryFilter(x => scopeClientIds == null || Assets.Any(a => a.Id == x.AssetId));
+        builder.Entity<Network>().HasQueryFilter(x => scopeClientIds == null || scopeClientIds.Contains(x.ClientId));
+        builder.Entity<IpRecord>().HasQueryFilter(x => scopeClientIds == null || Networks.Any(n => n.Id == x.NetworkId));
+        builder.Entity<Diagram>().HasQueryFilter(x => scopeClientIds == null || scopeClientIds.Contains(x.ClientId));
+        builder.Entity<Credential>().HasQueryFilter(x => scopeClientIds == null || scopeClientIds.Contains(x.ClientId));
+        builder.Entity<DocPage>().HasQueryFilter(x => scopeClientIds == null || scopeClientIds.Contains(x.ClientId));
+        builder.Entity<DocAttachment>().HasQueryFilter(x => scopeClientIds == null ||
+            (x.OwnerType == DocOwner.Asset && Assets.Any(a => a.Id == x.OwnerId)) ||
+            (x.OwnerType == DocOwner.Network && Networks.Any(n => n.Id == x.OwnerId)) ||
+            (x.OwnerType == DocOwner.Page && DocPages.Any(p => p.Id == x.OwnerId)));
+
+        builder.Entity<SystemLog>().HasQueryFilter(x => scopeClientIds == null || scopeClientIds.Contains(x.ClientId));
+        builder.Entity<LogAlertRule>().HasQueryFilter(x => scopeClientIds == null || x.ClientId == null || scopeClientIds.Contains(x.ClientId.Value));
+        builder.Entity<SnmpDevice>().HasQueryFilter(x => scopeClientIds == null || scopeClientIds.Contains(x.ClientId));
+        builder.Entity<SnmpInterface>().HasQueryFilter(x => scopeClientIds == null || SnmpDevices.Any(d => d.Id == x.DeviceId));
+        builder.Entity<SnmpSensor>().HasQueryFilter(x => scopeClientIds == null || SnmpDevices.Any(d => d.Id == x.DeviceId));
+        builder.Entity<SnmpSample>().HasQueryFilter(x => scopeClientIds == null || SnmpDevices.Any(d => d.Id == x.DeviceId));
+
+        // Relatorio sem cliente cobre todos: so quem o gerou (ja dentro do proprio escopo) o enxerga.
+        builder.Entity<ReportRun>().HasQueryFilter(x => scopeClientIds == null ||
+            (x.ClientId != null ? scopeClientIds.Contains(x.ClientId.Value) : x.RequestedBy == scopeUsername));
+        builder.Entity<ReportSchedule>().HasQueryFilter(x => scopeClientIds == null || (x.ClientId != null && scopeClientIds.Contains(x.ClientId.Value)));
     }
 
     private static void ConfigureRmm(ModelBuilder builder)

@@ -410,7 +410,7 @@ public sealed partial class SnmpService(CybereyesDbContext db, Vault vault, Aler
         var dto = await Dtos(db.SnmpDevices.AsNoTracking().Where(d => d.Id == deviceId)).FirstOrDefaultAsync(ct);
         if (dto is not null)
         {
-            await hub.Clients.All.SendAsync("snmpDeviceChanged", dto, ct);
+            await hub.Clients.ForClient(dto.ClientId).SendAsync("snmpDeviceChanged", dto, ct);
         }
     }
 

@@ -38,6 +38,7 @@ public sealed partial class ReportService(CybereyesDbContext db, ReportBuilder b
             Status = bytes.LongLength <= MaxFileBytes ? "ok" : "error",
             Error = bytes.LongLength <= MaxFileBytes ? null : "Arquivo maior que 25 MB; use filtros para reduzir",
             Params = JsonSerializer.Serialize(p, Json),
+            ClientId = p.ClientId,
             CreatedAt = time.GetUtcNow(),
             RequestedBy = requestedBy,
             ScheduleId = scheduleId,
@@ -184,6 +185,7 @@ public sealed partial class ReportScheduler(IServiceScopeFactory scopes, TimePro
             {
                 Type = schedule.Type, Title = schedule.Name, Format = schedule.Format, Status = "error", Error = ex.Message,
                 RequestedBy = $"agendamento:{schedule.Name}", ScheduleId = schedule.Id, CreatedAt = clock.GetUtcNow(), Params = schedule.Params,
+                ClientId = schedule.ClientId,
             };
             db.ReportRuns.Add(run);
         }

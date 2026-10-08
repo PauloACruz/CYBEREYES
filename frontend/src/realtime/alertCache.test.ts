@@ -1,7 +1,10 @@
 import { QueryClient } from '@tanstack/react-query';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { queryKeys } from '../api/queryKeys';
-import { applyAlertsChanged } from './alertCache';
+import { PERMISSIONS } from '../api/types';
+import { ME_QUERY_KEY } from '../auth/useMe';
+import { json, makeMe, mockFetch } from '../test/utils';
+import { applyAlertsChanged, handleAlertsChanged } from './alertCache';
 
 describe('applyAlertsChanged', () => {
   it('atualiza o contador e indica quando chegou um alerta novo', () => {
@@ -30,5 +33,20 @@ describe('applyAlertsChanged', () => {
     applyAlertsChanged(queryClient, { activeCount: 1 });
 
     expect(queryClient.getQueryState(queryKeys.alertList(params))?.isInvalidated).toBe(true);
+  });
+});
+
+describe('handleAlertsChanged', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('sem o total (usuário restrito a alguns clientes) recarrega o contador pela API', async () => {
+    mockFetch({ 'GET /api/alerts': () => json({ items: [], total: 4, page: 1, pageSize: 1 }) });
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(ME_QUERY_KEY, makeMe({ permissions: [PERMISSIONS.alertsView] }));
+    queryClient.setQueryData(queryKeys.activeAlertCount, 1);
+
+    handleAlertsChanged(queryClient, { activeCount: null });
+
+    await vi.waitFor(() => expect(queryClient.getQueryData(queryKeys.activeAlertCount)).toBe(4));
   });
 });

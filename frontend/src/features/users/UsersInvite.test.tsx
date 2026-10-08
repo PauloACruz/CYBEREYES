@@ -16,6 +16,8 @@ function makeUser(overrides: Partial<UserDto> = {}): UserDto {
     lastLoginAt: null,
     createdAt: '2026-10-05T12:00:00Z',
     invitePending: false,
+    allClients: true,
+    clients: [],
     ...overrides,
   };
 }
@@ -27,6 +29,7 @@ function usersApiMock(items: UserDto[], extra: Parameters<typeof mockFetch>[0] =
     'GET /api/auth/me': () => json(manager),
     'GET /api/users': () => json({ items, total: items.length, page: 1, pageSize: 25 }),
     'GET /api/roles/options': () => json([]),
+    'GET /api/users/client-options': () => json([]),
     ...extra,
   });
 }
@@ -65,9 +68,42 @@ describe('convite de usuarios', () => {
       fullName: 'João Souza',
       roleIds: [],
       isActive: true,
+      allClients: true,
+      clientIds: [],
       username: 'joao.tecnico',
       sendInvite: true,
     });
+  });
+
+  it('restringe o novo usuario aos clientes escolhidos', async () => {
+    const fetchMock = usersApiMock([], {
+      'GET /api/users/client-options': () => json([{ id: 7, name: 'Acme' }, { id: 9, name: 'Globex' }]),
+      'POST /api/users': () => json(makeUser({ allClients: false, clients: [{ id: 9, name: 'Globex' }] }), 201),
+    });
+    renderApp('/usuarios');
+    const { user, dialog } = await fillNewUser();
+
+    await user.click(within(dialog).getByRole('switch', { name: /Acesso a todos os clientes/ }));
+    await user.click(within(dialog).getByRole('button', { name: 'Criar usuário' }));
+    expect(await within(dialog).findByText('Selecione ao menos um cliente')).toBeInTheDocument();
+
+    await user.click(within(dialog).getByPlaceholderText('Selecione os clientes'));
+    await user.click(await screen.findByRole('option', { name: 'Globex', hidden: true }));
+    await user.click(within(dialog).getByRole('button', { name: 'Criar usuário' }));
+
+    expect(await screen.findByText(/Usuário criado/)).toBeInTheDocument();
+    expect(postBody(fetchMock, '/api/users')).toMatchObject({ allClients: false, clientIds: [9] });
+  });
+
+  it('lista mostra os clientes de usuarios restritos', async () => {
+    usersApiMock([
+      makeUser({ allClients: false, clients: [{ id: 1, name: 'Acme' }, { id: 2, name: 'Globex' }, { id: 3, name: 'Initech' }] }),
+    ]);
+    renderApp('/usuarios');
+
+    expect(await screen.findByText('Acme')).toBeInTheDocument();
+    expect(screen.getByText('Globex')).toBeInTheDocument();
+    expect(screen.getByText('+1')).toBeInTheDocument();
   });
 
   it('opcao "Definir senha agora" exige e envia a senha inicial', async () => {

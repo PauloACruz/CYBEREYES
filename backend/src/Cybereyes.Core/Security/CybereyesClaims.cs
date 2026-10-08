@@ -5,6 +5,9 @@ public static class CybereyesClaims
     public const string Permission = "ce_perm";
     public const string Superuser = "ce_superuser";
     public const string Enriched = "ce_enriched";
+    /// <summary>Presente quando o usuario so ve alguns clientes; cada um vem em <see cref="Client"/>.</summary>
+    public const string ClientScope = "ce_client_scope";
+    public const string Client = "ce_client";
     public const string AuthMethods = "amr";
     public const string Mfa = "mfa";
     public const string ApiKeyScheme = "ApiKey";

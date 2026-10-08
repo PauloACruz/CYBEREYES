@@ -205,8 +205,10 @@ public static partial class AlertsPatchesEndpoints
             .Select(a => new
             {
                 a.Id, a.AgentId, a.Agent!.Hostname, a.SnmpDeviceId, DeviceName = a.SnmpDevice!.Name,
-                ClientName = a.AgentId != null ? a.Agent.Site!.Client!.Name : db.Clients.Where(x => x.Id == a.SnmpDevice!.ClientId).Select(x => x.Name).FirstOrDefault(),
-                SiteName = a.AgentId != null ? a.Agent.Site!.Name : db.Sites.Where(x => x.Id == a.SnmpDevice!.SiteId).Select(x => x.Name).FirstOrDefault(),
+                // Subconsultas em vez de a.Agent.Site.Client: com o filtro de clientes, a navegacao obrigatoria depois do
+                // agente opcional vira INNER JOIN e some com os alertas de SNMP.
+                ClientName = db.Clients.Where(x => x.Id == (a.AgentId != null ? a.Agent!.Site!.ClientId : a.SnmpDevice!.ClientId)).Select(x => x.Name).FirstOrDefault(),
+                SiteName = db.Sites.Where(x => x.Id == (a.AgentId != null ? a.Agent!.SiteId : a.SnmpDevice!.SiteId)).Select(x => x.Name).FirstOrDefault(),
                 a.AlertType, a.CheckId, a.TaskId,
                 a.Severity, a.Message, a.CreatedAt, a.Resolved, a.ResolvedAt, a.SnoozedUntil, a.EmailSent, a.WebhookSent,
             }).ToListAsync(ct);

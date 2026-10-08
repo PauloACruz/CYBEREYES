@@ -1,8 +1,10 @@
 using System.ComponentModel.DataAnnotations;
 using System.Globalization;
+using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using Cybereyes.Api.Infrastructure;
 using Cybereyes.Core.Audit;
+using Cybereyes.Core.Identity;
 using Cybereyes.Core.Persistence;
 using Cybereyes.Core.Rmm;
 using Cybereyes.Core.Security;
@@ -52,10 +54,11 @@ public static class ClientEndpoints
         }).ToList());
     }
 
-    private static async Task<IResult> CreateAsync(CreateClientRequest request, CybereyesDbContext db, IAuditService audit, CancellationToken ct)
+    private static async Task<IResult> CreateAsync(CreateClientRequest request, ClaimsPrincipal principal, CybereyesDbContext db, IAuditService audit,
+        CancellationToken ct)
     {
         var name = request.Name.Trim();
-        if (await db.Clients.AnyAsync(c => c.Name == name, ct))
+        if (await db.Clients.IgnoreQueryFilters().AnyAsync(c => c.Name == name, ct))
         {
             return Problems.Conflict("Ja existe um cliente com esse nome");
         }
@@ -63,6 +66,12 @@ public static class ClientEndpoints
         var client = new Client { Name = name, Sites = [new Site { Name = request.SiteName.Trim() }] };
         db.Clients.Add(client);
         await db.SaveChangesAsync(ct);
+        if (db.IsClientRestricted && principal.UserId() is { } userId)
+        {
+            // Quem ve so alguns clientes passa a ver tambem o que acabou de criar.
+            db.UserClients.Add(new UserClient { UserId = userId, ClientId = client.Id });
+            await db.SaveChangesAsync(ct);
+        }
         await audit.LogAsync("client.created", "client", Id(client.Id), $"Cliente {name} criado", cancellationToken: ct);
         var site = client.Sites[0];
         return TypedResults.Created($"/api/clients/{client.Id}",
@@ -77,7 +86,7 @@ public static class ClientEndpoints
             return Problems.NotFound("Cliente");
         }
         var name = request.Name.Trim();
-        if (await db.Clients.AnyAsync(c => c.Name == name && c.Id != id, ct))
+        if (await db.Clients.IgnoreQueryFilters().AnyAsync(c => c.Name == name && c.Id != id, ct))
         {
             return Problems.Conflict("Ja existe um cliente com esse nome");
         }

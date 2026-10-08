@@ -52,13 +52,23 @@ Validacao (400) inclui `errors: { "campo": ["mensagem"] }`.
 |---|---|---|---|
 | GET | `/api/users?page=1&pageSize=25&search=` | | 200 `Paged<UserDto>` |
 | GET | `/api/users/{id}` | | 200 `UserDto` |
-| POST | `/api/users` | `{ username, email, fullName, password, roleIds: string[], isActive }` | 201 `UserDto` |
-| PUT | `/api/users/{id}` | `{ email, fullName, roleIds: string[], isActive }` | 200 `UserDto` |
+| GET | `/api/users/client-options` | | 200 `[{ id, name }]` (so `users.manage`; clientes que quem edita enxerga) |
+| POST | `/api/users` | `{ username, email, fullName, password, roleIds: string[], isActive, allClients = true, clientIds: number[] }` | 201 `UserDto` |
+| PUT | `/api/users/{id}` | `{ email, fullName, roleIds: string[], isActive, allClients?, clientIds? }` | 200 `UserDto` |
 | POST | `/api/users/{id}/reset-password` | `{ newPassword }` | 204 |
 | POST | `/api/users/{id}/reset-2fa` | | 204 |
 | DELETE | `/api/users/{id}` | | 204 |
 
-`UserDto`: `{ id, username, email, fullName, isActive, twoFactorEnabled, roles: [{ id, name }], lastLoginAt, createdAt }`
+`UserDto`: `{ id, username, email, fullName, isActive, twoFactorEnabled, roles: [{ id, name }], lastLoginAt, createdAt, allClients, clients: [{ id, name }] }`
+
+Clientes visiveis: com `allClients = false` o usuario so ve os clientes de `clientIds` (ao menos um). A restricao vale para
+tudo que pertence a um cliente (sites, agentes, checks, alertas, chamados, inventario, documentacao, logs, SNMP e relatorios),
+por filtro global do EF aplicado a cada requisicao; o que fica fora do escopo responde 404. Papeis de administrador
+(`isSuperuser`) ignoram a restricao. Quem edita e tambem e restrito so libera os proprios clientes e nao pode dar
+`allClients`; no PUT, os clientes fora do escopo de quem edita sao mantidos. Sem `allClients` e `clientIds` no PUT, o acesso
+fica como esta. Cliente criado por usuario restrito entra no escopo dele. Agendamento de relatorio de usuario restrito
+precisa de `params.clientId`; relatorio gerado sem cliente so aparece para quem o gerou. Chamado sem cliente (aberto sem
+maquina) aparece para quem abriu e para o responsavel.
 `Paged<T>`: `{ items: T[], total, page, pageSize }`
 
 ### Papeis (permissao `roles.manage`)

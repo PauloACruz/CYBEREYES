@@ -9,6 +9,7 @@ using Cybereyes.Api.Rmm;
 using Cybereyes.Api.Rmm.Nats;
 using Cybereyes.Core.Audit;
 using Cybereyes.Core.Persistence;
+using Cybereyes.Core.Security;
 
 if (args.Contains("--healthcheck-probe"))
 {
@@ -176,6 +177,15 @@ app.Use(async (context, next) =>
 
 app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(30) });
 app.UseAuthentication();
+app.Use(async (context, next) =>
+{
+    // Usuario restrito a alguns clientes: o DbContext da requisicao passa a filtrar tudo pelo escopo dele.
+    if (context.User.HasClaim(c => c.Type == CybereyesClaims.ClientScope))
+    {
+        context.RequestServices.GetRequiredService<CybereyesDbContext>().ApplyClientScope(context.User);
+    }
+    await next();
+});
 app.UseRateLimiter();
 app.UseAuthorization();
 

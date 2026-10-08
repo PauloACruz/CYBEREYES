@@ -167,6 +167,12 @@ public static partial class ReportEndpoints
             return Problems.Validation("recipients", "Informe de 1 a 20 e-mails validos");
         }
 
+        // O agendamento roda sem usuario: quem ve so alguns clientes precisa fixar um deles no filtro.
+        if (db.IsClientRestricted && (r.Params.ClientId is not { } clientId || !await db.Clients.AnyAsync(c => c.Id == clientId, ct)))
+        {
+            return Problems.Validation("params.clientId", "Escolha um dos seus clientes para o agendamento");
+        }
+
         var schedule = id is null
             ? new ReportSchedule { Name = r.Name, Type = info.Type, CreatedBy = user.Identity?.Name ?? "?" }
             : await db.ReportSchedules.FirstOrDefaultAsync(s => s.Id == id, ct);
@@ -177,6 +183,7 @@ public static partial class ReportEndpoints
         schedule.Name = r.Name.Trim();
         schedule.Type = info.Type;
         schedule.Params = JsonSerializer.Serialize(r.Params, ReportService.Json);
+        schedule.ClientId = r.Params.ClientId;
         schedule.Format = r.Format;
         schedule.Frequency = r.Frequency;
         schedule.Time = r.Time;
