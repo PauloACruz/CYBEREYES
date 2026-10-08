@@ -116,6 +116,11 @@ export interface RoleRef {
   name: string;
 }
 
+export interface ClientRef {
+  id: number;
+  name: string;
+}
+
 export interface UserDto {
   id: string;
   username: string;
@@ -126,6 +131,9 @@ export interface UserDto {
   roles: RoleRef[];
   lastLoginAt: string | null;
   createdAt: string;
+  /** Falso: o usuário só vê os clientes de `clients` (papéis de administrador veem todos). */
+  allClients: boolean;
+  clients: ClientRef[];
   /** Fase 9: vinculos SSO e senha local (garantidos no GET /api/users/{id}). */
   ssoLogins?: UserSsoLogin[];
   hasPassword?: boolean;
@@ -155,6 +163,9 @@ export interface CreateUserRequest {
   roleIds: string[];
   isActive: boolean;
   sendInvite?: boolean;
+  allClients: boolean;
+  /** Clientes liberados quando allClients é falso. */
+  clientIds: number[];
 }
 
 export interface UpdateUserRequest {
@@ -162,6 +173,8 @@ export interface UpdateUserRequest {
   fullName: string;
   roleIds: string[];
   isActive: boolean;
+  allClients: boolean;
+  clientIds: number[];
 }
 
 export interface ResetPasswordRequest {
@@ -866,7 +879,8 @@ export interface ListAlertsParams {
 export type BulkAlertRequest = { ids: number[]; action: 'resolve' } | { ids: number[]; action: 'snooze'; until: string };
 
 export interface AlertsChangedEvent {
-  activeCount: number;
+  /** Nulo para quem vê só alguns clientes: o total geral não é enviado e o contador é recarregado pela API. */
+  activeCount: number | null;
 }
 
 export interface AlertTemplateDto {

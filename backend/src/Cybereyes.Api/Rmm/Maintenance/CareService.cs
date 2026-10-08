@@ -207,7 +207,8 @@ public sealed class CareService(CybereyesDbContext db, IAgentRpc rpc, IHubContex
     public async Task NotifyRunAsync(CareRun run, CancellationToken ct)
     {
         var dto = (await ToDtosAsync([run], ct))[0];
-        await console.Clients.All.SendAsync("careRunChanged", dto, ct);
+        var clientId = await db.Agents.IgnoreQueryFilters().Where(a => a.Id == run.AgentId).Select(a => a.Site!.ClientId).FirstOrDefaultAsync(ct);
+        await console.Clients.ForClient(clientId).SendAsync("careRunChanged", dto, ct);
         if (run.Source == "tray")
         {
             await NotifyTrayAsync(run, ct);

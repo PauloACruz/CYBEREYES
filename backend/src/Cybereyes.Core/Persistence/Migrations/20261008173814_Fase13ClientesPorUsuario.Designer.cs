@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using Cybereyes.Core.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Cybereyes.Core.Persistence.Migrations
 {
     [DbContext(typeof(CybereyesDbContext))]
-    partial class CybereyesDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261008173814_Fase13ClientesPorUsuario")]
+    partial class Fase13ClientesPorUsuario
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

@@ -455,6 +455,11 @@ public static partial class SnmpEndpoints
         {
             return Problems.BadRequest("Periodo invalido");
         }
+        // A agregacao em SQL puro nao passa pelo filtro de clientes do EF: confere o dispositivo antes.
+        if (!await db.SnmpDevices.AnyAsync(d => d.Id == id, ct))
+        {
+            return Problems.NotFound("Dispositivo");
+        }
         var query = db.SnmpSamples.AsNoTracking().Where(s => s.DeviceId == id && s.Metric == metric && s.Time >= start && s.Time < end);
         var count = await query.CountAsync(ct);
         List<Point> points;

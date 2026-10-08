@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
@@ -21,8 +22,8 @@ public sealed class PermissionClaimsTransformation(CybereyesDbContext db) : ICla
             return principal;
         }
 
-        var active = await db.Users.AsNoTracking().Where(u => u.Id == userId).Select(u => u.IsActive).FirstOrDefaultAsync();
-        if (!active)
+        var user = await db.Users.AsNoTracking().Where(u => u.Id == userId).Select(u => new { u.IsActive, u.AllClients }).FirstOrDefaultAsync();
+        if (user is not { IsActive: true })
         {
             return new ClaimsPrincipal(new ClaimsIdentity());
         }
@@ -34,9 +35,16 @@ public sealed class PermissionClaimsTransformation(CybereyesDbContext db) : ICla
             select new { r.IsSuperuser, r.Permissions }).ToListAsync();
 
         var claims = new List<Claim> { new(CybereyesClaims.Enriched, "1") };
-        if (roles.Any(r => r.IsSuperuser))
+        var superuser = roles.Any(r => r.IsSuperuser);
+        if (superuser)
         {
             claims.Add(new Claim(CybereyesClaims.Superuser, "1"));
+        }
+        else if (!user.AllClients)
+        {
+            var clientIds = await db.UserClients.AsNoTracking().Where(uc => uc.UserId == userId).Select(uc => uc.ClientId).ToListAsync();
+            claims.Add(new Claim(CybereyesClaims.ClientScope, "1"));
+            claims.AddRange(clientIds.Select(id => new Claim(CybereyesClaims.Client, id.ToString(CultureInfo.InvariantCulture))));
         }
         claims.AddRange(roles.SelectMany(r => r.Permissions).Distinct(StringComparer.Ordinal)
             .Select(p => new Claim(CybereyesClaims.Permission, p)));

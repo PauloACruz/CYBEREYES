@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ActionIcon, Badge, Button, Group, Menu, Pagination, Paper, Table, Text, TextInput } from '@mantine/core';
+import { ActionIcon, Badge, Button, Group, Menu, Pagination, Paper, Table, Text, TextInput, Tooltip } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
 import {
   IconDots,
@@ -24,7 +24,7 @@ import { ResetPasswordModal } from './ResetPasswordModal';
 import { UserFormModal } from './UserFormModal';
 
 const PAGE_SIZE = 25;
-const COLUMNS = 7;
+const COLUMNS = 8;
 
 export function UsersPage() {
   const { data: me } = useMe();
@@ -93,7 +93,7 @@ export function UsersPage() {
       />
       {users.isError && <LoadError error={users.error} onRetry={() => void users.refetch()} />}
       <Paper withBorder>
-        <Table.ScrollContainer minWidth={860}>
+        <Table.ScrollContainer minWidth={980}>
           <Table striped highlightOnHover verticalSpacing="sm">
             <Table.Thead>
               <Table.Tr>
@@ -101,6 +101,7 @@ export function UsersPage() {
                 <Table.Th>Nome</Table.Th>
                 <Table.Th>E-mail</Table.Th>
                 <Table.Th>Papéis</Table.Th>
+                <Table.Th>Clientes</Table.Th>
                 <Table.Th>Situação</Table.Th>
                 <Table.Th>Último acesso</Table.Th>
                 <Table.Th w={60}>
@@ -127,6 +128,9 @@ export function UsersPage() {
                         </Badge>
                       ))}
                     </Group>
+                  </Table.Td>
+                  <Table.Td>
+                    <UserClients user={user} />
                   </Table.Td>
                   <Table.Td>
                     <Group gap={4}>
@@ -241,5 +245,34 @@ export function UsersPage() {
       <UserFormModal opened={formState.opened} user={formState.user} onClose={() => setFormState({ opened: false, user: null })} />
       <ResetPasswordModal user={resetPasswordUser} onClose={() => setResetPasswordUser(null)} />
     </>
+  );
+}
+
+const CLIENTS_SHOWN = 2;
+
+function UserClients({ user }: { user: UserDto }) {
+  if (user.allClients) {
+    return (
+      <Text size="sm" c="dimmed">
+        Todos
+      </Text>
+    );
+  }
+  const extra = user.clients.slice(CLIENTS_SHOWN);
+  return (
+    <Group gap={4}>
+      {user.clients.slice(0, CLIENTS_SHOWN).map((c) => (
+        <Badge key={c.id} variant="outline" size="sm">
+          {c.name}
+        </Badge>
+      ))}
+      {extra.length > 0 && (
+        <Tooltip label={extra.map((c) => c.name).join(', ')} withArrow multiline maw={320}>
+          <Badge variant="outline" color="gray" size="sm">
+            +{extra.length}
+          </Badge>
+        </Tooltip>
+      )}
+    </Group>
   );
 }

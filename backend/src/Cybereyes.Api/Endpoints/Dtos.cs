@@ -30,8 +30,11 @@ public sealed record Paged<T>(IReadOnlyList<T> Items, int Total, int Page, int P
 
 public sealed record RoleRef(Guid Id, string Name);
 
+public sealed record ClientRef(int Id, string Name);
+
+/// <summary><see cref="AllClients"/> falso: o usuario so ve <see cref="Clients"/> (administradores veem todos).</summary>
 public sealed record UserDto(Guid Id, string Username, string? Email, string FullName, bool IsActive, bool TwoFactorEnabled,
-    IReadOnlyList<RoleRef> Roles, DateTimeOffset? LastLoginAt, DateTimeOffset CreatedAt)
+    IReadOnlyList<RoleRef> Roles, DateTimeOffset? LastLoginAt, DateTimeOffset CreatedAt, bool AllClients, IReadOnlyList<ClientRef> Clients)
 {
     public IReadOnlyList<SsoLoginRef>? SsoLogins { get; init; }
     public bool? HasPassword { get; init; }
@@ -50,7 +53,9 @@ public sealed record CreateUserRequest(
     [property: StringLength(256)] string? Password,
     IReadOnlyList<Guid>? RoleIds,
     bool IsActive = true,
-    bool SendInvite = false);
+    bool SendInvite = false,
+    bool AllClients = true,
+    IReadOnlyList<int>? ClientIds = null);
 
 public sealed record ForgotPasswordRequest([property: Required, StringLength(256)] string Login);
 
@@ -66,11 +71,14 @@ public sealed record AcceptInviteRequest(
 
 public sealed record InviteInfoDto(string Username, string FullName);
 
+/// <summary>Sem <see cref="AllClients"/> e <see cref="ClientIds"/>, o acesso a clientes fica como esta.</summary>
 public sealed record UpdateUserRequest(
     [property: Required, EmailAddress, StringLength(256)] string Email,
     [property: Required, StringLength(200)] string FullName,
     IReadOnlyList<Guid>? RoleIds,
-    bool IsActive);
+    bool IsActive,
+    bool? AllClients = null,
+    IReadOnlyList<int>? ClientIds = null);
 
 public sealed record ResetPasswordRequest([property: Required, StringLength(256)] string NewPassword);
 

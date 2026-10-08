@@ -20,6 +20,7 @@ public static class UserEndpoints
         var group = app.MapGroup("/api/users").WithTags("Usuarios");
 
         group.MapGet("/", ListAsync).RequireAuthorization(view);
+        group.MapGet("/client-options", ClientOptionsAsync).RequireAuthorization(manage);
         group.MapGet("/{id:guid}", GetAsync).RequireAuthorization(view);
         group.MapPost("/", CreateAsync).RequireAuthorization(manage);
         group.MapPut("/{id:guid}", UpdateAsync).RequireAuthorization(manage);
@@ -42,9 +43,15 @@ public static class UserEndpoints
 
         var total = await query.CountAsync(ct);
         var users = await query.OrderBy(u => u.UserName).Skip((p - 1) * size).Take(size).ToListAsync(ct);
-        var roles = await LoadRolesAsync(db, users.Select(u => u.Id).ToList(), ct);
-        return TypedResults.Ok(new Paged<UserDto>(users.Select(u => ToDto(u, roles)).ToList(), total, p, size));
+        var ids = users.Select(u => u.Id).ToList();
+        var roles = await LoadRolesAsync(db, ids, ct);
+        var clients = await LoadClientsAsync(db, ids, ct);
+        return TypedResults.Ok(new Paged<UserDto>(users.Select(u => ToDto(u, roles, clients)).ToList(), total, p, size));
     }
+
+    /// <summary>Clientes que quem edita pode liberar: um usuario restrito so repassa os que ele mesmo ve.</summary>
+    private static async Task<IResult> ClientOptionsAsync(CybereyesDbContext db, CancellationToken ct) =>
+        TypedResults.Ok(await db.Clients.AsNoTracking().OrderBy(c => c.Name).Select(c => new ClientRef(c.Id, c.Name)).ToListAsync(ct));
 
     private static async Task<IResult> GetAsync(Guid id, CybereyesDbContext db, CancellationToken ct)
     {
@@ -55,7 +62,7 @@ public static class UserEndpoints
         }
         var logins = await db.UserLogins.AsNoTracking().Where(l => l.UserId == id && l.LoginProvider.StartsWith("oidc:")).ToListAsync(ct);
         var sso = logins.Select(l => new SsoLoginRef(int.TryParse(l.LoginProvider[5..], out var pid) ? pid : 0, l.ProviderDisplayName ?? l.LoginProvider)).ToList();
-        return TypedResults.Ok(ToDto(user, await LoadRolesAsync(db, [id], ct)) with { SsoLogins = sso, HasPassword = user.PasswordHash is not null });
+        return TypedResults.Ok(await ToDtoAsync(db, user, ct) with { SsoLogins = sso, HasPassword = user.PasswordHash is not null });
     }
 
     private static async Task<IResult> CreateAsync(CreateUserRequest request, HttpContext ctx, IConfiguration config, CybereyesDbContext db,
@@ -80,6 +87,10 @@ public static class UserEndpoints
         {
             return Problems.Validation("roleIds", "Um ou mais papeis nao existem");
         }
+        if (await ValidateClientAccessAsync(db, request.AllClients, request.ClientIds, ct) is { } clientError)
+        {
+            return clientError;
+        }
 
         var user = new AppUser
         {
@@ -87,6 +98,7 @@ public static class UserEndpoints
             Email = request.Email.Trim(),
             FullName = request.FullName.Trim(),
             IsActive = request.IsActive,
+            AllClients = request.AllClients,
         };
         var result = password is null ? await userManager.CreateAsync(user) : await userManager.CreateAsync(user, password);
         if (!result.Succeeded)
@@ -97,12 +109,16 @@ public static class UserEndpoints
         {
             await userManager.AddToRolesAsync(user, roleNames);
         }
+        if (!request.AllClients)
+        {
+            await ReplaceClientsAsync(db, user.Id, request.ClientIds!, ct);
+        }
 
         await audit.LogAsync("user.created", "user", user.Id.ToString(), $"Usuario {user.UserName} criado", cancellationToken: ct);
 
         // O usuario fica criado mesmo se o e-mail falhar: o console avisa e o convite pode ser reenviado.
         var inviteError = request.SendInvite ? await TrySendInviteAsync(user, InstallerEndpoints.PublicUrl(ctx, config), emails, audit, ct) : null;
-        return TypedResults.Created($"/api/users/{user.Id}", ToDto(user, await LoadRolesAsync(db, [user.Id], ct)) with { InviteError = inviteError });
+        return TypedResults.Created($"/api/users/{user.Id}", await ToDtoAsync(db, user, ct) with { InviteError = inviteError });
     }
 
     private static async Task<IResult> ResendInviteAsync(Guid id, HttpContext ctx, IConfiguration config, UserManager<AppUser> userManager,
@@ -163,6 +179,18 @@ public static class UserEndpoints
         {
             return Problems.Conflict("Voce nao pode desativar o proprio usuario");
         }
+        var allClients = request.AllClients ?? user.AllClients;
+        var clientsChanged = request.AllClients is not null || request.ClientIds is not null;
+        if (clientsChanged)
+        {
+            // Quem ve so alguns clientes nao pode liberar todos; manter "todos" em quem ja tinha e permitido.
+            var keepsAll = allClients && user.AllClients;
+            var clientIds = request.ClientIds ?? (allClients ? null : await CurrentClientIdsAsync(db, id, ct));
+            if (!keepsAll && await ValidateClientAccessAsync(db, allClients, clientIds, ct) is { } clientError)
+            {
+                return clientError;
+            }
+        }
 
         var wasSuperuser = await SuperuserGuard.IsSuperuserAsync(db, id, ct);
         var willBeSuperuser = request.IsActive && await db.Roles.AnyAsync(r => roleNames.Contains(r.Name!) && r.IsSuperuser, ct);
@@ -175,6 +203,7 @@ public static class UserEndpoints
         user.Email = request.Email.Trim();
         user.FullName = request.FullName.Trim();
         user.IsActive = request.IsActive;
+        user.AllClients = allClients;
         var result = await userManager.UpdateAsync(user);
         if (!result.Succeeded)
         {
@@ -184,6 +213,10 @@ public static class UserEndpoints
         var current = await userManager.GetRolesAsync(user);
         await userManager.RemoveFromRolesAsync(user, current.Except(roleNames));
         await userManager.AddToRolesAsync(user, roleNames.Except(current));
+        if (clientsChanged)
+        {
+            await ReplaceClientsAsync(db, id, allClients ? [] : request.ClientIds ?? await CurrentClientIdsAsync(db, id, ct), ct);
+        }
         if (deactivated)
         {
             await userManager.UpdateSecurityStampAsync(user);
@@ -192,7 +225,7 @@ public static class UserEndpoints
         await audit.LogAsync("user.updated", "user", id.ToString(), $"Usuario {user.UserName} alterado", cancellationToken: ct);
         var logins = await db.UserLogins.AsNoTracking().Where(l => l.UserId == id && l.LoginProvider.StartsWith("oidc:")).ToListAsync(ct);
         var sso = logins.Select(l => new SsoLoginRef(int.TryParse(l.LoginProvider[5..], out var pid) ? pid : 0, l.ProviderDisplayName ?? l.LoginProvider)).ToList();
-        return TypedResults.Ok(ToDto(user, await LoadRolesAsync(db, [id], ct)) with { SsoLogins = sso, HasPassword = user.PasswordHash is not null });
+        return TypedResults.Ok(await ToDtoAsync(db, user, ct) with { SsoLogins = sso, HasPassword = user.PasswordHash is not null });
     }
 
     private static async Task<IResult> ResetPasswordAsync(Guid id, ResetPasswordRequest request, UserManager<AppUser> userManager,
@@ -266,6 +299,48 @@ public static class UserEndpoints
         return names.Count == ids.Count ? names : null;
     }
 
+    /// <summary>Nulo quando o pedido e valido; os clientes passam pelo escopo de quem edita.</summary>
+    private static async Task<IResult?> ValidateClientAccessAsync(CybereyesDbContext db, bool allClients, IReadOnlyList<int>? clientIds, CancellationToken ct)
+    {
+        if (allClients)
+        {
+            return db.IsClientRestricted ? Problems.Validation("allClients", "Voce so pode liberar os clientes que tem acesso") : null;
+        }
+        var ids = (clientIds ?? []).Distinct().ToList();
+        if (ids.Count == 0)
+        {
+            return Problems.Validation("clientIds", "Selecione ao menos um cliente");
+        }
+        return await db.Clients.CountAsync(c => ids.Contains(c.Id), ct) == ids.Count
+            ? null
+            : Problems.Validation("clientIds", "Um ou mais clientes nao existem");
+    }
+
+    private static Task<List<int>> CurrentClientIdsAsync(CybereyesDbContext db, Guid userId, CancellationToken ct) =>
+        db.UserClients.Where(uc => uc.UserId == userId && db.Clients.Any(c => c.Id == uc.ClientId)).Select(uc => uc.ClientId).ToListAsync(ct);
+
+    /// <summary>Troca os clientes liberados que quem edita enxerga; os demais (fora do escopo dele) ficam como estao.</summary>
+    private static async Task ReplaceClientsAsync(CybereyesDbContext db, Guid userId, IReadOnlyList<int> clientIds, CancellationToken ct)
+    {
+        var visible = db.Clients.Select(c => c.Id);
+        await db.UserClients.Where(uc => uc.UserId == userId && visible.Contains(uc.ClientId)).ExecuteDeleteAsync(ct);
+        db.UserClients.AddRange(clientIds.Distinct().Select(clientId => new UserClient { UserId = userId, ClientId = clientId }));
+        await db.SaveChangesAsync(ct);
+    }
+
+    private static async Task<UserDto> ToDtoAsync(CybereyesDbContext db, AppUser user, CancellationToken ct) =>
+        ToDto(user, await LoadRolesAsync(db, [user.Id], ct), await LoadClientsAsync(db, [user.Id], ct));
+
+    private static async Task<ILookup<Guid, ClientRef>> LoadClientsAsync(CybereyesDbContext db, List<Guid> userIds, CancellationToken ct)
+    {
+        var rows = await (
+            from uc in db.UserClients.AsNoTracking()
+            join c in db.Clients.AsNoTracking() on uc.ClientId equals c.Id
+            where userIds.Contains(uc.UserId)
+            select new { uc.UserId, c.Id, c.Name }).ToListAsync(ct);
+        return rows.ToLookup(r => r.UserId, r => new ClientRef(r.Id, r.Name));
+    }
+
     private static async Task<ILookup<Guid, RoleRef>> LoadRolesAsync(CybereyesDbContext db, List<Guid> userIds, CancellationToken ct)
     {
         var rows = await (
@@ -276,9 +351,10 @@ public static class UserEndpoints
         return rows.ToLookup(r => r.UserId, r => new RoleRef(r.Id, r.Name ?? string.Empty));
     }
 
-    private static UserDto ToDto(AppUser user, ILookup<Guid, RoleRef> roles) =>
+    private static UserDto ToDto(AppUser user, ILookup<Guid, RoleRef> roles, ILookup<Guid, ClientRef> clients) =>
         new(user.Id, user.UserName ?? string.Empty, user.Email, user.FullName, user.IsActive, user.TwoFactorEnabled,
-            roles[user.Id].OrderBy(r => r.Name, StringComparer.Ordinal).ToList(), user.LastLoginAt, user.CreatedAt)
+            roles[user.Id].OrderBy(r => r.Name, StringComparer.Ordinal).ToList(), user.LastLoginAt, user.CreatedAt,
+            user.AllClients, user.AllClients ? [] : clients[user.Id].OrderBy(c => c.Name, StringComparer.CurrentCultureIgnoreCase).ToList())
         {
             InvitePending = IsInvitePending(user),
         };

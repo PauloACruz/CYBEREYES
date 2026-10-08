@@ -262,8 +262,10 @@ public sealed partial class AlertService(CybereyesDbContext db, INotificationSen
 
     public async Task BroadcastAsync(CancellationToken ct)
     {
-        var active = await db.Alerts.CountAsync(a => !a.Resolved, ct);
-        await hub.Clients.All.SendAsync("alertsChanged", new { activeCount = active }, ct);
+        // O total cobre todos os clientes: quem ve so alguns recebe o aviso sem o numero e recarrega o proprio contador.
+        var active = await db.Alerts.IgnoreQueryFilters().CountAsync(a => !a.Resolved, ct);
+        await hub.Clients.Group(ConsoleAudience.AllClients).SendAsync("alertsChanged", new { activeCount = active }, ct);
+        await hub.Clients.Group(ConsoleAudience.Restricted).SendAsync("alertsChanged", new { activeCount = (int?)null }, ct);
     }
 
     public async Task<AlertTemplate?> TemplateForAsync(int agentId, CancellationToken ct)

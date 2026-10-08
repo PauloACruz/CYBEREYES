@@ -21,6 +21,9 @@ public sealed class ReportRun
     public long Size { get; set; }
     public byte[]? Data { get; set; }
     public string Params { get; set; } = "{}";
+
+    /// <summary>Cliente do filtro (copiado de <see cref="Params"/>): define quem enxerga o registro.</summary>
+    public int? ClientId { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public required string RequestedBy { get; set; }
     public int? ScheduleId { get; set; }
@@ -33,6 +36,9 @@ public sealed class ReportSchedule
     public required string Name { get; set; }
     public required string Type { get; set; }
     public string Params { get; set; } = "{}";
+
+    /// <summary>Cliente do filtro (copiado de <see cref="Params"/>): define quem enxerga o registro.</summary>
+    public int? ClientId { get; set; }
     public string Format { get; set; } = ReportFormat.Pdf;
     public string Frequency { get; set; } = "weekly";
     public string Time { get; set; } = "07:00";

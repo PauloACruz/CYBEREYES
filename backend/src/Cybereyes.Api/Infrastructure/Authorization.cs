@@ -1,7 +1,9 @@
+using System.Globalization;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Policy;
 using Microsoft.Extensions.Options;
+using Cybereyes.Core.Persistence;
 using Cybereyes.Core.Security;
 
 namespace Cybereyes.Api.Infrastructure;
@@ -40,6 +42,23 @@ public static class PrincipalExtensions
 
     public static Guid? UserId(this ClaimsPrincipal principal) =>
         Guid.TryParse(principal.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : null;
+
+    /// <summary>Clientes que o usuario pode ver, ou nulo quando ve todos.</summary>
+    public static IReadOnlyList<int>? VisibleClientIds(this ClaimsPrincipal principal) =>
+        principal.HasClaim(c => c.Type == CybereyesClaims.ClientScope)
+            ? principal.FindAll(CybereyesClaims.Client)
+                .Select(c => int.TryParse(c.Value, NumberStyles.None, CultureInfo.InvariantCulture, out var id) ? id : 0)
+                .Where(id => id > 0).ToList()
+            : null;
+
+    /// <summary>Aplica ao contexto o escopo de clientes do usuario (sem efeito para quem ve todos).</summary>
+    public static void ApplyClientScope(this CybereyesDbContext db, ClaimsPrincipal? principal)
+    {
+        if (principal?.VisibleClientIds() is { } ids && principal.UserId() is { } userId)
+        {
+            db.RestrictToClients(ids, userId, principal.Identity?.Name ?? string.Empty);
+        }
+    }
 }
 
 public sealed class MfaRequirementHandler : AuthorizationHandler<MfaRequirement>
