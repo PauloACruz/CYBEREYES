@@ -2,7 +2,7 @@ import type { QueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../api/queryKeys';
 import type { AgentDetail, AgentListItem, AgentStatusChangedEvent, Paged } from '../api/types';
 
-function patch<T extends AgentListItem>(agent: T, event: AgentStatusChangedEvent): T {
+function patch<T extends AgentDetail | AgentListItem>(agent: T, event: AgentStatusChangedEvent): T {
   if (agent.agentId !== event.agentId) return agent;
   if (agent.status === event.status && agent.lastSeen === event.lastSeen) return agent;
   return { ...agent, status: event.status, lastSeen: event.lastSeen };

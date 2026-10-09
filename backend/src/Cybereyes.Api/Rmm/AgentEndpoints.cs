@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Cybereyes.Api.Endpoints;
 using Cybereyes.Api.Infrastructure;
+using Cybereyes.Api.Inventory;
 using Cybereyes.Api.Rmm.Nats;
 using Cybereyes.Core.Audit;
 using Cybereyes.Core.Persistence;
@@ -13,7 +14,7 @@ namespace Cybereyes.Api.Rmm;
 
 public sealed record AgentListItem(int Id, string AgentId, string Hostname, int ClientId, string ClientName, int SiteId, string SiteName,
     string MonitoringType, string Plat, string? OperatingSystem, string Status, DateTimeOffset? LastSeen, string Version,
-    string? LoggedInUsername, string? LastLoggedInUser, string? PublicIp, bool NeedsReboot, string? Description);
+    string? LoggedInUsername, string? LastLoggedInUser, string? PublicIp, bool NeedsReboot, string? Description, ResponsibleRef? Responsible);
 
 public sealed record AgentDetail(int Id, string AgentId, string Hostname, int ClientId, string ClientName, int SiteId, string SiteName,
     string MonitoringType, string Plat, string? GoArch, string? OperatingSystem, string Status, DateTimeOffset? LastSeen, string Version,
@@ -35,7 +36,15 @@ public static class AgentEndpoints
     }
 
     /// <summary>Colunas aceitas em sortBy na lista de agentes (padrao: hostname).</summary>
-    public static readonly string[] SortColumns = ["status", "hostname", "client", "type", "os", "user", "version", "lastSeen", "reboot"];
+    public static readonly string[] SortColumns = ["status", "hostname", "client", "type", "os", "user", "version", "lastSeen", "reboot", "responsible"];
+
+    /// <summary>Agente com o responsavel atual do ativo do inventario ligado a ele.</summary>
+    private sealed class AgentRow
+    {
+        public required Agent A { get; init; }
+        public int? PersonId { get; init; }
+        public string? PersonName { get; init; }
+    }
 
     private static async Task<IResult> ListAsync(CybereyesDbContext db, int? clientId, int? siteId, string? status, string? search,
         int? page, int? pageSize, string? sortBy, string? sortDir, CancellationToken ct)
@@ -51,55 +60,64 @@ public static class AgentEndpoints
         }
         var desc = sortDir == "desc";
         var (p, size) = Paging.Normalize(page, pageSize, 50);
-        var query = db.Agents.AsNoTracking();
+        var agents = db.Agents.AsNoTracking();
         if (clientId is { } c)
         {
-            query = query.Where(a => a.Site!.ClientId == c);
+            agents = agents.Where(a => a.Site!.ClientId == c);
         }
         if (siteId is { } s)
         {
-            query = query.Where(a => a.SiteId == s);
+            agents = agents.Where(a => a.SiteId == s);
         }
         if (!string.IsNullOrWhiteSpace(status))
         {
-            query = query.Where(a => a.Status == status);
+            agents = agents.Where(a => a.Status == status);
         }
+        var query =
+            from a in agents
+            let person = (from x in db.AssetAssignments
+                          where x.UnassignedAt == null && db.Assets.Any(asset => asset.Id == x.AssetId && asset.AgentId == a.Id)
+                          join p in db.People on x.PersonId equals p.Id
+                          select new { p.Id, p.Name }).FirstOrDefault()
+            select new AgentRow { A = a, PersonId = person == null ? null : (int?)person.Id, PersonName = person == null ? null : person.Name };
         if (!string.IsNullOrWhiteSpace(search))
         {
             var pattern = $"%{search.Trim()}%";
-            query = query.Where(a => EF.Functions.ILike(a.Hostname, pattern) || EF.Functions.ILike(a.Description ?? "", pattern) ||
-                                     EF.Functions.ILike(a.LastLoggedInUser ?? "", pattern) || EF.Functions.ILike(a.PublicIp ?? "", pattern));
+            query = query.Where(r => EF.Functions.ILike(r.A.Hostname, pattern) || EF.Functions.ILike(r.A.Description ?? "", pattern) ||
+                                     EF.Functions.ILike(r.A.LastLoggedInUser ?? "", pattern) || EF.Functions.ILike(r.A.PublicIp ?? "", pattern) ||
+                                     EF.Functions.ILike(r.PersonName ?? "", pattern));
         }
 
         var total = await query.CountAsync(ct);
         var items = await Sort(query, sortBy, desc).Skip((p - 1) * size).Take(size)
-            .Select(a => new AgentListItem(a.Id, a.AgentId, a.Hostname, a.Site!.ClientId, a.Site.Client!.Name, a.SiteId, a.Site.Name,
-                a.MonitoringType, a.Plat, a.OperatingSystem, a.Status, a.LastSeen, a.Version, a.LoggedInUsername, a.LastLoggedInUser,
-                a.PublicIp, a.NeedsReboot, a.Description))
+            .Select(r => new AgentListItem(r.A.Id, r.A.AgentId, r.A.Hostname, r.A.Site!.ClientId, r.A.Site.Client!.Name, r.A.SiteId, r.A.Site.Name,
+                r.A.MonitoringType, r.A.Plat, r.A.OperatingSystem, r.A.Status, r.A.LastSeen, r.A.Version, r.A.LoggedInUsername, r.A.LastLoggedInUser,
+                r.A.PublicIp, r.A.NeedsReboot, r.A.Description, r.PersonId == null ? null : new ResponsibleRef(r.PersonId.Value, r.PersonName!)))
             .ToListAsync(ct);
         return TypedResults.Ok(new Paged<AgentListItem>(items, total, p, size));
     }
 
     /// <summary>Ordena pela coluna pedida; empates pelo hostname e pelo id, para a paginacao ser estavel.</summary>
-    private static IOrderedQueryable<Agent> Sort(IQueryable<Agent> q, string column, bool desc)
+    private static IOrderedQueryable<AgentRow> Sort(IQueryable<AgentRow> q, string column, bool desc)
     {
-        IOrderedQueryable<Agent> ordered = column switch
+        IOrderedQueryable<AgentRow> ordered = column switch
         {
             // online, depois atrasado, depois offline (a ordem que importa para o tecnico)
-            "status" => By(q, a => a.Status == AgentStatus.Online ? 0 : a.Status == AgentStatus.Overdue ? 1 : 2, desc),
-            "client" => By(q, a => a.Site!.Client!.Name, desc).ThenBy(a => a.Site!.Name),
-            "type" => By(q, a => a.MonitoringType, desc),
-            "os" => By(q, a => a.OperatingSystem, desc),
-            "user" => By(q, a => a.LoggedInUsername != null && a.LoggedInUsername != "" ? a.LoggedInUsername : a.LastLoggedInUser, desc),
-            "version" => By(q, a => a.Version, desc),
-            "lastSeen" => By(q, a => a.LastSeen, desc),
-            "reboot" => By(q, a => a.NeedsReboot, desc),
-            _ => By(q, a => a.Hostname, desc),
+            "status" => By(q, r => r.A.Status == AgentStatus.Online ? 0 : r.A.Status == AgentStatus.Overdue ? 1 : 2, desc),
+            "client" => By(q, r => r.A.Site!.Client!.Name, desc).ThenBy(r => r.A.Site!.Name),
+            "type" => By(q, r => r.A.MonitoringType, desc),
+            "os" => By(q, r => r.A.OperatingSystem, desc),
+            "user" => By(q, r => r.A.LoggedInUsername != null && r.A.LoggedInUsername != "" ? r.A.LoggedInUsername : r.A.LastLoggedInUser, desc),
+            "version" => By(q, r => r.A.Version, desc),
+            "lastSeen" => By(q, r => r.A.LastSeen, desc),
+            "reboot" => By(q, r => r.A.NeedsReboot, desc),
+            "responsible" => By(q, r => r.PersonName, desc),
+            _ => By(q, r => r.A.Hostname, desc),
         };
-        return ordered.ThenBy(a => a.Hostname).ThenBy(a => a.Id);
+        return ordered.ThenBy(r => r.A.Hostname).ThenBy(r => r.A.Id);
     }
 
-    private static IOrderedQueryable<Agent> By<T>(IQueryable<Agent> q, System.Linq.Expressions.Expression<Func<Agent, T>> key, bool desc) =>
+    private static IOrderedQueryable<AgentRow> By<T>(IQueryable<AgentRow> q, System.Linq.Expressions.Expression<Func<AgentRow, T>> key, bool desc) =>
         desc ? q.OrderByDescending(key) : q.OrderBy(key);
 
     private static async Task<IResult> GetAsync(int id, CybereyesDbContext db, CancellationToken ct)
