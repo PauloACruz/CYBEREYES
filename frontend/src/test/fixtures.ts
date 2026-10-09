@@ -32,6 +32,7 @@ export function makeAgent(overrides: Partial<AgentListItem> = {}): AgentListItem
     publicIp: '200.10.10.10',
     needsReboot: false,
     description: null,
+    responsible: null,
     ...overrides,
   };
 }

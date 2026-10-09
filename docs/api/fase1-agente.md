@@ -103,13 +103,13 @@ Mesmo padrao da fase 0 (cookie, 2FA, ProblemDetails com `code`).
 ### Agentes (`agents.view`, `agents.manage`)
 | Metodo | Rota | Resposta |
 |---|---|---|
-| GET | `/api/agents?clientId=&siteId=&status=&search=&page=&pageSize=` | `Paged<AgentListItem>` |
+| GET | `/api/agents?clientId=&siteId=&status=&search=&page=&pageSize=&sortBy=&sortDir=` | `Paged<AgentListItem>`; `search` procura no hostname, descricao, ultimo usuario, IP publico e nome do responsavel; `sortBy`: `status`, `hostname`, `client`, `type`, `os`, `user`, `responsible`, `version`, `lastSeen`, `reboot` |
 | GET | `/api/agents/{id}` | `AgentDetail` |
 | POST | `/api/agents/{id}/ping` | `{ status: "online" \| "offline" }` |
 | DELETE | `/api/agents/{id}` | 204 (`agents.manage`) |
 
-`AgentListItem`: `{ id, agentId, hostname, clientId, clientName, siteId, siteName, monitoringType, plat, operatingSystem, status, lastSeen, version, loggedInUsername, lastLoggedInUser, publicIp, needsReboot, description }`.
-`AgentDetail`: campos acima mais `goArch, totalRam (GB), bootTime, meshNodeId (substituido na fase 12.8, ver ADR-023), disks (array JSON), services (array JSON), wmi (JSON), checkInterval, offlineTime, overdueTime, createdAt`.
+`AgentListItem`: `{ id, agentId, hostname, clientId, clientName, siteId, siteName, monitoringType, plat, operatingSystem, status, lastSeen, version, loggedInUsername, lastLoggedInUser, publicIp, needsReboot, description, responsible }`. `responsible` (`{ id, name }` ou `null`) e a pessoa responsavel pelo ativo do inventario ligado ao agente; so na lista.
+`AgentDetail`: campos acima (menos `responsible`) mais `goArch, totalRam (GB), bootTime, meshNodeId (substituido na fase 12.8, ver ADR-023), disks (array JSON), services (array JSON), wmi (JSON), checkInterval, offlineTime, overdueTime, createdAt`.
 `status`: `online`, `offline` ou `overdue`. `monitoringType`: `server` ou `workstation`.
 
 ### Instalacao (`agents.install`)

@@ -317,9 +317,11 @@ export interface AgentListItem {
   publicIp: string | null;
   needsReboot: boolean;
   description: string | null;
+  /** Pessoa responsavel pelo ativo do inventario ligado ao agente. */
+  responsible: PersonRef | null;
 }
 
-export interface AgentDetail extends AgentListItem {
+export interface AgentDetail extends Omit<AgentListItem, 'responsible'> {
   // O contrato escreve "goarch"; o backend serializa "goArch". Aceitar os dois.
   goArch?: string | null;
   goarch?: string | null;
@@ -339,7 +341,7 @@ export interface AgentDetail extends AgentListItem {
 }
 
 /** Colunas que a lista de agentes ordena no servidor. */
-export type AgentSortColumn = 'status' | 'hostname' | 'client' | 'type' | 'os' | 'user' | 'version' | 'lastSeen' | 'reboot';
+export type AgentSortColumn = 'status' | 'hostname' | 'client' | 'type' | 'os' | 'user' | 'responsible' | 'version' | 'lastSeen' | 'reboot';
 
 export interface ListAgentsParams {
   page: number;

@@ -8,7 +8,7 @@ import { agentActionsApi } from '../../api/agentActions';
 import { agentsApi } from '../../api/agents';
 import { queryKeys } from '../../api/queryKeys';
 import { PERMISSIONS, type AgentSortColumn, type AgentStatus, type ListAgentsParams } from '../../api/types';
-import { agentPath } from '../../app/paths';
+import { agentPath, personPath } from '../../app/paths';
 import { hasPermission } from '../../auth/permissions';
 import { useMe } from '../../auth/useMe';
 import { PageHeader } from '../../components/PageHeader';
@@ -22,9 +22,9 @@ import { loggedUser, MONITORING_TYPE_LABEL, STATUS_INFO, STATUS_OPTIONS } from '
 import { InstallAgentModal } from './InstallAgentModal';
 
 const PAGE_SIZE = 50;
-const COLUMNS = 9;
+const COLUMNS = 10;
 
-const SORT_COLUMNS: readonly AgentSortColumn[] = ['status', 'hostname', 'client', 'type', 'os', 'user', 'version', 'lastSeen', 'reboot'];
+const SORT_COLUMNS: readonly AgentSortColumn[] = ['status', 'hostname', 'client', 'type', 'os', 'user', 'responsible', 'version', 'lastSeen', 'reboot'];
 
 function isSortColumn(value: string | null): value is AgentSortColumn {
   return SORT_COLUMNS.includes(value as AgentSortColumn);
@@ -44,6 +44,7 @@ export function AgentsPage() {
   const { data: me } = useMe();
   const canInstall = hasPermission(me, PERMISSIONS.agentsInstall);
   const canControl = hasPermission(me, PERMISSIONS.agentsControl);
+  const canViewPeople = hasPermission(me, PERMISSIONS.inventoryView);
   const updateAll = useMutation({
     mutationFn: () => agentActionsApi.updateAgents(),
     onSuccess: (r) =>
@@ -141,7 +142,7 @@ export function AgentsPage() {
       />
       <Group mb="md" gap="sm" align="flex-end" wrap="wrap">
         <TextInput
-          placeholder="Hostname, descrição, usuário ou IP"
+          placeholder="Hostname, descrição, usuário, responsável ou IP"
           aria-label="Buscar agentes"
           leftSection={<IconSearch size={16} />}
           value={search}
@@ -149,7 +150,7 @@ export function AgentsPage() {
             setSearch(e.currentTarget.value);
             applySearch(e.currentTarget.value);
           }}
-          w={300}
+          w={340}
         />
         <Select
           aria-label="Filtrar por cliente"
@@ -196,7 +197,7 @@ export function AgentsPage() {
       </Group>
       {agents.isError && <LoadError error={agents.error} onRetry={() => void agents.refetch()} />}
       <Paper withBorder>
-        <Table.ScrollContainer minWidth={1100}>
+        <Table.ScrollContainer minWidth={1250}>
           <Table striped highlightOnHover verticalSpacing="sm">
             <Table.Thead>
               <Table.Tr>
@@ -206,6 +207,7 @@ export function AgentsPage() {
                 <SortableTh label="Tipo" column="type" sort={sort} onSort={onSort} />
                 <SortableTh label="Sistema" column="os" sort={sort} onSort={onSort} />
                 <SortableTh label="Usuário logado" column="user" sort={sort} onSort={onSort} />
+                <SortableTh label="Responsável" column="responsible" sort={sort} onSort={onSort} />
                 <SortableTh label="Versão" column="version" sort={sort} onSort={onSort} />
                 <SortableTh label="Visto por último" column="lastSeen" sort={sort} onSort={onSort} />
                 <SortableTh label="Reinício" column="reboot" sort={sort} onSort={onSort} />
@@ -247,6 +249,19 @@ export function AgentsPage() {
                       <OperatingSystem plat={agent.plat} operatingSystem={agent.operatingSystem} />
                     </Table.Td>
                     <Table.Td>{user ?? <Text size="sm" c="dimmed">Nenhum</Text>}</Table.Td>
+                    <Table.Td>
+                      {agent.responsible && canViewPeople ? (
+                        <Anchor component={Link} to={personPath(agent.responsible.id)} size="sm" onClick={(e) => e.stopPropagation()}>
+                          {agent.responsible.name}
+                        </Anchor>
+                      ) : agent.responsible ? (
+                        <Text size="sm">{agent.responsible.name}</Text>
+                      ) : (
+                        <Text size="sm" c="dimmed">
+                          Sem responsável
+                        </Text>
+                      )}
+                    </Table.Td>
                     <Table.Td>{agent.version}</Table.Td>
                     <Table.Td>
                       <RelativeTime value={agent.lastSeen} />

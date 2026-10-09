@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { personPath } from '../../app/paths';
 import { CLIENTS, makeAgent } from '../../test/fixtures';
 import { json, makeMe, mockFetch, renderApp } from '../../test/utils';
 
@@ -102,5 +103,31 @@ describe('lista de agentes', () => {
     await screen.findByText('SRV-ARQUIVOS');
     expect(requested.at(-1)).toBe('status desc');
     expect(screen.getByRole('columnheader', { name: /Status/ })).toHaveAttribute('aria-sort', 'descending');
+  });
+
+  it('mostra o responsável e busca pelo nome dele', async () => {
+    const searched: string[] = [];
+    mockFetch({
+      'GET /api/auth/me': () => json(makeMe({ permissions: ['agents.view', 'inventory.view'] })),
+      'GET /api/clients': () => json(CLIENTS),
+      'GET /api/agents': (_, url) => {
+        const search = url.searchParams.get('search') ?? '';
+        searched.push(search);
+        const withResponsible = [makeAgent({ responsible: { id: 4, name: 'Renata Prado' } }), ...agents.slice(1)];
+        const items = search ? withResponsible.filter((a) => a.responsible?.name.toLowerCase().includes(search.toLowerCase())) : withResponsible;
+        return json({ items, total: items.length, page: 1, pageSize: 50 });
+      },
+    });
+    renderApp('/agentes');
+    const user = userEvent.setup();
+
+    expect(await screen.findByRole('link', { name: 'Renata Prado' })).toHaveAttribute('href', personPath(4));
+    expect(screen.getByRole('columnheader', { name: /Responsável/ })).toBeInTheDocument();
+    const other = screen.getByText('SRV-ARQUIVOS').closest('tr') as HTMLElement;
+    expect(within(other).getByText('Sem responsável')).toBeInTheDocument();
+
+    await user.type(screen.getByRole('textbox', { name: 'Buscar agentes' }), 'renata');
+    await waitFor(() => expect(screen.queryByText('SRV-ARQUIVOS')).not.toBeInTheDocument());
+    expect(searched.at(-1)).toBe('renata');
   });
 });
