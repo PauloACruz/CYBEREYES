@@ -60,3 +60,14 @@ export function parseServices(value: unknown): ServiceInfo[] | null {
     description: text(svc, 'description'),
   }));
 }
+
+export type DomainMembership = { kind: 'domain'; domain: string } | { kind: 'workgroup' } | { kind: 'unknown' };
+
+/** Domínio do Windows, lido do Win32_ComputerSystem que o agente envia no WMI (comp_sys). */
+export function parseDomainMembership(wmi: unknown): DomainMembership {
+  if (!isRecord(wmi)) return { kind: 'unknown' };
+  const groups = wmi.comp_sys;
+  const first: unknown = Array.isArray(groups) && Array.isArray(groups[0]) ? groups[0][0] : undefined;
+  if (!isRecord(first) || typeof first.PartOfDomain !== 'boolean') return { kind: 'unknown' };
+  return first.PartOfDomain ? { kind: 'domain', domain: text(first, 'Domain') } : { kind: 'workgroup' };
+}

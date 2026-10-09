@@ -13,6 +13,9 @@ import {
   Table,
   Tabs,
   Text,
+  Title,
+  ActionIcon,
+  Tooltip,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
@@ -41,6 +44,7 @@ import {
   type Icon,
   IconScreenShare,
   IconFolders,
+  IconPencil,
 } from '@tabler/icons-react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
@@ -65,6 +69,7 @@ import { EventLogTab } from './actions/EventLogTab';
 import { HistoryTab } from './actions/HistoryTab';
 import { LiveServicesTab } from './actions/LiveServicesTab';
 import { ProcessesTab } from './actions/ProcessesTab';
+import { RenameComputerModal } from './actions/RenameComputerModal';
 import { RemoteAccessMenu } from './actions/RemoteAccessMenu';
 import { ScriptRunTab } from './actions/ScriptRunTab';
 import { isWindows } from './actions/shells';
@@ -128,6 +133,7 @@ function AgentDetailView({ agent }: { agent: AgentDetail }) {
   const canManage = hasPermission(me, PERMISSIONS.agentsManage);
   const canRun = hasPermission(me, PERMISSIONS.agentsRun);
   const canControl = hasPermission(me, PERMISSIONS.agentsControl);
+  const canRename = canControl && isWindows(agent.plat);
   const canRemote = hasPermission(me, PERMISSIONS.agentsRemote);
   const canViewScripts = hasPermission(me, PERMISSIONS.scriptsView);
   const canViewAlerts = hasPermission(me, PERMISSIONS.alertsView);
@@ -135,6 +141,7 @@ function AgentDetailView({ agent }: { agent: AgentDetail }) {
   const canViewInventory = hasPermission(me, PERMISSIONS.inventoryView);
   const windows = isWindows(agent.plat);
   const [deleteOpened, deleteModal] = useDisclosure(false);
+  const [renameOpened, renameModal] = useDisclosure(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const [terminalVisited, setTerminalVisited] = useState(() => searchParams.get('aba') === 'terminal');
 
@@ -228,6 +235,18 @@ function AgentDetailView({ agent }: { agent: AgentDetail }) {
       <Group justify="space-between" align="flex-start" mb="lg" wrap="wrap" gap="sm">
         <PageTitle
           title={agent.hostname}
+          heading={
+            <Group gap={4} wrap="nowrap">
+              <Title order={1}>{agent.hostname}</Title>
+              {canRename && (
+                <Tooltip label="Renomear computador">
+                  <ActionIcon variant="subtle" color="gray" size={28} aria-label="Renomear computador" onClick={renameModal.open}>
+                    <IconPencil size={18} stroke={1.75} />
+                  </ActionIcon>
+                </Tooltip>
+              )}
+            </Group>
+          }
           badges={
             <>
               <AgentStatusBadge status={agent.status} size="md" />
@@ -276,6 +295,7 @@ function AgentDetailView({ agent }: { agent: AgentDetail }) {
       </Tabs>
 
       {canManage && <DeleteAgentModal agent={agent} opened={deleteOpened} onClose={deleteModal.close} />}
+      {canRename && <RenameComputerModal agent={agent} opened={renameOpened} onClose={renameModal.close} />}
     </>
   );
 }
