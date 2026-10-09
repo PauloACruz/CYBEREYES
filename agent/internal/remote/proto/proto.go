@@ -28,6 +28,7 @@ const (
 	FilesCopied byte = 0x17
 	Bye         byte = 0x18
 	Error       byte = 0x19
+	Audio       byte = 0x1A
 
 	Settings byte = 0x20
 	Key      byte = 0x21
@@ -116,6 +117,8 @@ type SettingsBody struct {
 	MaxFPS  int     `json:"maxFps"`
 	Display int     `json:"display"`
 	Cursor  bool    `json:"cursor,omitempty"`
+	// Audio verdadeiro: o agente envia o som da maquina em quadros AUDIO (feature "audio").
+	Audio bool `json:"audio,omitempty"`
 }
 
 // CursorBody e o corpo do CURSOR: posicao do ponto ativo no quadro (ja na escala), id do desenho e, so na primeira
@@ -223,4 +226,12 @@ func ParseChunk(frame []byte) (uint32, uint64, []byte, error) {
 		return 0, 0, nil, ErrShort
 	}
 	return binary.BigEndian.Uint32(frame[1:]), binary.BigEndian.Uint64(frame[5:]), frame[13:], nil
+}
+
+// AudioFrame monta o quadro AUDIO: tipo seguido do corpo do codec (audio.Encoder.Encode).
+func AudioFrame(body []byte) []byte {
+	out := make([]byte, 1+len(body))
+	out[0] = Audio
+	copy(out[1:], body)
+	return out
 }

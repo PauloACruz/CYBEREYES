@@ -16,6 +16,7 @@ export const FRAME = {
   filesCopied: 0x17,
   bye: 0x18,
   error: 0x19,
+  audio: 0x1a,
   settings: 0x20,
   key: 0x21,
   text: 0x22,

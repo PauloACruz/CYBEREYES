@@ -24,6 +24,8 @@ export interface ConnectionHandlers {
   onTile: (tile: TileFrame) => void;
   /** Cursor remoto separado da imagem (quando o visualizador pediu settings.cursor). */
   onCursor?: (cursor: CursorBody) => void;
+  /** Som da maquina (quadro AUDIO inteiro, quando o visualizador pediu settings.audio). */
+  onAudio?: (frame: Uint8Array) => void;
   /** Deve devolver uma promessa que termina quando o quadro foi desenhado (o ACK sai depois dela). */
   onFrameEnd: (end: FrameEndFrame) => Promise<void>;
   onConsent: (state: 'waiting' | 'accepted' | 'denied' | 'timeout') => void;
@@ -130,6 +132,9 @@ export class RemoteConnection {
         break;
       case FRAME.cursor:
         this.handlers.onCursor?.(readJson(frame) as CursorBody);
+        break;
+      case FRAME.audio:
+        this.handlers.onAudio?.(frame);
         break;
       case FRAME.frameEnd: {
         const end = parseFrameEnd(frame);

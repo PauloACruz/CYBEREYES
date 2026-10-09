@@ -77,6 +77,10 @@ type desktopSession struct {
 	cursorKnown  bool
 	cursorShapes map[uint32]bool
 	stats        frameStats
+
+	// Som da maquina (settings.audio): contexto da sessao e cancelamento da captura em andamento.
+	ctx         context.Context
+	audioCancel context.CancelFunc
 }
 
 // RunHelper executa uma sessao de tela ate o relay fechar, ctx terminar ou o servico mandar o fim.
@@ -130,6 +134,7 @@ func RunHelper(ctx context.Context, p HelperParams, control <-chan Control, log 
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	s.ctx = ctx
 	errc := make(chan error, 3)
 	go func() { errc <- s.readLoop(ctx) }()
 	go func() { errc <- s.frameLoop(ctx) }()
@@ -282,6 +287,10 @@ func (s *desktopSession) sendHello(ctx context.Context) error {
 		// Cursor separado: o visualizador desenha o ponteiro na hora, sem esperar o quadro (contrato, secao 5.1).
 		features = append(features, "cursor")
 	}
+	if audioAvailable() {
+		// Som da maquina, ligado pelo visualizador com settings.audio (contrato, secao 5.1).
+		features = append(features, "audio")
+	}
 	features = append(features, s.clip.Features()...)
 	features = append(features, platformFeatures()...)
 	s.mu.Lock()
@@ -389,6 +398,7 @@ func (s *desktopSession) applySettings(st proto.SettingsBody) {
 	st.MaxFPS = max(1, min(30, st.MaxFPS))
 	s.mu.Lock()
 	changed := st.Display != s.settings.Display || st.Scale != s.settings.Scale || st.Cursor != s.settings.Cursor
+	s.setAudio(st.Audio)
 	s.settings = st
 	s.quality = st.Quality
 	if changed {

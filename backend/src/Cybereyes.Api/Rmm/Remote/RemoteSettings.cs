@@ -20,7 +20,8 @@ public sealed class RemoteSettings
     /// <summary>Sessoes simultaneas na mesma estacao (varios tecnicos podem ver e usar a tela ao mesmo tempo).</summary>
     public int MaxSessionsPerAgent { get; set; } = 4;
 
-    public int MaxSessionsPerUser { get; set; } = 5;
+    /// <summary>Sessoes simultaneas de um mesmo tecnico.</summary>
+    public int MaxSessionsPerUser { get; set; } = 7;
 
     public int MaxCreatePerMinute { get; set; } = 10;
 

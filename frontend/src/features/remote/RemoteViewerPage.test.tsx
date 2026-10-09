@@ -1,4 +1,5 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { RemoteSessionDto } from '../../api/types';
 import { json, makeMe, mockFetch, problem, renderApp } from '../../test/utils';
@@ -153,6 +154,45 @@ describe('visualizador de acesso remoto', () => {
     } finally {
       clock.mockRestore();
     }
+  });
+
+  it('liga o som da maquina pelo botao e pede o audio ao agente', async () => {
+    class FakeContext {
+      state = 'running';
+      currentTime = 0;
+      destination = {};
+      resume = () => Promise.resolve();
+      close = () => Promise.resolve();
+    }
+    vi.stubGlobal('AudioContext', FakeContext);
+    mockFetch({
+      'GET /api/auth/me': () => json(me),
+      'POST /api/agents/1/remote/sessions': () => json(session, 201),
+      [`DELETE /api/remote/sessions/${session.sessionId}`]: () => new Response(null, { status: 204 }),
+    });
+    vi.stubGlobal('WebSocket', FakeSocket);
+    renderApp('/acesso-remoto/1');
+    await waitFor(() => expect(FakeSocket.last).not.toBeNull());
+    const socket = FakeSocket.last!;
+    socket.readyState = FakeSocket.OPEN;
+    socket.onopen?.();
+    const receive = (frame: Uint8Array) => {
+      const copy = new Uint8Array(frame.length);
+      copy.set(frame);
+      socket.onmessage?.({ data: copy.buffer });
+    };
+    receive(new Uint8Array([FRAME.paired]));
+    receive(jsonFrame(FRAME.hello, { proto: 1, os: 'windows', displays: [{ id: 0, name: '', x: 0, y: 0, w: 800, h: 600, scale: 1, primary: true }], active: 0, features: ['desktop', 'audio'], user: null }));
+    const settings = () =>
+      socket.sent.filter((f) => f[0] === FRAME.settings).map((f) => JSON.parse(new TextDecoder().decode(f.subarray(1))) as { audio: boolean });
+    await waitFor(() => expect(settings().at(-1)).toMatchObject({ audio: false }));
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Som' }));
+    await waitFor(() => expect(settings().at(-1)).toMatchObject({ audio: true }));
+    expect(screen.getByRole('button', { name: 'Som' })).toHaveAttribute('aria-pressed', 'true');
+    await user.click(screen.getByRole('button', { name: 'Som' }));
+    await waitFor(() => expect(settings().at(-1)).toMatchObject({ audio: false }));
   });
 
   it('arquivos copiados na estacao viram um link para baixar', async () => {

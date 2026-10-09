@@ -237,6 +237,7 @@ Codigos de fechamento:
 | `0x17` | `FILES_COPIED` | secao 7.6 |
 | `0x18` | `BYE` | JSON `{ "reason": str }` |
 | `0x19` | `ERROR` | JSON `{ "code": str, "message": str }` |
+| `0x1A` | `AUDIO` | binario: `u8 codec` (1 = IMA ADPCM), `u8 canais`, `u32 taxa`, `u32 sequencia`, `u16 amostras por canal`, depois, por canal, `i16 preditor`, `u8 indice`, `u8 0` e as amostras em 4 bits (primeira no nibble baixo) |
 
 `Display`: `{ "id": int, "name": str, "x": int, "y": int, "w": int, "h": int, "scale": number, "primary": bool }`, em pixels fisicos da area de trabalho virtual.
 
@@ -254,14 +255,20 @@ Regras de imagem:
   `id`. Sem o pedido, o agente desenha o ponteiro na imagem, como antes.
 - O visualizador mostra o cursor remoto pela forma do ponteiro local (controlando) ou desenhado sobre a tela
   (somente visualizar, mouse fora da tela ou cursor movido do outro lado).
-- `features` da v1: `desktop`, `clipboard-text`, `files-copied`, `cad`, `view-only`, `cursor`. A segunda etapa
+- Som da maquina (feature `audio`, pedido com `settings.audio = true`, EYES 3.2.6): o agente captura o que a
+  maquina toca (Windows: WASAPI em loopback da saida padrao, no processo `eyes remote-audio`; Linux com X11: `parec`
+  do monitor da saida padrao, como o usuario da sessao) e manda quadros `AUDIO` de 40 ms, 24 kHz estereo em IMA ADPCM
+  (~190 kbit/s). Silencio nao e enviado. Cada quadro traz o estado inicial do codec por canal, entao perder um quadro
+  nao afeta os seguintes. O visualizador toca com ~120 ms de folga e descarta o que chega com mais de 0,6 s de atraso.
+  Sem captura, o agente manda `ERROR` com `code` `audio`. macOS e Linux com Wayland (canal `rdp`) nao tem som.
+- `features` da v1: `desktop`, `clipboard-text`, `files-copied`, `cad`, `view-only`, `cursor`, `audio`. A segunda etapa
   acrescenta `clipboard-png`.
 
 ### 5.2 Quadros do visualizador para o agente
 
 | Tipo | Nome | Corpo |
 |---|---|---|
-| `0x20` | `SETTINGS` | JSON `{ "quality": 1-100, "scale": 0.25-1, "maxFps": 1-30, "display": id, "cursor": bool }` (`cursor` opcional, padrao `false`) |
+| `0x20` | `SETTINGS` | JSON `{ "quality": 1-100, "scale": 0.25-1, "maxFps": 1-30, "display": id, "cursor": bool, "audio": bool }` (`cursor` e `audio` opcionais, padrao `false`) |
 | `0x21` | `KEY` | JSON `{ "code": str, "down": bool }`, `code` igual a `KeyboardEvent.code` |
 | `0x22` | `TEXT` | JSON `{ "text": str }`, ate 4 KB por quadro |
 | `0x23` | `MOUSE` | JSON `{ "x": int, "y": int, "buttons": int }` |
@@ -485,7 +492,7 @@ Tabelas `remote_sessions`, `remote_transfers` e `remote_policies`: RFC-001, seca
 | Limite | Valor v1 |
 |---|---|
 | Sessoes ativas por agente | 4, com varias de tela (`desktop`) ao mesmo tempo; o canal `rdp` (RDP do GNOME) e exclusivo (EYES 3.2.5) |
-| Sessoes ativas por tecnico | 5 |
+| Sessoes ativas por tecnico | 7 |
 | Criacao de sessao por tecnico | 10 por minuto |
 | Quadro do relay | 2 MiB (`TILE`); 64 KiB (demais JSON); 256 KiB (`CHUNK`); 1 MiB (canal `rdp`) |
 | Quadros do visualizador | 200 por segundo (sem limite no canal `rdp`) |
