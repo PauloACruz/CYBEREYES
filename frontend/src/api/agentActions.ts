@@ -9,6 +9,8 @@ import type {
   ProcessDto,
   RegistryListing,
   RegistryValueRequest,
+  RenameComputerRequest,
+  RenameComputerResponse,
   RunScriptRequest,
   RunScriptResponse,
   ServiceAction,
@@ -29,6 +31,8 @@ export const agentActionsApi = {
     api.post<CommandResponse>(`${base(id)}/command`, body, options),
   runScript: (id: number, body: RunScriptRequest, options?: Silent) =>
     api.post<RunScriptResponse>(`${base(id)}/runscript`, body, options),
+  renameComputer: (id: number, body: RenameComputerRequest, options?: Silent) =>
+    api.post<RenameComputerResponse>(`${base(id)}/rename`, body, options),
 
   processes: (id: number) => api.get<ProcessDto[]>(`${base(id)}/processes`),
   killProcess: (id: number, pid: number) => api.delete(`${base(id)}/processes/${pid}`),

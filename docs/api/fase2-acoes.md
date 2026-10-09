@@ -86,6 +86,17 @@ As rotas de escrita respondem `{ success: true }` ou 400 com a mensagem de erro 
 - `POST /api/agents/{id}/shutdown` -> 202
 - `POST /api/agents/{id}/refresh` (`agents.view`) -> 202 (pede ao agente para reenviar inventario: sistema, discos, WMI, IP)
 
+## Renomear computador (`agents.control`, so Windows)
+`POST /api/agents/{id}/rename` `{ newName, restart, domainUser?, domainPassword? }` -> `{ historyId, retcode, result, stdout, stderr }`
+
+Roda pelo agente, como SYSTEM, o script embutido `backend/src/Cybereyes.Api/Rmm/Actions/Scripts/win-conf-renomear-computador.ps1`
+(`-NovoNome <nome> -Confirmar`, mais `-Reiniciar` com `restart: true`; tempo limite de 120 s). `newName`: de 1 a 15 letras sem
+acento, numeros e hifen, sem hifen nas pontas e nao so numeros (400 fora disso). Maquina no dominio precisa de `domainUser` e
+`domainPassword` (os dois juntos), que vao ao agente so como variaveis de ambiente: nao entram nos argumentos, no historico nem na
+auditoria. `result` e a linha `RESULTADO` do script; `retcode`: 0 renomeado com reinicio agendado em 5 min (ou o nome ja era esse),
+3010 renomeado e falta reiniciar, 1 renomeado com alerta (SQL Server), 2 falha, 3 recusado (nome invalido, controlador de dominio,
+Autoridade Certificadora, credencial ausente). O hostname do console muda sozinho no primeiro check-in depois do reinicio.
+
 ## Terminal (SignalR, hub `/hubs/console`, `agents.run`)
 | Metodo do hub | Parametros | Retorno |
 |---|---|---|

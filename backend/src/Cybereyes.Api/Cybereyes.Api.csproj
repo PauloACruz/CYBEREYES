@@ -28,5 +28,6 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Reports/Fonts/*.ttf" LogicalName="Cybereyes.Fonts.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Rmm/Actions/Scripts/*.ps1" LogicalName="Cybereyes.Scripts.%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

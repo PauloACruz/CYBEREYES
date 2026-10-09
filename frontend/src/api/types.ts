@@ -455,6 +455,24 @@ export interface RunScriptRequest {
 
 export type RunScriptResponse = ScriptResults & { historyId: number };
 
+/** POST /api/agents/{id}/rename: a senha do dominio vai so por variavel de ambiente ao agente. */
+export interface RenameComputerRequest {
+  newName: string;
+  restart: boolean;
+  domainUser?: string;
+  domainPassword?: string;
+}
+
+/** retcode do script: 0 pronto (reinicio agendado ou nada a fazer), 3010 falta reiniciar, 1 alerta, 2/3 falha. */
+export interface RenameComputerResponse {
+  historyId: number;
+  retcode: number;
+  /** Linha RESULTADO do script, sem o prefixo. */
+  result: string;
+  stdout: string;
+  stderr: string;
+}
+
 export interface ProcessDto {
   pid: number;
   name: string;
