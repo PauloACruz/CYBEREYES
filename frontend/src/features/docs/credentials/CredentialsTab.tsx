@@ -8,7 +8,7 @@ import { ApiError } from '../../../api/client';
 import { credentialsApi } from '../../../api/docs';
 import { queryKeys } from '../../../api/queryKeys';
 import type { CredentialDto, ListCredentialsParams } from '../../../api/types';
-import { assetPath } from '../../../app/paths';
+import { appServerPath, assetPath, webAppPath } from '../../../app/paths';
 import { EmptyRow, LoadError, LoadingRows } from '../../../components/TableStates';
 import { confirmAction, notifySuccess } from '../../../lib/feedback';
 import { RelativeTime } from '../../agents/agentDisplay';
@@ -23,18 +23,21 @@ interface CredentialsTabProps {
   clientId: number | undefined;
   canManage: boolean;
   canReveal: boolean;
+  /** Lista e cadastra so as credenciais desta aplicacao ou deste servidor (modulo Aplicacoes). */
+  webAppId?: number;
+  appServerId?: number;
 }
 
 function isVaultDisabled(error: unknown): boolean {
   return error instanceof ApiError && error.status === 503 && error.code === 'VAULT_DISABLED';
 }
 
-export function CredentialsTab({ clientId, canManage, canReveal }: CredentialsTabProps) {
+export function CredentialsTab({ clientId, canManage, canReveal, webAppId, appServerId }: CredentialsTabProps) {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<Editing>(null);
   const [search, setSearch] = useState('');
   const [debounced] = useDebouncedValue(search.trim(), 300);
-  const params: ListCredentialsParams = { clientId, search: debounced || undefined };
+  const params: ListCredentialsParams = { clientId, search: debounced || undefined, webAppId, appServerId };
   const credentials = useQuery({
     queryKey: queryKeys.credentialList(params),
     queryFn: () => credentialsApi.list(params, { silent: true }),
@@ -83,7 +86,7 @@ export function CredentialsTab({ clientId, canManage, canReveal }: CredentialsTa
               <Table.Tr>
                 <Table.Th>Nome</Table.Th>
                 <Table.Th w={160}>Usuário</Table.Th>
-                <Table.Th w={180}>Ativo</Table.Th>
+                <Table.Th w={180}>Vínculo</Table.Th>
                 <Table.Th w={150}>Atualizada</Table.Th>
                 <Table.Th w={260}>Senha</Table.Th>
                 <Table.Th w={80} />
@@ -112,6 +115,14 @@ export function CredentialsTab({ clientId, canManage, canReveal }: CredentialsTa
                     {credential.assetId ? (
                       <Anchor component={Link} to={assetPath(credential.assetId)} size="sm">
                         {credential.assetName ?? `Ativo #${credential.assetId}`}
+                      </Anchor>
+                    ) : credential.webAppId ? (
+                      <Anchor component={Link} to={webAppPath(credential.webAppId)} size="sm">
+                        {credential.webAppName ?? `Aplicação #${credential.webAppId}`}
+                      </Anchor>
+                    ) : credential.appServerId ? (
+                      <Anchor component={Link} to={appServerPath(credential.appServerId)} size="sm">
+                        {credential.appServerName ?? `Servidor #${credential.appServerId}`}
                       </Anchor>
                     ) : null}
                   </Table.Td>
@@ -171,6 +182,7 @@ export function CredentialsTab({ clientId, canManage, canReveal }: CredentialsTa
           onClose={() => setEditing(null)}
           credential={editing?.mode === 'edit' ? editing.credential : undefined}
           defaultClientId={clientId}
+          link={webAppId || appServerId ? { webAppId, appServerId } : undefined}
         />
       )}
     </>

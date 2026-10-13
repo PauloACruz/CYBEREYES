@@ -11,8 +11,12 @@ using Cybereyes.Core.Rmm;
 
 namespace Cybereyes.Api.Rmm.Monitoring;
 
-/// <summary>Alerta de logs ou SNMP: a origem e o agente ou o dispositivo, e <paramref name="SubjectKey"/> separa regra, interface ou sensor.</summary>
-public sealed record SubjectAlertRequest(int? AgentId, int? SnmpDeviceId, string SubjectKey, string AlertType, string Severity, string Message);
+/// <summary>
+/// Alerta de logs, SNMP ou aplicacao web: a origem e o agente, o dispositivo ou a aplicacao, e <paramref name="SubjectKey"/> separa regra,
+/// interface ou sensor.
+/// </summary>
+public sealed record SubjectAlertRequest(int? AgentId, int? SnmpDeviceId, string SubjectKey, string AlertType, string Severity, string Message,
+    int? WebAppId = null);
 
 public sealed record AlertRequest(int AgentId, string AlertType, int? CheckId, int? TaskId, string Severity, string Message,
     bool Email, bool Webhook, bool Dashboard);
@@ -132,7 +136,7 @@ public sealed partial class AlertService(CybereyesDbContext db, INotificationSen
     public async Task<Alert> RaiseSubjectAsync(SubjectAlertRequest request, CancellationToken ct)
     {
         var existing = await db.Alerts.FirstOrDefaultAsync(a => a.AgentId == request.AgentId && a.SnmpDeviceId == request.SnmpDeviceId &&
-            a.AlertType == request.AlertType && a.SubjectKey == request.SubjectKey && !a.Resolved, ct);
+            a.WebAppId == request.WebAppId && a.AlertType == request.AlertType && a.SubjectKey == request.SubjectKey && !a.Resolved, ct);
         if (existing is not null)
         {
             existing.Severity = request.Severity;
@@ -145,6 +149,7 @@ public sealed partial class AlertService(CybereyesDbContext db, INotificationSen
         {
             AgentId = request.AgentId,
             SnmpDeviceId = request.SnmpDeviceId,
+            WebAppId = request.WebAppId,
             SubjectKey = request.SubjectKey,
             AlertType = request.AlertType,
             Severity = request.Severity,
@@ -154,7 +159,7 @@ public sealed partial class AlertService(CybereyesDbContext db, INotificationSen
         db.Alerts.Add(alert);
         await db.SaveChangesAsync(ct);
 
-        var template = await SubjectTemplateAsync(request.AgentId, request.SnmpDeviceId, ct);
+        var template = await SubjectTemplateAsync(request.AgentId, request.SnmpDeviceId, request.WebAppId, ct);
         var settings = await SettingsStore.GetAsync(db, ct);
         if (template is not null)
         {
@@ -177,14 +182,29 @@ public sealed partial class AlertService(CybereyesDbContext db, INotificationSen
 
     public async Task ResolveSubjectAsync(int? agentId, int? snmpDeviceId, string alertType, string subjectKey, CancellationToken ct)
     {
-        var open = await db.Alerts.Where(a => a.AgentId == agentId && a.SnmpDeviceId == snmpDeviceId && a.AlertType == alertType &&
+        var open = await db.Alerts.Where(a => a.AgentId == agentId && a.SnmpDeviceId == snmpDeviceId && a.WebAppId == null && a.AlertType == alertType &&
             a.SubjectKey == subjectKey && !a.Resolved).ToListAsync(ct);
         if (open.Count == 0)
         {
             return;
         }
+        await ResolveOpenAsync(open, await SubjectTemplateAsync(agentId, snmpDeviceId, null, ct), ct);
+    }
 
-        var template = await SubjectTemplateAsync(agentId, snmpDeviceId, ct);
+    /// <summary>Resolve os alertas abertos da aplicacao (de um tipo, ou todos quando <paramref name="alertType"/> e nulo).</summary>
+    public async Task ResolveWebAppAsync(int webAppId, string? alertType, CancellationToken ct)
+    {
+        var open = await db.Alerts.IgnoreQueryFilters().Where(a => a.WebAppId == webAppId && (alertType == null || a.AlertType == alertType) && !a.Resolved)
+            .ToListAsync(ct);
+        if (open.Count == 0)
+        {
+            return;
+        }
+        await ResolveOpenAsync(open, await SubjectTemplateAsync(null, null, webAppId, ct), ct);
+    }
+
+    private async Task ResolveOpenAsync(List<Alert> open, AlertTemplate? template, CancellationToken ct)
+    {
         var settings = await SettingsStore.GetAsync(db, ct);
         foreach (var alert in open)
         {
@@ -208,11 +228,19 @@ public sealed partial class AlertService(CybereyesDbContext db, INotificationSen
         await incidents.OnAlertsResolvedAsync(open.Select(a => a.Id).ToList(), ct);
     }
 
-    private async Task<AlertTemplate?> SubjectTemplateAsync(int? agentId, int? snmpDeviceId, CancellationToken ct)
+    private async Task<AlertTemplate?> SubjectTemplateAsync(int? agentId, int? snmpDeviceId, int? webAppId, CancellationToken ct)
     {
         if (agentId is { } id)
         {
             return await TemplateForAsync(id, ct);
+        }
+        if (webAppId is { } appId)
+        {
+            var clientTemplate = await db.WebApps.IgnoreQueryFilters().Where(w => w.Id == appId)
+                .Select(w => db.Clients.IgnoreQueryFilters().Where(c => c.Id == w.ClientId).Select(c => c.AlertTemplateId).FirstOrDefault())
+                .FirstOrDefaultAsync(ct);
+            var appTemplateId = clientTemplate ?? (await SettingsStore.GetAsync(db, ct)).DefaultAlertTemplateId;
+            return appTemplateId is null ? null : await db.AlertTemplates.AsNoTracking().FirstOrDefaultAsync(t => t.Id == appTemplateId, ct);
         }
         var ids = await db.SnmpDevices.AsNoTracking().Where(d => d.Id == snmpDeviceId)
             .Select(d => new
@@ -280,17 +308,24 @@ public sealed partial class AlertService(CybereyesDbContext db, INotificationSen
     private object Payload(string evt, Alert alert) => new
     {
         @event = evt,
-        alert = new { alert.Id, alert.AgentId, alert.SnmpDeviceId, alert.AlertType, alert.CheckId, alert.TaskId, alert.Severity, alert.Message, alert.CreatedAt, alert.Resolved, alert.ResolvedAt },
+        alert = new { alert.Id, alert.AgentId, alert.SnmpDeviceId, alert.WebAppId, alert.AlertType, alert.CheckId, alert.TaskId, alert.Severity, alert.Message, alert.CreatedAt, alert.Resolved, alert.ResolvedAt },
         url = Link(alert),
     };
 
     private EmailContent Email(Alert alert, bool created) =>
-        EmailTemplates.Alert(created, SeverityName(alert.Severity), alert.Message, alert.CreatedAt, alert.AgentId is null ? "Dispositivo" : "Agente",
-            Link(alert), config["App:PublicUrl"]);
+        EmailTemplates.Alert(created, SeverityName(alert.Severity), alert.Message, alert.CreatedAt,
+            alert.AgentId is not null ? "Agente" : alert.WebAppId is not null ? "Aplicacao" : "Dispositivo", Link(alert), config["App:PublicUrl"]);
 
-    private string Link(Alert alert) => alert.AgentId is null && alert.SnmpDeviceId is { } device
-        ? $"{(config["App:PublicUrl"] ?? string.Empty).TrimEnd('/')}/snmp/{device}"
-        : $"{(config["App:PublicUrl"] ?? string.Empty).TrimEnd('/')}/agentes/{alert.AgentId}";
+    private string Link(Alert alert)
+    {
+        var root = (config["App:PublicUrl"] ?? string.Empty).TrimEnd('/');
+        return alert switch
+        {
+            { AgentId: null, WebAppId: { } app } => $"{root}/aplicacoes/{app}",
+            { AgentId: null, SnmpDeviceId: { } device } => $"{root}/snmp/{device}",
+            _ => $"{root}/agentes/{alert.AgentId}",
+        };
+    }
 
     private static string SeverityName(string severity) => severity switch
     {

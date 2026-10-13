@@ -28,6 +28,7 @@ export const PATHS = {
   snmp: '/snmp',
   reports: '/relatorios',
   remote: '/acesso-remoto',
+  webApps: '/aplicacoes',
 } as const;
 
 /** Janela do visualizador de acesso remoto (RFC-001). */
@@ -74,6 +75,14 @@ export function docPagePath(id: number): string {
 /** Aba da tela de documentacao (?aba=). */
 export function docsTabPath(tab: 'redes' | 'diagramas' | 'credenciais' | 'paginas'): string {
   return tab === 'redes' ? PATHS.docs : `${PATHS.docs}?aba=${tab}`;
+}
+
+export function webAppPath(id: number): string {
+  return `${PATHS.webApps}/${id}`;
+}
+
+export function appServerPath(id: number): string {
+  return `${PATHS.webApps}/servidores/${id}`;
 }
 
 export function snmpDevicePath(id: number): string {

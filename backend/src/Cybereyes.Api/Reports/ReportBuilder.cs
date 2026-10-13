@@ -216,7 +216,7 @@ public sealed class ReportBuilder(CybereyesDbContext db, TimeProvider time)
         var q = db.Alerts.AsNoTracking().Where(a => a.CreatedAt >= from && a.CreatedAt < to);
         if (p.ClientId is { } c)
         {
-            q = q.Where(a => a.Agent!.Site!.ClientId == c || a.SnmpDevice!.ClientId == c);
+            q = q.Where(a => a.Agent!.Site!.ClientId == c || a.SnmpDevice!.ClientId == c || a.WebApp!.ClientId == c);
         }
         if (p.Severity is { Length: > 0 } sev)
         {
@@ -226,7 +226,7 @@ public sealed class ReportBuilder(CybereyesDbContext db, TimeProvider time)
         var byType = await q.GroupBy(a => a.AlertType).Select(g => new { g.Key, Count = g.Count() }).ToListAsync(ct);
         var openAtEnd = await q.CountAsync(a => !a.Resolved || a.ResolvedAt >= to, ct);
         var rows = await q.OrderByDescending(a => a.CreatedAt).Take(maxRows + 1)
-            .Select(a => new { a.CreatedAt, a.Severity, a.AlertType, Origin = a.AgentId != null ? a.Agent!.Hostname : a.SnmpDevice!.Name, a.Message, a.ResolvedAt })
+            .Select(a => new { a.CreatedAt, a.Severity, a.AlertType, Origin = a.AgentId != null ? a.Agent!.Hostname : a.SnmpDeviceId != null ? a.SnmpDevice!.Name : a.WebApp!.Name, a.Message, a.ResolvedAt })
             .ToListAsync(ct);
         var summary = new List<ReportSummaryItem> { new("Total", N(bySeverity.Sum(x => x.Count))) };
         summary.AddRange(bySeverity.OrderBy(x => x.Key).Select(x => new ReportSummaryItem("Severidade " + x.Key, N(x.Count))));

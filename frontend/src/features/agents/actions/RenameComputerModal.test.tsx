@@ -8,7 +8,8 @@ const control = makeMe({ permissions: ['agents.view', 'agents.control'] });
 const domainWmi = { comp_sys: [[{ PartOfDomain: true, Domain: 'empresa.local' }]] };
 
 function renameBody(fetchMock: ReturnType<typeof mockFetch>): unknown {
-  const call = fetchMock.mock.calls.find(([input, init]) => init?.method === 'POST' && String(input).endsWith('/api/agents/1/rename'));
+  const url = (input: RequestInfo | URL) => (typeof input === 'string' ? input : input instanceof URL ? input.href : input.url);
+  const call = fetchMock.mock.calls.find(([input, init]) => init?.method === 'POST' && url(input).endsWith('/api/agents/1/rename'));
   return call?.[1]?.body ? JSON.parse(call[1].body as string) : undefined;
 }
 

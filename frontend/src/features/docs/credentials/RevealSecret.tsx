@@ -61,7 +61,7 @@ export function RevealSecret({ credentialId, name }: RevealSecretProps) {
 
   return (
     <Group gap={6} wrap="nowrap" role="group" aria-label={`Senha de ${name}`}>
-      <Code fz="sm" style={{ wordBreak: 'break-all' }} data-testid="revealed-secret">
+      <Code fz="sm" style={{ wordBreak: 'break-all', whiteSpace: 'pre-wrap' }} data-testid="revealed-secret">
         {secret}
       </Code>
       <CopyButton value={secret} timeout={2000}>

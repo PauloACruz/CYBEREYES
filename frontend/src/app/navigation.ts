@@ -17,6 +17,7 @@ import {
   IconShieldLock,
   IconTicket,
   IconUsers,
+  IconWorldWww,
   type Icon,
 } from '@tabler/icons-react';
 import { PERMISSIONS } from '../api/types';
@@ -42,6 +43,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { label: 'Alertas', to: PATHS.alerts, icon: IconAlertTriangle, permission: PERMISSIONS.alertsView, alertCounter: true },
   { label: 'Chamados', to: PATHS.tickets, icon: IconTicket, permission: PERMISSIONS.ticketsView, ticketCounter: true },
   { label: 'Agentes', to: PATHS.agents, icon: IconDeviceDesktop, permission: PERMISSIONS.agentsView },
+  { label: 'Aplicações', to: PATHS.webApps, icon: IconWorldWww, permission: PERMISSIONS.appsView },
   { label: 'Relatórios', to: PATHS.reports, icon: IconReportAnalytics, permission: PERMISSIONS.reportsView },
   { label: 'Políticas', to: PATHS.policies, icon: IconShieldCheckered, permission: PERMISSIONS.agentsView },
   { label: 'Scripts', to: PATHS.scripts, icon: IconCode, permission: PERMISSIONS.scriptsView },

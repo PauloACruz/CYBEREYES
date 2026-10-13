@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Cybereyes.Core.Apps;
 using Cybereyes.Core.Audit;
 using Cybereyes.Core.Identity;
 using Cybereyes.Core.Inventory;
@@ -75,6 +76,11 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
     public DbSet<RemoteTransfer> RemoteTransfers => Set<RemoteTransfer>();
     public DbSet<RemotePolicy> RemotePolicies => Set<RemotePolicy>();
     public DbSet<UserClient> UserClients => Set<UserClient>();
+    public DbSet<AppServer> AppServers => Set<AppServer>();
+    public DbSet<WebApp> WebApps => Set<WebApp>();
+    public DbSet<WebAppCheck> WebAppChecks => Set<WebAppCheck>();
+    public DbSet<AppCommand> AppCommands => Set<AppCommand>();
+    public DbSet<AppRun> AppRuns => Set<AppRun>();
 
     // Escopo de clientes do usuario da requisicao. Nulo = sem restricao (agentes, servicos internos e
     // usuarios com acesso a todos os clientes). Os filtros globais de ConfigureClientScope leem estes campos.
@@ -146,7 +152,94 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
             e.HasOne<Client>().WithMany().HasForeignKey(x => x.ClientId).OnDelete(DeleteBehavior.Cascade);
         });
 
+        ConfigureApps(builder);
         ConfigureClientScope(builder);
+    }
+
+    private static void ConfigureApps(ModelBuilder builder)
+    {
+        builder.Entity<AppServer>(e =>
+        {
+            e.ToTable("app_servers");
+            e.Property(x => x.Name).HasMaxLength(200);
+            e.Property(x => x.Host).HasMaxLength(255);
+            e.Property(x => x.Username).HasMaxLength(100);
+            e.Property(x => x.AuthMethod).HasMaxLength(16);
+            e.Property(x => x.PasswordEncrypted).HasMaxLength(2000);
+            e.Property(x => x.PrivateKeyEncrypted).HasMaxLength(20000);
+            e.Property(x => x.PassphraseEncrypted).HasMaxLength(2000);
+            e.Property(x => x.HostKeyFingerprint).HasMaxLength(100);
+            e.Property(x => x.HostKeyAlgorithm).HasMaxLength(64);
+            e.Property(x => x.Provider).HasMaxLength(100);
+            e.Property(x => x.Notes).HasMaxLength(5000);
+            e.HasIndex(x => x.ClientId);
+            e.HasOne<Client>().WithMany().HasForeignKey(x => x.ClientId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<WebApp>(e =>
+        {
+            e.ToTable("web_apps");
+            e.Property(x => x.Name).HasMaxLength(200);
+            e.Property(x => x.Environment).HasMaxLength(50);
+            e.Property(x => x.Stack).HasMaxLength(100);
+            e.Property(x => x.Url).HasMaxLength(2000);
+            e.Property(x => x.Notes).HasMaxLength(5000);
+            e.Property(x => x.CheckType).HasMaxLength(8);
+            e.Property(x => x.CheckTarget).HasMaxLength(2000);
+            e.Property(x => x.Method).HasMaxLength(8);
+            e.Property(x => x.ExpectedStatus).HasMaxLength(100);
+            e.Property(x => x.Keyword).HasMaxLength(500);
+            e.Property(x => x.AlertSeverity).HasMaxLength(16);
+            e.Property(x => x.Status).HasMaxLength(16);
+            e.Property(x => x.LastError).HasMaxLength(1000);
+            e.Property(x => x.DeployPath).HasMaxLength(1000);
+            e.Property(x => x.RepoUrl).HasMaxLength(2000);
+            e.Property(x => x.Branch).HasMaxLength(200);
+            e.Property(x => x.DeployScript).HasMaxLength(32768);
+            e.HasIndex(x => x.ClientId);
+            e.HasIndex(x => x.ServerId);
+            e.HasIndex(x => new { x.MonitorEnabled, x.NextCheckAt });
+            e.HasOne<Client>().WithMany().HasForeignKey(x => x.ClientId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<AppServer>().WithMany().HasForeignKey(x => x.ServerId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<WebAppCheck>(e =>
+        {
+            e.ToTable("web_app_checks");
+            e.Property(x => x.Error).HasMaxLength(1000);
+            e.HasIndex(x => new { x.WebAppId, x.Time });
+            e.HasIndex(x => x.Time);
+            e.HasOne<WebApp>().WithMany().HasForeignKey(x => x.WebAppId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<AppCommand>(e =>
+        {
+            e.ToTable("app_commands");
+            e.Property(x => x.Name).HasMaxLength(200);
+            e.Property(x => x.Script).HasMaxLength(32768);
+            e.Property(x => x.Description).HasMaxLength(1000);
+            e.Property(x => x.UpdatedBy).HasMaxLength(200);
+            e.HasIndex(x => x.ServerId);
+            e.HasIndex(x => x.WebAppId);
+            e.HasOne<AppServer>().WithMany().HasForeignKey(x => x.ServerId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<WebApp>().WithMany().HasForeignKey(x => x.WebAppId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<AppRun>(e =>
+        {
+            e.ToTable("app_runs");
+            e.Property(x => x.Kind).HasMaxLength(16);
+            e.Property(x => x.Title).HasMaxLength(200);
+            e.Property(x => x.Status).HasMaxLength(16);
+            e.Property(x => x.Error).HasMaxLength(1000);
+            e.Property(x => x.StartedBy).HasMaxLength(200);
+            e.HasIndex(x => new { x.ServerId, x.StartedAt });
+            e.HasIndex(x => new { x.WebAppId, x.StartedAt });
+            e.HasIndex(x => x.Status);
+            e.HasOne<AppServer>().WithMany().HasForeignKey(x => x.ServerId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<WebApp>().WithMany().HasForeignKey(x => x.WebAppId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne<AppCommand>().WithMany().HasForeignKey(x => x.CommandId).OnDelete(DeleteBehavior.SetNull);
+        });
     }
 
     /// <summary>
@@ -177,7 +270,8 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
         builder.Entity<AutomatedTask>().HasQueryFilter(x => scopeClientIds == null || x.AgentId == null || Agents.Any(a => a.Id == x.AgentId));
         builder.Entity<PatchPolicy>().HasQueryFilter(x => scopeClientIds == null || x.AgentId == null || Agents.Any(a => a.Id == x.AgentId));
         builder.Entity<Alert>().HasQueryFilter(x => scopeClientIds == null ||
-            (x.AgentId == null || Agents.Any(a => a.Id == x.AgentId)) && (x.SnmpDeviceId == null || SnmpDevices.Any(d => d.Id == x.SnmpDeviceId)));
+            (x.AgentId == null || Agents.Any(a => a.Id == x.AgentId)) && (x.SnmpDeviceId == null || SnmpDevices.Any(d => d.Id == x.SnmpDeviceId)) &&
+            (x.WebAppId == null || WebApps.Any(w => w.Id == x.WebAppId)));
 
         // Chamado sem cliente (aberto sem maquina) fica visivel so para quem abriu ou para o responsavel.
         builder.Entity<Ticket>().HasQueryFilter(t => scopeClientIds == null ||
@@ -205,6 +299,13 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
         builder.Entity<SnmpInterface>().HasQueryFilter(x => scopeClientIds == null || SnmpDevices.Any(d => d.Id == x.DeviceId));
         builder.Entity<SnmpSensor>().HasQueryFilter(x => scopeClientIds == null || SnmpDevices.Any(d => d.Id == x.DeviceId));
         builder.Entity<SnmpSample>().HasQueryFilter(x => scopeClientIds == null || SnmpDevices.Any(d => d.Id == x.DeviceId));
+
+        builder.Entity<AppServer>().HasQueryFilter(x => scopeClientIds == null || scopeClientIds.Contains(x.ClientId));
+        builder.Entity<WebApp>().HasQueryFilter(x => scopeClientIds == null || scopeClientIds.Contains(x.ClientId));
+        builder.Entity<WebAppCheck>().HasQueryFilter(x => scopeClientIds == null || WebApps.Any(w => w.Id == x.WebAppId));
+        builder.Entity<AppCommand>().HasQueryFilter(x => scopeClientIds == null ||
+            (x.ServerId == null || AppServers.Any(s => s.Id == x.ServerId)) && (x.WebAppId == null || WebApps.Any(w => w.Id == x.WebAppId)));
+        builder.Entity<AppRun>().HasQueryFilter(x => scopeClientIds == null || AppServers.Any(s => s.Id == x.ServerId));
 
         // Relatorio sem cliente cobre todos: so quem o gerou (ja dentro do proprio escopo) o enxerga.
         builder.Entity<ReportRun>().HasQueryFilter(x => scopeClientIds == null ||
@@ -427,6 +528,8 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
             e.Property(x => x.SubjectKey).HasMaxLength(64);
             e.HasIndex(x => new { x.SnmpDeviceId, x.Resolved });
             e.HasOne(x => x.SnmpDevice).WithMany().HasForeignKey(x => x.SnmpDeviceId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => new { x.WebAppId, x.Resolved });
+            e.HasOne(x => x.WebApp).WithMany().HasForeignKey(x => x.WebAppId).OnDelete(DeleteBehavior.Cascade);
         });
 
         builder.Entity<AlertTemplate>(e =>
@@ -693,6 +796,10 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
             e.HasOne<Client>().WithMany().HasForeignKey(x => x.ClientId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne<Site>().WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne<Asset>().WithMany().HasForeignKey(x => x.AssetId).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(x => x.WebAppId);
+            e.HasIndex(x => x.AppServerId);
+            e.HasOne<WebApp>().WithMany().HasForeignKey(x => x.WebAppId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne<AppServer>().WithMany().HasForeignKey(x => x.AppServerId).OnDelete(DeleteBehavior.SetNull);
         });
 
         builder.Entity<DocPage>(e =>

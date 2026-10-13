@@ -3,6 +3,7 @@ import { HttpTransportType, HubConnectionBuilder, LogLevel, type HubConnection }
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../api/queryKeys';
 import type { AgentStatusChangedEvent, AlertsChangedEvent, SnmpDeviceChangedEvent, TicketsChangedEvent } from '../api/types';
+import { applyAppRunsChanged, applyWebAppChanged } from './webAppCache';
 import { useMe } from '../auth/useMe';
 import { applyAgentStatusChange, refreshAgentData } from './agentCache';
 import { handleAlertsChanged } from './alertCache';
@@ -43,6 +44,8 @@ export function useConsoleHub(): ConsoleHubState {
     conn.on('alertsChanged', (event: AlertsChangedEvent) => handleAlertsChanged(queryClient, event));
     conn.on('ticketsChanged', (event: TicketsChangedEvent) => applyTicketsChanged(queryClient, event));
     conn.on('snmpDeviceChanged', (event: SnmpDeviceChangedEvent) => applySnmpDeviceChanged(queryClient, event));
+    conn.on('webAppChanged', () => applyWebAppChanged(queryClient));
+    conn.on('appRunsChanged', () => applyAppRunsChanged(queryClient));
     // Eventos perdidos durante a queda: recarregar o que esta em tela.
     conn.onreconnected(() => {
       setConnectedTo(conn);
@@ -50,6 +53,8 @@ export function useConsoleHub(): ConsoleHubState {
       void queryClient.invalidateQueries({ queryKey: queryKeys.activeAlertCount });
       void queryClient.invalidateQueries({ queryKey: queryKeys.tickets });
       void queryClient.invalidateQueries({ queryKey: queryKeys.snmp });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.webApps });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.appRuns });
     });
     conn.onreconnecting(() => setConnectedTo(null));
     conn.onclose(() => setConnectedTo(null));

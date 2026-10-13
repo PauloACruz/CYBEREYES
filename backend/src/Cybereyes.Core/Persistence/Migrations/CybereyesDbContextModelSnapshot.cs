@@ -23,6 +23,402 @@ namespace Cybereyes.Core.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Cybereyes.Core.Apps.AppCommand", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Confirm")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Script")
+                        .IsRequired()
+                        .HasMaxLength(32768)
+                        .HasColumnType("character varying(32768)");
+
+                    b.Property<int?>("ServerId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TimeoutMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int?>("WebAppId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ServerId");
+
+                    b.HasIndex("WebAppId");
+
+                    b.ToTable("app_commands", (string)null);
+                });
+
+            modelBuilder.Entity("Cybereyes.Core.Apps.AppRun", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<bool>("CancelRequested")
+                        .HasColumnType("boolean");
+
+                    b.Property<int?>("CommandId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Error")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<int?>("ExitCode")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("FinishedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("Output")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("OutputTruncated")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Script")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("ServerId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("StartedBy")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("WebAppId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CommandId");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("ServerId", "StartedAt");
+
+                    b.HasIndex("WebAppId", "StartedAt");
+
+                    b.ToTable("app_runs", (string)null);
+                });
+
+            modelBuilder.Entity("Cybereyes.Core.Apps.AppServer", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AuthMethod")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<int>("ClientId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Host")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("HostKeyAlgorithm")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("HostKeyFingerprint")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTimeOffset?>("LastConnectedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(5000)
+                        .HasColumnType("character varying(5000)");
+
+                    b.Property<string>("PassphraseEncrypted")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("PasswordEncrypted")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int>("Port")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("PrivateKeyEncrypted")
+                        .HasMaxLength(20000)
+                        .HasColumnType("character varying(20000)");
+
+                    b.Property<string>("Provider")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClientId");
+
+                    b.ToTable("app_servers", (string)null);
+                });
+
+            modelBuilder.Entity("Cybereyes.Core.Apps.WebApp", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AlertSeverity")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("Branch")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("CheckTarget")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("CheckType")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)");
+
+                    b.Property<int>("ClientId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ConsecutiveFailures")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeployPath")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("DeployScript")
+                        .HasMaxLength(32768)
+                        .HasColumnType("character varying(32768)");
+
+                    b.Property<int>("DeployTimeoutMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Environment")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("ExpectedStatus")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("FailuresBeforeAlert")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IgnoreTlsErrors")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("IntervalSeconds")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Keyword")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTimeOffset?>("LastCheckedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<int?>("LastLatencyMs")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("LastStatusCode")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Method")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)");
+
+                    b.Property<bool>("MonitorEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset>("NextCheckAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(5000)
+                        .HasColumnType("character varying(5000)");
+
+                    b.Property<string>("RepoUrl")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int?>("ServerId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("SslExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("SslWarnDays")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Stack")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<DateTimeOffset?>("StatusChangedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("TimeoutSeconds")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Url")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClientId");
+
+                    b.HasIndex("ServerId");
+
+                    b.HasIndex("MonitorEnabled", "NextCheckAt");
+
+                    b.ToTable("web_apps", (string)null);
+                });
+
+            modelBuilder.Entity("Cybereyes.Core.Apps.WebAppCheck", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Error")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<int?>("LatencyMs")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("StatusCode")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("Time")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("Up")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("WebAppId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Time");
+
+                    b.HasIndex("WebAppId", "Time");
+
+                    b.ToTable("web_app_checks", (string)null);
+                });
+
             modelBuilder.Entity("Cybereyes.Core.Audit.AuditLog", b =>
                 {
                     b.Property<long>("Id")
@@ -458,6 +854,9 @@ namespace Cybereyes.Core.Persistence.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("AppServerId")
+                        .HasColumnType("integer");
+
                     b.Property<int?>("AssetId")
                         .HasColumnType("integer");
 
@@ -496,13 +895,20 @@ namespace Cybereyes.Core.Persistence.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
+                    b.Property<int?>("WebAppId")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("AppServerId");
 
                     b.HasIndex("AssetId");
 
                     b.HasIndex("ClientId");
 
                     b.HasIndex("SiteId");
+
+                    b.HasIndex("WebAppId");
 
                     b.ToTable("credentials", (string)null);
                 });
@@ -1255,6 +1661,9 @@ namespace Cybereyes.Core.Persistence.Migrations
                     b.Property<int?>("TaskId")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("WebAppId")
+                        .HasColumnType("integer");
+
                     b.Property<bool>("WebhookSent")
                         .HasColumnType("boolean");
 
@@ -1263,6 +1672,8 @@ namespace Cybereyes.Core.Persistence.Migrations
                     b.HasIndex("Resolved", "CreatedAt");
 
                     b.HasIndex("SnmpDeviceId", "Resolved");
+
+                    b.HasIndex("WebAppId", "Resolved");
 
                     b.HasIndex("AgentId", "CheckId", "TaskId", "Resolved");
 
@@ -3569,6 +3980,70 @@ namespace Cybereyes.Core.Persistence.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("Cybereyes.Core.Apps.AppCommand", b =>
+                {
+                    b.HasOne("Cybereyes.Core.Apps.AppServer", null)
+                        .WithMany()
+                        .HasForeignKey("ServerId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("Cybereyes.Core.Apps.WebApp", null)
+                        .WithMany()
+                        .HasForeignKey("WebAppId")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("Cybereyes.Core.Apps.AppRun", b =>
+                {
+                    b.HasOne("Cybereyes.Core.Apps.AppCommand", null)
+                        .WithMany()
+                        .HasForeignKey("CommandId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Cybereyes.Core.Apps.AppServer", null)
+                        .WithMany()
+                        .HasForeignKey("ServerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Cybereyes.Core.Apps.WebApp", null)
+                        .WithMany()
+                        .HasForeignKey("WebAppId")
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("Cybereyes.Core.Apps.AppServer", b =>
+                {
+                    b.HasOne("Cybereyes.Core.Rmm.Client", null)
+                        .WithMany()
+                        .HasForeignKey("ClientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Cybereyes.Core.Apps.WebApp", b =>
+                {
+                    b.HasOne("Cybereyes.Core.Rmm.Client", null)
+                        .WithMany()
+                        .HasForeignKey("ClientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Cybereyes.Core.Apps.AppServer", null)
+                        .WithMany()
+                        .HasForeignKey("ServerId")
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("Cybereyes.Core.Apps.WebAppCheck", b =>
+                {
+                    b.HasOne("Cybereyes.Core.Apps.WebApp", null)
+                        .WithMany()
+                        .HasForeignKey("WebAppId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Cybereyes.Core.Identity.ApiKey", b =>
                 {
                     b.HasOne("Cybereyes.Core.Identity.AppUser", "User")
@@ -3639,6 +4114,11 @@ namespace Cybereyes.Core.Persistence.Migrations
 
             modelBuilder.Entity("Cybereyes.Core.Inventory.Credential", b =>
                 {
+                    b.HasOne("Cybereyes.Core.Apps.AppServer", null)
+                        .WithMany()
+                        .HasForeignKey("AppServerId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Cybereyes.Core.Inventory.Asset", null)
                         .WithMany()
                         .HasForeignKey("AssetId")
@@ -3653,6 +4133,11 @@ namespace Cybereyes.Core.Persistence.Migrations
                     b.HasOne("Cybereyes.Core.Rmm.Site", null)
                         .WithMany()
                         .HasForeignKey("SiteId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Cybereyes.Core.Apps.WebApp", null)
+                        .WithMany()
+                        .HasForeignKey("WebAppId")
                         .OnDelete(DeleteBehavior.SetNull);
                 });
 
@@ -3811,9 +4296,16 @@ namespace Cybereyes.Core.Persistence.Migrations
                         .HasForeignKey("SnmpDeviceId")
                         .OnDelete(DeleteBehavior.Cascade);
 
+                    b.HasOne("Cybereyes.Core.Apps.WebApp", "WebApp")
+                        .WithMany()
+                        .HasForeignKey("WebAppId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
                     b.Navigation("Agent");
 
                     b.Navigation("SnmpDevice");
+
+                    b.Navigation("WebApp");
                 });
 
             modelBuilder.Entity("Cybereyes.Core.Rmm.AutomatedTask", b =>

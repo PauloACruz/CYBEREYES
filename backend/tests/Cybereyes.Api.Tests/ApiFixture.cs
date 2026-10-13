@@ -93,6 +93,7 @@ public sealed class ApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseSetting("Agent:BinariesPath", AgentBinariesDir);
         builder.UseSetting("Agent:LatestVersion", UpdateVersion);
         builder.UseSetting("Agent:AutoUpdate", "false");
+        builder.UseSetting("WebApps:BackgroundChecks", "false");
         builder.ConfigureTestServices(services =>
         {
             services.RemoveAll<INotificationSender>();

@@ -25,6 +25,12 @@ export type ErrorCode =
   | 'AGENT_TIMEOUT'
   | 'AGENT_BUSY'
   | 'VAULT_DISABLED'
+  | 'VAULT_KEY_MISMATCH'
+  | 'HOST_KEY_MISMATCH'
+  | 'SSH_AUTH_FAILED'
+  | 'SSH_UNREACHABLE'
+  | 'SSH_NO_SECRET'
+  | 'SSH_ERROR'
   | 'SSO_PROVIDER_ERROR'
   | 'SSO_INVALID_STATE'
   | 'SSO_INVALID_TOKEN'
@@ -647,6 +653,9 @@ export const PERMISSIONS = {
   snmpManage: 'snmp.manage',
   reportsView: 'reports.view',
   reportsManage: 'reports.manage',
+  appsView: 'apps.view',
+  appsManage: 'apps.manage',
+  appsRun: 'apps.run',
 } as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -861,7 +870,17 @@ export interface EffectivePolicyDto {
   source: PolicySource;
 }
 
-export type AlertType = 'availability' | 'check' | 'task' | 'log' | 'snmp_device' | 'snmp_interface' | 'snmp_sensor' | 'snmp_trap';
+export type AlertType =
+  | 'availability'
+  | 'check'
+  | 'task'
+  | 'log'
+  | 'snmp_device'
+  | 'snmp_interface'
+  | 'snmp_sensor'
+  | 'snmp_trap'
+  | 'webapp_down'
+  | 'webapp_ssl';
 export type AlertStatusFilter = 'active' | 'resolved' | 'all';
 
 export interface AlertDto {
@@ -872,6 +891,9 @@ export interface AlertDto {
   /** Fase 8: presentes nos alertas de dispositivos SNMP. */
   snmpDeviceId?: number | null;
   deviceName?: string | null;
+  /** Alertas de aplicacoes web (fora do ar, certificado TLS). */
+  webAppId?: number | null;
+  webAppName?: string | null;
   clientName: string;
   siteName: string | null;
   alertType: AlertType;
@@ -1639,6 +1661,11 @@ export interface CredentialDto {
   siteId: number | null;
   assetId: number | null;
   assetName: string | null;
+  /** Vinculo com o modulo Aplicacoes. */
+  webAppId?: number | null;
+  webAppName?: string | null;
+  appServerId?: number | null;
+  appServerName?: string | null;
   name: string;
   username: string | null;
   url: string | null;
@@ -1651,12 +1678,16 @@ export interface ListCredentialsParams {
   clientId?: number;
   assetId?: number;
   search?: string;
+  webAppId?: number;
+  appServerId?: number;
 }
 
 export interface SaveCredentialRequest {
   clientId: number;
   siteId?: number;
   assetId?: number;
+  webAppId?: number;
+  appServerId?: number;
   name: string;
   username?: string;
   /** Obrigatorio na criacao; ausente no PUT mantem o atual. */
@@ -2229,4 +2260,271 @@ export interface OidcDiscoveryTestResult {
 
 export interface SsoSettingsDto {
   disablePasswordLogin: boolean;
+}
+
+// Aplicacoes web e servidores SSH (docs/api/fase14-aplicacoes.md)
+
+export type SshAuthMethod = 'password' | 'key';
+export type WebAppStatus = 'pending' | 'up' | 'down' | 'paused';
+export type WebAppCheckType = 'http' | 'tcp';
+export type AppRunStatus = 'running' | 'success' | 'failed' | 'cancelled' | 'timeout';
+export type AppRunKind = 'command' | 'deploy';
+
+export interface AppServerDto {
+  id: number;
+  clientId: number;
+  clientName: string;
+  name: string;
+  host: string;
+  port: number;
+  username: string;
+  authMethod: SshAuthMethod;
+  hasPassword: boolean;
+  hasPrivateKey: boolean;
+  hasPassphrase: boolean;
+  /** SHA256 da chave do servidor, fixada no primeiro acesso. */
+  hostKeyFingerprint: string | null;
+  hostKeyAlgorithm: string | null;
+  provider: string | null;
+  notes: string | null;
+  lastConnectedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SaveAppServerRequest {
+  clientId: number;
+  name: string;
+  host: string;
+  port: number;
+  username: string;
+  authMethod: SshAuthMethod;
+  /** Em branco na edicao mantem o segredo salvo. */
+  password?: string;
+  privateKey?: string;
+  passphrase?: string;
+  provider?: string;
+  notes?: string;
+  /** Chave vista no teste antes de salvar; fica fixada no cadastro. */
+  hostKeyFingerprint?: string;
+}
+
+export interface AppServerTestResult {
+  ok: boolean;
+  error: string | null;
+  code: ErrorCode | null;
+  fingerprint: string | null;
+  algorithm: string | null;
+  system: string | null;
+  pinned: boolean;
+}
+
+export interface RevealedServerSecret {
+  password: string | null;
+  privateKey: string | null;
+  passphrase: string | null;
+}
+
+export interface WebAppDto {
+  id: number;
+  clientId: number;
+  clientName: string;
+  serverId: number | null;
+  name: string;
+  environment: string | null;
+  stack: string | null;
+  url: string | null;
+  monitorEnabled: boolean;
+  checkType: WebAppCheckType;
+  checkTarget: string;
+  intervalSeconds: number;
+  status: WebAppStatus;
+  statusChangedAt: string | null;
+  lastCheckedAt: string | null;
+  lastLatencyMs: number | null;
+  lastStatusCode: number | null;
+  lastError: string | null;
+  sslExpiresAt: string | null;
+  hasDeploy: boolean;
+  /** Percentual de verificacoes com sucesso nas ultimas 24 h; nulo sem verificacoes. */
+  uptime24h: number | null;
+}
+
+export interface WebAppsOverview {
+  servers: AppServerDto[];
+  apps: WebAppDto[];
+}
+
+export interface ListWebAppsParams {
+  clientId?: number;
+  search?: string;
+}
+
+export interface WebAppRunSummary {
+  id: number;
+  status: AppRunStatus;
+  exitCode: number | null;
+  startedAt: string;
+  finishedAt: string | null;
+  startedBy: string;
+}
+
+export interface WebAppDetail extends Omit<WebAppDto, 'uptime24h'> {
+  server: { id: number; name: string; host: string; port: number; username: string } | null;
+  notes: string | null;
+  method: 'GET' | 'HEAD';
+  expectedStatus: string;
+  keyword: string | null;
+  timeoutSeconds: number;
+  failuresBeforeAlert: number;
+  alertSeverity: Severity;
+  ignoreTlsErrors: boolean;
+  sslWarnDays: number;
+  consecutiveFailures: number;
+  deployPath: string | null;
+  repoUrl: string | null;
+  branch: string | null;
+  deployScript: string | null;
+  deployTimeoutMinutes: number;
+  createdAt: string;
+  updatedAt: string;
+  lastDeploy: WebAppRunSummary | null;
+}
+
+export interface SaveWebAppRequest {
+  clientId: number;
+  serverId: number | null;
+  name: string;
+  environment?: string;
+  stack?: string;
+  url?: string;
+  notes?: string;
+  monitorEnabled: boolean;
+  checkType: WebAppCheckType;
+  checkTarget?: string;
+  method: 'GET' | 'HEAD';
+  expectedStatus: string;
+  keyword?: string;
+  intervalSeconds: number;
+  timeoutSeconds: number;
+  failuresBeforeAlert: number;
+  alertSeverity: Severity;
+  ignoreTlsErrors: boolean;
+  sslWarnDays: number;
+  deployPath?: string;
+  repoUrl?: string;
+  branch?: string;
+  deployScript?: string;
+  deployTimeoutMinutes: number;
+}
+
+export interface ProbeResultDto {
+  up: boolean;
+  latencyMs: number | null;
+  statusCode: number | null;
+  error: string | null;
+  certificateExpiresAt: string | null;
+}
+
+export interface WebAppCheckPoint {
+  time: string;
+  up: boolean;
+  latencyMs: number | null;
+  failures: number;
+  checks: number;
+  error: string | null;
+}
+
+export interface WebAppOutage {
+  id: number;
+  start: string;
+  end: string | null;
+  resolved: boolean;
+  message: string;
+}
+
+export interface WebAppChecksDto {
+  hours: number;
+  points: WebAppCheckPoint[];
+  uptime: { h24: number | null; d7: number | null; d30: number | null };
+  outages: WebAppOutage[];
+}
+
+export interface AppCommandDto {
+  id: number;
+  serverId: number | null;
+  webAppId: number | null;
+  name: string;
+  script: string;
+  description: string | null;
+  confirm: boolean;
+  timeoutMinutes: number;
+  sortOrder: number;
+  updatedAt: string;
+  updatedBy: string;
+}
+
+export interface SaveAppCommandRequest {
+  serverId: number | null;
+  webAppId: number | null;
+  name: string;
+  script: string;
+  description?: string;
+  confirm: boolean;
+  timeoutMinutes: number;
+  sortOrder?: number;
+}
+
+export interface RunCommandRequest {
+  script?: string;
+  commandId?: number;
+  webAppId?: number;
+  timeoutMinutes?: number;
+}
+
+export interface AppRunDto {
+  id: number;
+  serverId: number;
+  serverName: string;
+  webAppId: number | null;
+  webAppName: string | null;
+  commandId: number | null;
+  kind: AppRunKind;
+  title: string;
+  status: AppRunStatus;
+  exitCode: number | null;
+  error: string | null;
+  startedBy: string;
+  startedAt: string;
+  finishedAt: string | null;
+}
+
+export interface AppRunDetail extends AppRunDto {
+  script: string;
+  output: string;
+  outputTruncated: boolean;
+  cancelRequested: boolean;
+  updatedAt: string;
+}
+
+export interface ListAppRunsParams {
+  serverId?: number;
+  webAppId?: number;
+  kind?: AppRunKind;
+  page?: number;
+  pageSize?: number;
+}
+
+/** Eventos do hub do console do modulo Aplicacoes. */
+export interface WebAppChangedEvent {
+  id: number;
+  status: WebAppStatus;
+  previous: WebAppStatus | null;
+}
+
+export interface AppRunsChangedEvent {
+  runId: number;
+  serverId: number;
+  webAppId: number | null;
+  status: AppRunStatus;
 }

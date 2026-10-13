@@ -1,4 +1,5 @@
-import { Button, Group, Modal, PasswordInput, Select, SimpleGrid, Stack, Textarea, TextInput } from '@mantine/core';
+import { useState } from 'react';
+import { Button, Group, Modal, PasswordInput, Select, SimpleGrid, Stack, Switch, Textarea, TextInput } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { credentialsApi } from '../../../api/docs';
@@ -15,12 +16,14 @@ interface CredentialFormModalProps {
   onClose: () => void;
   credential?: CredentialDto;
   defaultClientId?: number;
+  /** Credencial nova ja ligada a uma aplicacao ou servidor do modulo Aplicacoes. */
+  link?: { webAppId?: number; appServerId?: number };
 }
 
-export function CredentialFormModal({ opened, onClose, credential, defaultClientId }: CredentialFormModalProps) {
+export function CredentialFormModal({ opened, onClose, credential, defaultClientId, link }: CredentialFormModalProps) {
   return (
     <Modal opened={opened} onClose={onClose} title={credential ? 'Editar credencial' : 'Nova credencial'} size="lg" centered>
-      {opened && <CredentialForm onClose={onClose} credential={credential} defaultClientId={defaultClientId} />}
+      {opened && <CredentialForm onClose={onClose} credential={credential} defaultClientId={defaultClientId} link={link} />}
     </Modal>
   );
 }
@@ -36,10 +39,16 @@ interface FormValues {
   notes: string;
 }
 
-function CredentialForm({ onClose, credential, defaultClientId }: Omit<CredentialFormModalProps, 'opened'>) {
+function CredentialForm({ onClose, credential, defaultClientId, link }: Omit<CredentialFormModalProps, 'opened'>) {
   const queryClient = useQueryClient();
   const clients = useClients();
   const editing = credential !== undefined;
+  // O vinculo com a aplicacao ou o servidor e mantido na edicao; trocar de cliente o desfaz.
+  const [multiline, setMultiline] = useState(false);
+  const [appLink, setAppLink] = useState({
+    webAppId: credential?.webAppId ?? link?.webAppId ?? undefined,
+    appServerId: credential?.appServerId ?? link?.appServerId ?? undefined,
+  });
   const form = useForm<FormValues>({
     initialValues: {
       clientId: credential ? String(credential.clientId) : defaultClientId ? String(defaultClientId) : null,
@@ -79,6 +88,8 @@ function CredentialForm({ onClose, credential, defaultClientId }: Omit<Credentia
       clientId: Number(v.clientId),
       siteId: v.siteId ? Number(v.siteId) : undefined,
       assetId: v.assetId ? Number(v.assetId) : undefined,
+      webAppId: appLink.webAppId,
+      appServerId: appLink.appServerId,
       name: v.name.trim(),
       username: optional(v.username),
       // No PUT, segredo ausente mantem o atual.
@@ -95,13 +106,15 @@ function CredentialForm({ onClose, credential, defaultClientId }: Omit<Credentia
         <SimpleGrid cols={{ base: 1, sm: 2 }}>
           <TextInput label="Nome" required data-autofocus maxLength={200} placeholder="Painel do firewall" {...form.getInputProps('name')} />
           <TextInput label="Usuário" maxLength={200} autoComplete="off" {...form.getInputProps('username')} />
-          <PasswordInput
-            label="Senha ou segredo"
-            required={!editing}
-            description={editing ? 'Deixe em branco para manter o atual.' : undefined}
-            autoComplete="new-password"
-            {...form.getInputProps('secret')}
-          />
+          {!multiline && (
+            <PasswordInput
+              label="Senha ou segredo"
+              required={!editing}
+              description={editing ? 'Deixe em branco para manter o atual.' : undefined}
+              autoComplete="new-password"
+              {...form.getInputProps('secret')}
+            />
+          )}
           <TextInput label="Endereço (URL)" placeholder="https://192.168.1.1" {...form.getInputProps('url')} />
           <Select
             label="Cliente"
@@ -114,6 +127,7 @@ function CredentialForm({ onClose, credential, defaultClientId }: Omit<Credentia
               form.setFieldValue('clientId', v);
               form.setFieldValue('siteId', null);
               form.setFieldValue('assetId', null);
+              setAppLink({ webAppId: undefined, appServerId: undefined });
             }}
           />
           <Select
@@ -125,6 +139,25 @@ function CredentialForm({ onClose, credential, defaultClientId }: Omit<Credentia
             {...form.getInputProps('siteId')}
           />
         </SimpleGrid>
+        <Switch
+          label="Segredo com várias linhas"
+          description="Para .env, certificado, chave ou token longo."
+          checked={multiline}
+          onChange={(e) => setMultiline(e.currentTarget.checked)}
+        />
+        {multiline && (
+          <Textarea
+            label="Segredo"
+            required={!editing}
+            description={editing ? 'Deixe em branco para manter o atual.' : undefined}
+            autosize
+            minRows={4}
+            maxRows={14}
+            spellCheck={false}
+            styles={{ input: { fontFamily: 'var(--mantine-font-family-monospace)', fontSize: 12 } }}
+            {...form.getInputProps('secret')}
+          />
+        )}
         <AssetSearchSelect
           key={form.values.clientId ?? 'sem-cliente'}
           label="Ativo"
