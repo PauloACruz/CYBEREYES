@@ -1,4 +1,5 @@
 import type {
+  DashboardOverviewParams,
   AgentStatus,
   ListReportRunsParams,
   ListAgentsParams,
@@ -62,6 +63,7 @@ export const queryKeys = {
   ticketLists: ['tickets', 'list'] as const,
   ticketList: (params: ListTicketsParams) => ['tickets', 'list', params] as const,
   ticketSummary: ['tickets', 'summary'] as const,
+  dashboardOverview: (params: DashboardOverviewParams) => ['dashboard', 'overview', params] as const,
   agentTicketLists: ['tickets', 'agent'] as const,
   agentTickets: (agentId: number) => ['tickets', 'agent', agentId] as const,
   /** Prefixo do detalhe: inclui mensagens, anexos e apontamentos do chamado. */

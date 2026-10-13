@@ -7,7 +7,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router';
 import { agentActionsApi } from '../../api/agentActions';
 import { agentsApi } from '../../api/agents';
 import { queryKeys } from '../../api/queryKeys';
-import { PERMISSIONS, type AgentSortColumn, type AgentStatus, type ListAgentsParams } from '../../api/types';
+import { PERMISSIONS, type AgentListItem, type AgentSortColumn, type AgentStatus, type ListAgentsParams } from '../../api/types';
 import { agentPath, personPath } from '../../app/paths';
 import { hasPermission } from '../../auth/permissions';
 import { useMe } from '../../auth/useMe';
@@ -17,14 +17,15 @@ import { EmptyRow, LoadError, LoadingRows } from '../../components/TableStates';
 import { confirmAction, notifySuccess } from '../../lib/feedback';
 import { totalPages } from '../../lib/format';
 import { useClients } from '../clients/useClients';
-import { AgentStatusBadge, OperatingSystemIcon, RelativeTime } from './agentDisplay';
+import { AgentContextMenu, type AgentMenuDialog } from './actions/AgentContextMenu';
+import { AgentStatusBadge, HealthScore, OperatingSystemIcon, RelativeTime } from './agentDisplay';
 import { loggedUser, STATUS_INFO, STATUS_OPTIONS } from './agentFormat';
 import { InstallAgentModal } from './InstallAgentModal';
 
 const PAGE_SIZE = 50;
-const COLUMNS = 9;
+const COLUMNS = 10;
 
-const SORT_COLUMNS: readonly AgentSortColumn[] = ['status', 'hostname', 'client', 'os', 'user', 'responsible', 'version', 'lastSeen', 'reboot'];
+const SORT_COLUMNS: readonly AgentSortColumn[] = ['status', 'health', 'hostname', 'client', 'os', 'user', 'responsible', 'version', 'lastSeen', 'reboot'];
 
 function isSortColumn(value: string | null): value is AgentSortColumn {
   return SORT_COLUMNS.includes(value as AgentSortColumn);
@@ -60,6 +61,8 @@ export function AgentsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [installOpened, installModal] = useDisclosure(false);
+  const [menu, setMenu] = useState<{ agent: AgentListItem; x: number; y: number } | null>(null);
+  const [dialog, setDialog] = useState<AgentMenuDialog>(null);
   const clients = useClients();
 
   const clientId = toId(searchParams.get('cliente'));
@@ -232,6 +235,7 @@ export function AgentsPage() {
             <Table.Thead>
               <Table.Tr>
                 <SortableTh label="Status" column="status" sort={sort} onSort={onSort} />
+                <SortableTh label="Saúde" column="health" sort={sort} onSort={onSort} />
                 <SortableTh label="Hostname" column="hostname" sort={sort} onSort={onSort} />
                 <SortableTh label="Cliente / site" column="client" sort={sort} onSort={onSort} />
                 <SortableTh label="Sistema" column="os" sort={sort} onSort={onSort} />
@@ -253,9 +257,24 @@ export function AgentsPage() {
               {rows.map((agent) => {
                 const user = loggedUser(agent);
                 return (
-                  <Table.Tr key={agent.id} style={{ cursor: 'pointer' }} onClick={() => void navigate(agentPath(agent.id))}>
-                    <Table.Td>
+                  <Table.Tr
+                    key={agent.id}
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => void navigate(agentPath(agent.id))}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      // Tecla de menu do teclado chega sem coordenadas: abre junto da linha.
+                      const box = e.currentTarget.getBoundingClientRect();
+                      const keyboard = e.clientX === 0 && e.clientY === 0;
+                      setDialog(null);
+                      setMenu({ agent, x: keyboard ? box.left + 24 : e.clientX, y: keyboard ? box.bottom : e.clientY });
+                    }}
+                  >
+                    <Table.Td miw={120}>
                       <AgentStatusBadge status={agent.status} />
+                    </Table.Td>
+                    <Table.Td miw={150}>
+                      <HealthScore score={agent.healthScore ?? null} grade={agent.healthGrade ?? null} />
                     </Table.Td>
                     <Table.Td>
                       <Anchor component={Link} to={agentPath(agent.id)} fw={500} size="sm" onClick={(e) => e.stopPropagation()}>
@@ -294,7 +313,7 @@ export function AgentsPage() {
                     <Table.Td>
                       <RelativeTime value={agent.lastSeen} />
                     </Table.Td>
-                    <Table.Td>
+                    <Table.Td miw={110}>
                       {agent.needsReboot && (
                         <Tooltip label="O sistema pediu reinício">
                           <Badge color="yellow" variant="light" size="sm" leftSection={<IconRefreshAlert size={12} aria-hidden />}>
@@ -327,6 +346,20 @@ export function AgentsPage() {
         </Group>
       )}
       {canInstall && <InstallAgentModal opened={installOpened} onClose={installModal.close} />}
+      {menu && (
+        <AgentContextMenu
+          key={`${menu.agent.id}-${menu.x}-${menu.y}`}
+          agent={menu.agent}
+          x={menu.x}
+          y={menu.y}
+          dialog={dialog}
+          onDialog={setDialog}
+          onClose={() => {
+            setMenu(null);
+            setDialog(null);
+          }}
+        />
+      )}
     </>
   );
 }

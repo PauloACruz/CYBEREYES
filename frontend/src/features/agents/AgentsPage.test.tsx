@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { personPath } from '../../app/paths';
@@ -132,5 +132,52 @@ describe('lista de agentes', () => {
     await user.type(screen.getByRole('textbox', { name: 'Buscar agentes' }), 'renata');
     await waitFor(() => expect(screen.queryByText('SRV-ARQUIVOS')).not.toBeInTheDocument());
     expect(searched.at(-1)).toBe('renata');
+  });
+
+  it('mostra a nota de saúde e abre o menu de ações com o botão direito', async () => {
+    const posts: string[] = [];
+    mockFetch({
+      'GET /api/auth/me': () => json(makeMe({ permissions: ['agents.view', 'agents.control', 'agents.remote', 'agents.files', 'agents.run', 'scripts.view'] })),
+      'GET /api/clients': () => json(CLIENTS),
+      'GET /api/agents': () =>
+        json({ items: [makeAgent({ plat: 'windows', healthScore: 92, healthGrade: 'otimo' }), { ...agents[1], status: 'offline' }], total: 2, page: 1, pageSize: 50 }),
+      'POST /api/agents/1/reboot': () => {
+        posts.push('reboot');
+        return json({});
+      },
+    });
+    renderApp('/agentes');
+    const user = userEvent.setup();
+
+    const row = (await screen.findByText('PC-RECEPCAO')).closest('tr') as HTMLElement;
+    expect(within(row).getByText('92')).toBeInTheDocument();
+    expect(within(row).getByText('Ótimo')).toBeInTheDocument();
+    const offline = screen.getByText('SRV-ARQUIVOS').closest('tr') as HTMLElement;
+    expect(within(offline).getByText('Sem nota')).toBeInTheDocument();
+
+    fireEvent.contextMenu(row, { clientX: 200, clientY: 120 });
+    const menu = await screen.findByRole('menu', { name: 'Ações de PC-RECEPCAO', hidden: true });
+    for (const label of ['Alterar hostname', 'Acesso remoto', 'Arquivos', 'Enviar comando', 'Executar script', 'Reiniciar', 'Desligar']) {
+      expect(within(menu).getByRole('menuitem', { name: label, hidden: true })).toBeEnabled();
+    }
+    await user.click(within(menu).getByRole('menuitem', { name: 'Reiniciar', hidden: true }));
+    await user.click(await screen.findByRole('button', { name: 'Reiniciar' }));
+    await waitFor(() => expect(posts).toEqual(['reboot']));
+
+    // Desligar abre a confirmacao pelo nome da maquina.
+    fireEvent.contextMenu(row, { clientX: 200, clientY: 120 });
+    const again = await screen.findByRole('menu', { name: 'Ações de PC-RECEPCAO', hidden: true });
+    await user.click(within(again).getByRole('menuitem', { name: 'Desligar', hidden: true }));
+    const shutdown = await screen.findByRole('dialog', { name: 'Desligar máquina' });
+    await user.click(within(shutdown).getByRole('button', { name: 'Cancelar' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Desligar máquina' })).not.toBeInTheDocument());
+
+    // Agente offline: as acoes aparecem desativadas, com o aviso.
+    fireEvent.contextMenu(screen.getByText('SRV-ARQUIVOS').closest('tr') as HTMLElement, { clientX: 200, clientY: 180 });
+    const offlineMenu = await screen.findByRole('menu', { name: 'Ações de SRV-ARQUIVOS', hidden: true });
+    expect(within(offlineMenu).getByText(/Agente offline/)).toBeInTheDocument();
+    expect(within(offlineMenu).getByRole('menuitem', { name: 'Acesso remoto', hidden: true })).toBeDisabled();
+    // Linux nao tem a opcao de renomear.
+    expect(within(offlineMenu).queryByRole('menuitem', { name: 'Alterar hostname', hidden: true })).not.toBeInTheDocument();
   });
 });

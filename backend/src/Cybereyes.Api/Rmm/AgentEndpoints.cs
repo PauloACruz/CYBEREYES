@@ -14,7 +14,8 @@ namespace Cybereyes.Api.Rmm;
 
 public sealed record AgentListItem(int Id, string AgentId, string Hostname, int ClientId, string ClientName, int SiteId, string SiteName,
     string MonitoringType, string Plat, string? OperatingSystem, string Status, DateTimeOffset? LastSeen, string Version,
-    string? LoggedInUsername, string? LastLoggedInUser, string? PublicIp, bool NeedsReboot, string? Description, ResponsibleRef? Responsible);
+    string? LoggedInUsername, string? LastLoggedInUser, string? PublicIp, bool NeedsReboot, string? Description, ResponsibleRef? Responsible,
+    int? HealthScore, string? HealthGrade);
 
 public sealed record AgentDetail(int Id, string AgentId, string Hostname, int ClientId, string ClientName, int SiteId, string SiteName,
     string MonitoringType, string Plat, string? GoArch, string? OperatingSystem, string Status, DateTimeOffset? LastSeen, string Version,
@@ -36,7 +37,7 @@ public static class AgentEndpoints
     }
 
     /// <summary>Colunas aceitas em sortBy na lista de agentes (padrao: hostname).</summary>
-    public static readonly string[] SortColumns = ["status", "hostname", "client", "type", "os", "user", "version", "lastSeen", "reboot", "responsible"];
+    public static readonly string[] SortColumns = ["status", "hostname", "client", "type", "os", "user", "version", "lastSeen", "reboot", "responsible", "health"];
 
     /// <summary>Agente com o responsavel atual do ativo do inventario ligado a ele.</summary>
     private sealed class AgentRow
@@ -44,6 +45,9 @@ public static class AgentEndpoints
         public required Agent A { get; init; }
         public int? PersonId { get; init; }
         public string? PersonName { get; init; }
+        /// <summary>Nota do ultimo Health Check (0 a 100) e a classificacao; nulas sem coleta.</summary>
+        public int? HealthScore { get; init; }
+        public string? HealthGrade { get; init; }
     }
 
     private static async Task<IResult> ListAsync(CybereyesDbContext db, int? clientId, int? siteId, string? status, string? search,
@@ -79,7 +83,12 @@ public static class AgentEndpoints
                           where x.UnassignedAt == null && db.Assets.Any(asset => asset.Id == x.AssetId && asset.AgentId == a.Id)
                           join p in db.People on x.PersonId equals p.Id
                           select new { p.Id, p.Name }).FirstOrDefault()
-            select new AgentRow { A = a, PersonId = person == null ? null : (int?)person.Id, PersonName = person == null ? null : person.Name };
+            let health = db.AgentHealth.Where(h => h.AgentId == a.Id).Select(h => new { h.Score, h.Grade }).FirstOrDefault()
+            select new AgentRow
+            {
+                A = a, PersonId = person == null ? null : (int?)person.Id, PersonName = person == null ? null : person.Name,
+                HealthScore = health == null ? null : (int?)health.Score, HealthGrade = health == null ? null : health.Grade,
+            };
         if (!string.IsNullOrWhiteSpace(search))
         {
             var pattern = $"%{search.Trim()}%";
@@ -92,7 +101,8 @@ public static class AgentEndpoints
         var items = await Sort(query, sortBy, desc).Skip((p - 1) * size).Take(size)
             .Select(r => new AgentListItem(r.A.Id, r.A.AgentId, r.A.Hostname, r.A.Site!.ClientId, r.A.Site.Client!.Name, r.A.SiteId, r.A.Site.Name,
                 r.A.MonitoringType, r.A.Plat, r.A.OperatingSystem, r.A.Status, r.A.LastSeen, r.A.Version, r.A.LoggedInUsername, r.A.LastLoggedInUser,
-                r.A.PublicIp, r.A.NeedsReboot, r.A.Description, r.PersonId == null ? null : new ResponsibleRef(r.PersonId.Value, r.PersonName!)))
+                r.A.PublicIp, r.A.NeedsReboot, r.A.Description, r.PersonId == null ? null : new ResponsibleRef(r.PersonId.Value, r.PersonName!),
+                r.HealthScore, r.HealthGrade))
             .ToListAsync(ct);
         return TypedResults.Ok(new Paged<AgentListItem>(items, total, p, size));
     }
@@ -112,6 +122,7 @@ public static class AgentEndpoints
             "lastSeen" => By(q, r => r.A.LastSeen, desc),
             "reboot" => By(q, r => r.A.NeedsReboot, desc),
             "responsible" => By(q, r => r.PersonName, desc),
+            "health" => By(q, r => r.HealthScore, desc),
             _ => By(q, r => r.A.Hostname, desc),
         };
         return ordered.ThenBy(r => r.A.Hostname).ThenBy(r => r.A.Id);

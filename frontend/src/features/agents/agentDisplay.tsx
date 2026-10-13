@@ -1,5 +1,6 @@
-import { Badge, Box, Group, Text, Tooltip } from '@mantine/core';
-import type { AgentStatus } from '../../api/types';
+import { Badge, Box, Group, Progress, Text, Tooltip } from '@mantine/core';
+import type { AgentStatus, HealthGrade } from '../../api/types';
+import { HEALTH_GRADE_INFO } from '../care/careFormat';
 import { formatDateTime, formatRelative } from '../../lib/format';
 import { platformInfo, STATUS_INFO } from './agentFormat';
 
@@ -33,6 +34,31 @@ export function OperatingSystemIcon({ plat, operatingSystem }: { plat: string; o
       <Box component="span" display="inline-flex" role="img" aria-label={name} c="dimmed">
         <info.icon size={18} aria-hidden style={{ flexShrink: 0 }} />
       </Box>
+    </Tooltip>
+  );
+}
+
+/** Nota de saude da lista: numero, barra e classificacao com a cor do Health Check. */
+export function HealthScore({ score, grade }: { score: number | null; grade: HealthGrade | null }) {
+  if (score === null || grade === null) {
+    return (
+      <Text size="sm" c="dimmed" title="O Health Check ainda não rodou nesta máquina">
+        Sem nota
+      </Text>
+    );
+  }
+  const info = HEALTH_GRADE_INFO[grade];
+  return (
+    <Tooltip label={`Nota ${score} de 100: ${info.label}`} withArrow>
+      <Group gap={8} wrap="nowrap">
+        <Text size="sm" fw={700} c={info.color} w={24} ta="right">
+          {score}
+        </Text>
+        <Progress value={score} color={info.color} size={6} w={48} aria-hidden />
+        <Text size="xs" c={info.color}>
+          {info.label}
+        </Text>
+      </Group>
     </Tooltip>
   );
 }
