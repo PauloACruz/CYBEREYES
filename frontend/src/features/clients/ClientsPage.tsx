@@ -1,8 +1,18 @@
 import { useState } from 'react';
-import { ActionIcon, Anchor, Badge, Button, Group, Menu, Paper, Skeleton, Stack, Table, Text, Title } from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks';
+import { ActionIcon, Anchor, Badge, Button, Collapse, Group, Menu, Paper, Skeleton, Stack, Table, Text, Title, UnstyledButton } from '@mantine/core';
+import { useDisclosure, useLocalStorage } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
-import { IconBuilding, IconDots, IconMapPin, IconPencil, IconPlus, IconTrash } from '@tabler/icons-react';
+import {
+  IconBuilding,
+  IconChevronRight,
+  IconDots,
+  IconLayoutNavbarCollapse,
+  IconLayoutNavbarExpand,
+  IconMapPin,
+  IconPencil,
+  IconPlus,
+  IconTrash,
+} from '@tabler/icons-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import { clientsApi } from '../../api/clients';
@@ -21,6 +31,10 @@ import { useClients } from './useClients';
 
 function agentsLabel(count: number): string {
   return count === 1 ? '1 agente' : `${count} agentes`;
+}
+
+function sitesLabel(count: number): string {
+  return count === 1 ? '1 site' : `${count} sites`;
 }
 
 function agentsLink(clientId: number, siteId?: number): string {
@@ -43,6 +57,13 @@ export function ClientsPage() {
   const clients = useClients();
   const [createOpened, createModal] = useDisclosure(false);
   const [nameModal, setNameModal] = useState<NameModalConfig | null>(null);
+  // Clientes abertos ficam guardados neste navegador; a lista comeca recolhida.
+  const [openIds, setOpenIds] = useLocalStorage<number[]>({ key: 'cybereyes:clientes-abertos', defaultValue: [] });
+  const isOpen = (clientId: number) => openIds.includes(clientId);
+  const setOpen = (clientId: number, open: boolean) =>
+    setOpenIds((current) => (open ? [...new Set([...current, clientId])] : current.filter((id) => id !== clientId)));
+  const allIds = clients.data?.map((c) => c.id) ?? [];
+  const allOpen = allIds.length > 0 && allIds.every(isOpen);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: queryKeys.clients });
 
@@ -84,6 +105,7 @@ export function ClientsPage() {
       save: async (name) => {
         await clientsApi.addSite(client.id, { name });
         notifySuccess(`Site ${name} adicionado.`);
+        setOpen(client.id, true);
         await invalidate();
       },
     });
@@ -106,11 +128,22 @@ export function ClientsPage() {
         title="Clientes"
         description="Clientes e seus sites (locais ou unidades). Todo agente pertence a um site."
         actions={
-          canManage && (
-            <Button leftSection={<IconPlus size={16} />} onClick={createModal.open}>
-              Novo cliente
-            </Button>
-          )
+          <>
+            {allIds.length > 1 && (
+              <Button
+                variant="default"
+                leftSection={allOpen ? <IconLayoutNavbarCollapse size={16} /> : <IconLayoutNavbarExpand size={16} />}
+                onClick={() => setOpenIds(allOpen ? [] : allIds)}
+              >
+                {allOpen ? 'Recolher todos' : 'Expandir todos'}
+              </Button>
+            )}
+            {canManage && (
+              <Button leftSection={<IconPlus size={16} />} onClick={createModal.open}>
+                Novo cliente
+              </Button>
+            )}
+          </>
         }
       />
       {clients.isError && <LoadError error={clients.error} onRetry={() => void clients.refetch()} />}
@@ -127,122 +160,146 @@ export function ClientsPage() {
           </Text>
         </Paper>
       )}
-      <Stack>
-        {clients.data?.map((client) => (
-          <Paper key={client.id} withBorder component="section" aria-label={client.name}>
-            <Group justify="space-between" p="md" wrap="nowrap">
-              <Group gap="sm" wrap="nowrap">
-                <IconBuilding size={20} aria-hidden />
-                <Title order={4}>{client.name}</Title>
-                {canViewAgents ? (
-                  <Anchor component={Link} to={agentsLink(client.id)} size="sm">
-                    {agentsLabel(client.agentCount)}
-                  </Anchor>
-                ) : (
-                  <Badge variant="light" color="gray">
-                    {agentsLabel(client.agentCount)}
+      <Stack gap="xs">
+        {clients.data?.map((client) => {
+          const open = isOpen(client.id);
+          const sitesId = `cliente-${client.id}-sites`;
+          return (
+            <Paper key={client.id} withBorder component="section" aria-label={client.name}>
+              <Group justify="space-between" px="md" py="sm" wrap="nowrap">
+                <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
+                  <Title order={4} style={{ minWidth: 0 }}>
+                    <UnstyledButton
+                      onClick={() => setOpen(client.id, !open)}
+                      aria-expanded={open}
+                      aria-controls={sitesId}
+                      title={open ? 'Recolher os sites' : 'Expandir os sites'}
+                      style={{ display: 'flex', alignItems: 'center', gap: 'var(--mantine-spacing-sm)', font: 'inherit', minWidth: 0 }}
+                    >
+                      <IconChevronRight
+                        size={18}
+                        aria-hidden
+                        style={{ flexShrink: 0, transition: 'transform 150ms ease', transform: open ? 'rotate(90deg)' : undefined }}
+                      />
+                      <IconBuilding size={20} aria-hidden style={{ flexShrink: 0 }} />
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{client.name}</span>
+                    </UnstyledButton>
+                  </Title>
+                  <Badge variant="light" color="gray" style={{ flexShrink: 0 }}>
+                    {sitesLabel(client.sites.length)}
                   </Badge>
+                  {canViewAgents ? (
+                    <Anchor component={Link} to={agentsLink(client.id)} size="sm">
+                      {agentsLabel(client.agentCount)}
+                    </Anchor>
+                  ) : (
+                    <Badge variant="light" color="gray">
+                      {agentsLabel(client.agentCount)}
+                    </Badge>
+                  )}
+                </Group>
+                {canManage && (
+                  <Menu position="bottom-end" withinPortal>
+                    <Menu.Target>
+                      <ActionIcon variant="subtle" color="gray" aria-label={`Ações para o cliente ${client.name}`}>
+                        <IconDots size={16} />
+                      </ActionIcon>
+                    </Menu.Target>
+                    <Menu.Dropdown>
+                      <Menu.Item leftSection={<IconPlus size={16} />} onClick={() => addSite(client)}>
+                        Adicionar site
+                      </Menu.Item>
+                      <Menu.Item leftSection={<IconPencil size={16} />} onClick={() => renameClient(client)}>
+                        Renomear
+                      </Menu.Item>
+                      <Menu.Divider />
+                      <Menu.Item
+                        color="red"
+                        leftSection={<IconTrash size={16} />}
+                        onClick={() =>
+                          confirmAction({
+                            title: 'Excluir cliente',
+                            message: `Excluir o cliente ${client.name} e todos os seus sites? Esta ação não pode ser desfeita.`,
+                            confirmLabel: 'Excluir',
+                            danger: true,
+                            onConfirm: () => removeClient.mutate(client),
+                          })
+                        }
+                      >
+                        Excluir
+                      </Menu.Item>
+                    </Menu.Dropdown>
+                  </Menu>
                 )}
               </Group>
-              {canManage && (
-                <Menu position="bottom-end" withinPortal>
-                  <Menu.Target>
-                    <ActionIcon variant="subtle" color="gray" aria-label={`Ações para o cliente ${client.name}`}>
-                      <IconDots size={16} />
-                    </ActionIcon>
-                  </Menu.Target>
-                  <Menu.Dropdown>
-                    <Menu.Item leftSection={<IconPlus size={16} />} onClick={() => addSite(client)}>
-                      Adicionar site
-                    </Menu.Item>
-                    <Menu.Item leftSection={<IconPencil size={16} />} onClick={() => renameClient(client)}>
-                      Renomear
-                    </Menu.Item>
-                    <Menu.Divider />
-                    <Menu.Item
-                      color="red"
-                      leftSection={<IconTrash size={16} />}
-                      onClick={() =>
-                        confirmAction({
-                          title: 'Excluir cliente',
-                          message: `Excluir o cliente ${client.name} e todos os seus sites? Esta ação não pode ser desfeita.`,
-                          confirmLabel: 'Excluir',
-                          danger: true,
-                          onConfirm: () => removeClient.mutate(client),
-                        })
-                      }
-                    >
-                      Excluir
-                    </Menu.Item>
-                  </Menu.Dropdown>
-                </Menu>
-              )}
-            </Group>
-            <Table verticalSpacing="xs" withRowBorders>
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th pl="md">Site</Table.Th>
-                  <Table.Th>Agentes</Table.Th>
-                  <Table.Th w={60}>
-                    <span className="mantine-visually-hidden">Ações</span>
-                  </Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {client.sites.map((site) => (
-                  <Table.Tr key={site.id}>
-                    <Table.Td pl="md">
-                      <Group gap={6} wrap="nowrap">
-                        <IconMapPin size={16} aria-hidden />
-                        <Text size="sm">{site.name}</Text>
-                      </Group>
-                    </Table.Td>
-                    <Table.Td>
-                      {canViewAgents ? (
-                        <Anchor component={Link} to={agentsLink(client.id, site.id)} size="sm">
-                          {agentsLabel(site.agentCount)}
-                        </Anchor>
-                      ) : (
-                        agentsLabel(site.agentCount)
-                      )}
-                    </Table.Td>
-                    <Table.Td>
-                      {canManage && (
-                        <Menu position="bottom-end" withinPortal>
-                          <Menu.Target>
-                            <ActionIcon variant="subtle" color="gray" aria-label={`Ações para o site ${site.name}`}>
-                              <IconDots size={16} />
-                            </ActionIcon>
-                          </Menu.Target>
-                          <Menu.Dropdown>
-                            <Menu.Item leftSection={<IconPencil size={16} />} onClick={() => renameSite(site)}>
-                              Renomear
-                            </Menu.Item>
-                            <Menu.Item
-                              color="red"
-                              leftSection={<IconTrash size={16} />}
-                              onClick={() =>
-                                confirmAction({
-                                  title: 'Excluir site',
-                                  message: `Excluir o site ${site.name} do cliente ${client.name}? Esta ação não pode ser desfeita.`,
-                                  confirmLabel: 'Excluir',
-                                  danger: true,
-                                  onConfirm: () => removeSite.mutate(site),
-                                })
-                              }
-                            >
-                              Excluir
-                            </Menu.Item>
-                          </Menu.Dropdown>
-                        </Menu>
-                      )}
-                    </Table.Td>
-                  </Table.Tr>
-                ))}
-              </Table.Tbody>
-            </Table>
-          </Paper>
-        ))}
+              <Collapse expanded={open} transitionDuration={150} id={sitesId}>
+                <Table verticalSpacing="xs" withRowBorders>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th pl="md">Site</Table.Th>
+                      <Table.Th>Agentes</Table.Th>
+                      <Table.Th w={60}>
+                        <span className="mantine-visually-hidden">Ações</span>
+                      </Table.Th>
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {client.sites.map((site) => (
+                      <Table.Tr key={site.id}>
+                        <Table.Td pl="md">
+                          <Group gap={6} wrap="nowrap">
+                            <IconMapPin size={16} aria-hidden />
+                            <Text size="sm">{site.name}</Text>
+                          </Group>
+                        </Table.Td>
+                        <Table.Td>
+                          {canViewAgents ? (
+                            <Anchor component={Link} to={agentsLink(client.id, site.id)} size="sm">
+                              {agentsLabel(site.agentCount)}
+                            </Anchor>
+                          ) : (
+                            agentsLabel(site.agentCount)
+                          )}
+                        </Table.Td>
+                        <Table.Td>
+                          {canManage && (
+                            <Menu position="bottom-end" withinPortal>
+                              <Menu.Target>
+                                <ActionIcon variant="subtle" color="gray" aria-label={`Ações para o site ${site.name}`}>
+                                  <IconDots size={16} />
+                                </ActionIcon>
+                              </Menu.Target>
+                              <Menu.Dropdown>
+                                <Menu.Item leftSection={<IconPencil size={16} />} onClick={() => renameSite(site)}>
+                                  Renomear
+                                </Menu.Item>
+                                <Menu.Item
+                                  color="red"
+                                  leftSection={<IconTrash size={16} />}
+                                  onClick={() =>
+                                    confirmAction({
+                                      title: 'Excluir site',
+                                      message: `Excluir o site ${site.name} do cliente ${client.name}? Esta ação não pode ser desfeita.`,
+                                      confirmLabel: 'Excluir',
+                                      danger: true,
+                                      onConfirm: () => removeSite.mutate(site),
+                                    })
+                                  }
+                                >
+                                  Excluir
+                                </Menu.Item>
+                              </Menu.Dropdown>
+                            </Menu>
+                          )}
+                        </Table.Td>
+                      </Table.Tr>
+                    ))}
+                  </Table.Tbody>
+                </Table>
+              </Collapse>
+            </Paper>
+          );
+        })}
       </Stack>
       {canManage && <CreateClientModal opened={createOpened} onClose={createModal.close} />}
       <NameModal config={nameModal} onClose={() => setNameModal(null)} />
