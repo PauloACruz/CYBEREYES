@@ -14,7 +14,7 @@ public sealed partial class AgentTests
     [Fact]
     public async Task ListAgents_ShowsHealthScoreAndSortsByIt()
     {
-        var (admin, pk, _, _, clientId, siteId) = await RegisteredAgentAsync("Cliente saude");
+        var (admin, pk, _, _, clientId, siteId) = await RegisteredAgentAsync("Cliente nota de saude na lista");
         var installer = await InstallerTokenAsync(admin, siteId);
         var (_, semNota, _) = await RegisterAgentAsync(installer, siteId, "sem-nota");
         using (var scope = fixture.Services.CreateScope())
@@ -36,7 +36,7 @@ public sealed partial class AgentTests
     [Fact]
     public async Task DashboardOverview_CountsAgentsTicketsAndChecksPerDay()
     {
-        var (admin, pk, _, _, clientId, _) = await RegisteredAgentAsync("Cliente painel");
+        var (admin, pk, _, _, clientId, _) = await RegisteredAgentAsync("Cliente visao geral do painel");
         var tecnico = Guid.Empty;
         using (var scope = fixture.Services.CreateScope())
         {
