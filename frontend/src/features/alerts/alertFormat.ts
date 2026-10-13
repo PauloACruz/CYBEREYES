@@ -9,6 +9,8 @@ export const ALERT_TYPE_LABEL: Record<AlertType, string> = {
   snmp_interface: 'Interface SNMP',
   snmp_sensor: 'Sensor SNMP',
   snmp_trap: 'Trap SNMP',
+  webapp_down: 'Aplicação fora do ar',
+  webapp_ssl: 'Certificado TLS',
 };
 
 export const STATUS_FILTER_OPTIONS: { value: AlertStatusFilter; label: string }[] = [

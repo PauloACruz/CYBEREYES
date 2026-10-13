@@ -6,7 +6,7 @@
 | `POSTGRES_PASSWORD` | `.env` | criacao do volume do PostgreSQL (so no primeiro boot), `migrate`, `api`, `backup` | recuperavel (troca pelo `psql` no conteiner) |
 | `REDIS_PASSWORD` | `.env` | `redis` (`--requirepass`), `api` (`ConnectionStrings:Redis`) | sem impacto: gere outra |
 | `NATS_API_USER` / `NATS_API_PASSWORD` | `.env`; a API grava o usuario dela em `nats_auth/users.conf` | `api` (`Nats:User`, `Nats:Password`), `nats` | sem impacto: gere outra |
-| `VAULT_KEY` | `.env` (fora do banco de proposito) | cofre: credenciais da documentacao, comunidades e senhas SNMP, segredo do cliente OIDC | **irrecuperavel**: segredos do cofre ficam ilegiveis |
+| `VAULT_KEY` | `.env` (fora do banco de proposito) | cofre: credenciais da documentacao, comunidades e senhas SNMP, segredo do cliente OIDC, senhas e chaves SSH dos servidores do modulo Aplicacoes | **irrecuperavel**: segredos do cofre ficam ilegiveis |
 | Chaves do Data Protection | banco, tabela `data_protection_keys` (sem cifragem propria) | cookie de sessao, senha do SMTP, tokens das implantacoes, estado do login SSO | sessoes caem; senha SMTP e implantacoes precisam ser refeitas |
 | `BACKUP_PASSPHRASE` | `.env` e cofre de senhas da equipe | cifragem dos backups | **backups cifrados com ela ficam ilegiveis** |
 | `ADMIN_PASSWORD` | `.env` | `migrate`, so quando o banco nao tem nenhum usuario | sem impacto depois da instalacao |
@@ -75,7 +75,7 @@ Faca um backup antes. Os segredos do cofre (`VAULT_KEY`) nao dependem dessas cha
 
 ## VAULT_KEY
 Os segredos do cofre sao cifrados com AES-256-GCM usando diretamente a `VAULT_KEY`, num formato com uma unica versao de chave (`v1:`). Consequencias:
-- **Trocar a `VAULT_KEY` sem recifrar torna ilegiveis todos os segredos do cofre ja gravados** (credenciais da documentacao, comunidades e senhas SNMP v3, segredo do cliente OIDC).
+- **Trocar a `VAULT_KEY` sem recifrar torna ilegiveis todos os segredos do cofre ja gravados** (credenciais da documentacao, comunidades e senhas SNMP v3, segredo do cliente OIDC, senhas e chaves SSH dos servidores do modulo Aplicacoes).
 - **Hoje nao existe ferramenta para recifrar.** Nao ha comando de rotacao no backend nem script no repositorio.
 
 Se a troca for inevitavel (chave vazada), o unico caminho hoje e manual:

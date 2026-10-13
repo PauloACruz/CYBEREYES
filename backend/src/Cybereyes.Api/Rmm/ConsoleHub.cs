@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using Cybereyes.Api.Apps;
 using Cybereyes.Api.Infrastructure;
+using Cybereyes.Api.Inventory;
 using Cybereyes.Api.Rmm.Actions;
 using Cybereyes.Core.Audit;
 using Cybereyes.Core.Persistence;
@@ -10,8 +12,11 @@ using Cybereyes.Core.Security;
 namespace Cybereyes.Api.Rmm;
 
 [Authorize]
-public sealed class ConsoleHub(TerminalSessions terminals, CybereyesDbContext db, IAuditService audit) : Hub
+public sealed class ConsoleHub(TerminalSessions terminals, SshTerminalSessions sshTerminals, CybereyesDbContext db, IAuditService audit, Vault vault,
+    TimeProvider time) : Hub
 {
+    private const int MaxSshTerminalsPerConnection = 8;
+
     public async Task<string> StartTerminal(int agentPk, int cols, int rows, string? shell)
     {
         if (Context.User?.HasPermission(Permissions.AgentsRun) != true)
@@ -35,11 +40,93 @@ public sealed class ConsoleHub(TerminalSessions terminals, CybereyesDbContext db
         return sessionId;
     }
 
-    public Task TerminalInput(string sessionId, string data) => terminals.InputAsync(Context.ConnectionId, sessionId, data);
+    /// <summary>Terminal SSH num servidor do modulo Aplicacoes; com a aplicacao, abre na pasta dela.</summary>
+    public async Task<string> StartSshTerminal(int serverId, int? webAppId, int cols, int rows)
+    {
+        if (Context.User?.HasPermission(Permissions.AppsRun) != true)
+        {
+            throw new HubException("Sem permissao para abrir terminal SSH");
+        }
+        if (!vault.Enabled)
+        {
+            throw new HubException("Cofre de credenciais sem chave configurada (VAULT_KEY)");
+        }
+        if (sshTerminals.CountFor(Context.ConnectionId) >= MaxSshTerminalsPerConnection)
+        {
+            throw new HubException($"Limite de {MaxSshTerminalsPerConnection} terminais SSH abertos por janela");
+        }
+        db.ApplyClientScope(Context.User);
+        var server = await db.AppServers.AsNoTracking().FirstOrDefaultAsync(s => s.Id == serverId, Context.ConnectionAborted)
+            ?? throw new HubException("Servidor nao encontrado");
+        string? directory = null;
+        if (webAppId is { } appId)
+        {
+            var webApp = await db.WebApps.AsNoTracking().FirstOrDefaultAsync(w => w.Id == appId && w.ServerId == serverId, Context.ConnectionAborted)
+                ?? throw new HubException("A aplicacao nao roda neste servidor");
+            directory = webApp.DeployPath;
+        }
 
-    public Task ResizeTerminal(string sessionId, int cols, int rows) => terminals.ResizeAsync(Context.ConnectionId, sessionId, cols, rows);
+        var username = Context.User.Identity?.Name ?? "?";
+        try
+        {
+            var target = SshTarget.FromServer(server, vault);
+            var (sessionId, session) = await sshTerminals.StartAsync(Context.ConnectionId, username, target, directory, cols, rows, Context.ConnectionAborted);
+            await SshConnector.RecordConnectionAsync(db, server.Id, session, time, Context.ConnectionAborted);
+            await audit.LogAsync("app-server.terminal-opened", "app-server", server.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                $"Terminal SSH aberto em {server.Name} ({server.Username}@{server.Host})", username, Context.ConnectionAborted);
+            return sessionId;
+        }
+        catch (Exception ex) when (ex is SshFailureException or System.Security.Cryptography.CryptographicException)
+        {
+            throw new HubException(ex is SshFailureException ? ex.Message : "Nao foi possivel decifrar a credencial: a chave do cofre mudou?");
+        }
+    }
 
-    public Task StopTerminal(string sessionId) => terminals.StopAsync(Context.ConnectionId, sessionId);
+    public Task TerminalInput(string sessionId, string data)
+    {
+        if (sshTerminals.Owns(sessionId))
+        {
+            sshTerminals.Input(Context.ConnectionId, sessionId, data);
+            return Task.CompletedTask;
+        }
+        return terminals.InputAsync(Context.ConnectionId, sessionId, data);
+    }
+
+    public Task ResizeTerminal(string sessionId, int cols, int rows)
+    {
+        if (sshTerminals.Owns(sessionId))
+        {
+            sshTerminals.Resize(Context.ConnectionId, sessionId, cols, rows);
+            return Task.CompletedTask;
+        }
+        return terminals.ResizeAsync(Context.ConnectionId, sessionId, cols, rows);
+    }
+
+    public Task StopTerminal(string sessionId)
+    {
+        if (sshTerminals.Owns(sessionId))
+        {
+            sshTerminals.Stop(Context.ConnectionId, sessionId);
+            return Task.CompletedTask;
+        }
+        return terminals.StopAsync(Context.ConnectionId, sessionId);
+    }
+
+    public async Task JoinAppRun(long runId)
+    {
+        if (Context.User?.HasPermission(Permissions.AppsView) != true)
+        {
+            throw new HubException("Sem permissao para ver aplicacoes");
+        }
+        db.ApplyClientScope(Context.User);
+        if (!await db.AppRuns.AnyAsync(r => r.Id == runId, Context.ConnectionAborted))
+        {
+            throw new HubException("Execucao nao encontrada");
+        }
+        await Groups.AddToGroupAsync(Context.ConnectionId, AppRunner.Group(runId));
+    }
+
+    public Task LeaveAppRun(long runId) => Groups.RemoveFromGroupAsync(Context.ConnectionId, AppRunner.Group(runId));
 
     public async Task JoinTicket(int ticketId)
     {
@@ -94,6 +181,7 @@ public sealed class ConsoleHub(TerminalSessions terminals, CybereyesDbContext db
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
         await terminals.StopAllAsync(Context.ConnectionId);
+        sshTerminals.StopAll(Context.ConnectionId);
         await base.OnDisconnectedAsync(exception);
     }
 }

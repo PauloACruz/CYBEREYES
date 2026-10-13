@@ -24,7 +24,7 @@ public sealed partial class IncidentService(CybereyesDbContext db, TicketService
                 join a in db.Alerts on t.AlertId equals a.Id
                 where t.AgentId == alert.AgentId && t.Type == TicketType.Incident && TicketStatus.Open.Contains(t.Status) &&
                       a.AlertType == alert.AlertType && a.CheckId == alert.CheckId && a.TaskId == alert.TaskId &&
-                      a.SnmpDeviceId == alert.SnmpDeviceId && a.SubjectKey == alert.SubjectKey
+                      a.SnmpDeviceId == alert.SnmpDeviceId && a.WebAppId == alert.WebAppId && a.SubjectKey == alert.SubjectKey
                 select t).FirstOrDefaultAsync(ct);
             if (reusable is not null)
             {
@@ -36,7 +36,10 @@ public sealed partial class IncidentService(CybereyesDbContext db, TicketService
             var device = alert.SnmpDeviceId is { } deviceId
                 ? await db.SnmpDevices.AsNoTracking().Where(d => d.Id == deviceId).Select(d => new { d.Name, d.ClientId, d.SiteId }).FirstOrDefaultAsync(ct)
                 : null;
-            var hostname = device?.Name ?? await db.Agents.AsNoTracking().Where(a => a.Id == alert.AgentId).Select(a => a.Hostname).FirstOrDefaultAsync(ct) ?? "?";
+            var app = alert.WebAppId is { } appId
+                ? await db.WebApps.AsNoTracking().IgnoreQueryFilters().Where(w => w.Id == appId).Select(w => new { w.Name, w.ClientId }).FirstOrDefaultAsync(ct)
+                : null;
+            var hostname = device?.Name ?? app?.Name ?? await db.Agents.AsNoTracking().Where(a => a.Id == alert.AgentId).Select(a => a.Hostname).FirstOrDefaultAsync(ct) ?? "?";
             var title = $"[{hostname}] {alert.Message}";
             var queueId = settings.IncidentQueueId is { } q && await db.TicketQueues.AnyAsync(x => x.Id == q, ct) ? q : (int?)null;
             var created = await tickets.CreateAsync(new NewTicket(title.Length > 200 ? title[..200] : title, alert.Message, TicketType.Incident,
@@ -45,6 +48,11 @@ public sealed partial class IncidentService(CybereyesDbContext db, TicketService
             {
                 created.ClientId = device.ClientId;
                 created.SiteId = device.SiteId;
+                await db.SaveChangesAsync(ct);
+            }
+            else if (app is not null && alert.AgentId is null)
+            {
+                created.ClientId = app.ClientId;
                 await db.SaveChangesAsync(ct);
             }
         }

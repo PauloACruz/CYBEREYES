@@ -174,6 +174,8 @@ public static class AlertTypes
     public const string SnmpInterface = "snmp_interface";
     public const string SnmpSensor = "snmp_sensor";
     public const string SnmpTrap = "snmp_trap";
+    public const string WebAppDown = "webapp_down";
+    public const string WebAppSsl = "webapp_ssl";
 }
 
 public sealed class Alert
@@ -183,6 +185,8 @@ public sealed class Alert
     public Agent? Agent { get; set; }
     public int? SnmpDeviceId { get; set; }
     public SnmpDevice? SnmpDevice { get; set; }
+    public int? WebAppId { get; set; }
+    public Apps.WebApp? WebApp { get; set; }
 
     /// <summary>Distingue alertas do mesmo tipo na mesma origem (regra de log, interface, sensor).</summary>
     public string? SubjectKey { get; set; }

@@ -125,6 +125,10 @@ public sealed class Credential
     public int ClientId { get; set; }
     public int? SiteId { get; set; }
     public int? AssetId { get; set; }
+
+    /// <summary>Credencial de uma aplicacao ou de um servidor do modulo Aplicacoes (painel, banco, token, .env).</summary>
+    public int? WebAppId { get; set; }
+    public int? AppServerId { get; set; }
     public required string Name { get; set; }
     public string? Username { get; set; }
     public required string SecretEncrypted { get; set; }

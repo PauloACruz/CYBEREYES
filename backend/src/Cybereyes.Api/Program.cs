@@ -125,6 +125,10 @@ builder.Services.AddSingleton(sp => new Cybereyes.Api.Rmm.Actions.TerminalSessio
     sp.GetService<NATS.Client.Core.INatsConnection>(), sp.GetRequiredService<IAgentRpc>(),
     sp.GetRequiredService<Microsoft.AspNetCore.SignalR.IHubContext<ConsoleHub>>(),
     sp.GetRequiredService<ILogger<Cybereyes.Api.Rmm.Actions.TerminalSessions>>()));
+builder.Services.AddSingleton<Cybereyes.Api.Apps.SshTerminalSessions>();
+builder.Services.AddSingleton<Cybereyes.Api.Apps.AppRunner>();
+builder.Services.AddSingleton<Cybereyes.Api.Apps.WebAppMonitor>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<Cybereyes.Api.Apps.WebAppMonitor>());
 builder.Services.AddSingleton<NatsAuthWriter>();
 builder.Services.AddSingleton<NatsAuthSync>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<NatsAuthSync>());
@@ -231,6 +235,7 @@ Cybereyes.Api.Logs.LogEndpoints.MapLogEndpoints(app);
 Cybereyes.Api.Snmp.SnmpEndpoints.MapSnmpEndpoints(app);
 Cybereyes.Api.Reports.ReportEndpoints.MapReportEndpoints(app);
 Cybereyes.Api.Sso.SsoEndpoints.MapSsoEndpoints(app);
+Cybereyes.Api.Apps.AppEndpoints.MapAppEndpoints(app);
 
 if (args.Contains("--migrate-only"))
 {

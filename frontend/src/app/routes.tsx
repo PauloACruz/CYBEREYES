@@ -94,6 +94,23 @@ export const routes: RouteObject[] = [
             ],
           },
           {
+            element: <RequirePermission permission={PERMISSIONS.appsView} />,
+            children: [
+              {
+                path: PATHS.webApps,
+                lazy: () => import('../features/webapps/WebAppsPage').then((m) => ({ Component: m.WebAppsPage })),
+              },
+              {
+                path: `${PATHS.webApps}/servidores/:id`,
+                lazy: () => import('../features/webapps/ServerDetailPage').then((m) => ({ Component: m.ServerDetailPage })),
+              },
+              {
+                path: `${PATHS.webApps}/:id`,
+                lazy: () => import('../features/webapps/WebAppDetailPage').then((m) => ({ Component: m.WebAppDetailPage })),
+              },
+            ],
+          },
+          {
             element: <RequirePermission permission={PERMISSIONS.logsView} />,
             children: [
               {

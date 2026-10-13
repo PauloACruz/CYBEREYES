@@ -194,7 +194,7 @@ public static partial class AlertsPatchesEndpoints
         }
         if (clientId is { } c)
         {
-            query = query.Where(a => a.Agent!.Site!.ClientId == c || a.SnmpDevice!.ClientId == c);
+            query = query.Where(a => a.Agent!.Site!.ClientId == c || a.SnmpDevice!.ClientId == c || a.WebApp!.ClientId == c);
         }
         if (agentId is { } ag)
         {
@@ -204,10 +204,11 @@ public static partial class AlertsPatchesEndpoints
         var items = await query.OrderByDescending(a => a.CreatedAt).Skip((p - 1) * size).Take(size)
             .Select(a => new
             {
-                a.Id, a.AgentId, a.Agent!.Hostname, a.SnmpDeviceId, DeviceName = a.SnmpDevice!.Name,
+                a.Id, a.AgentId, a.Agent!.Hostname, a.SnmpDeviceId, DeviceName = a.SnmpDevice!.Name, a.WebAppId, WebAppName = a.WebApp!.Name,
                 // Subconsultas em vez de a.Agent.Site.Client: com o filtro de clientes, a navegacao obrigatoria depois do
                 // agente opcional vira INNER JOIN e some com os alertas de SNMP.
-                ClientName = db.Clients.Where(x => x.Id == (a.AgentId != null ? a.Agent!.Site!.ClientId : a.SnmpDevice!.ClientId)).Select(x => x.Name).FirstOrDefault(),
+                ClientName = db.Clients.Where(x => x.Id == (a.AgentId != null ? a.Agent!.Site!.ClientId
+                    : a.SnmpDeviceId != null ? a.SnmpDevice!.ClientId : a.WebApp!.ClientId)).Select(x => x.Name).FirstOrDefault(),
                 SiteName = db.Sites.Where(x => x.Id == (a.AgentId != null ? a.Agent!.SiteId : a.SnmpDevice!.SiteId)).Select(x => x.Name).FirstOrDefault(),
                 a.AlertType, a.CheckId, a.TaskId,
                 a.Severity, a.Message, a.CreatedAt, a.Resolved, a.ResolvedAt, a.SnoozedUntil, a.EmailSent, a.WebhookSent,

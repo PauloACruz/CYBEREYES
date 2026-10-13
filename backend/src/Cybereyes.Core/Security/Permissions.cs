@@ -43,6 +43,9 @@ public static class Permissions
     public const string SnmpManage = "snmp.manage";
     public const string ReportsView = "reports.view";
     public const string ReportsManage = "reports.manage";
+    public const string AppsView = "apps.view";
+    public const string AppsManage = "apps.manage";
+    public const string AppsRun = "apps.run";
 
     public static IReadOnlyList<PermissionInfo> Catalog { get; } =
     [
@@ -83,6 +86,9 @@ public static class Permissions
         new(SnmpManage, "SNMP", "Cadastrar dispositivos SNMP, sensores e coletores"),
         new(ReportsView, "Relatorios", "Gerar, visualizar e baixar relatorios"),
         new(ReportsManage, "Relatorios", "Criar e alterar agendamentos e excluir relatorios gerados"),
+        new(AppsView, "Aplicacoes", "Ver servidores, aplicacoes web, status, historico e saida de comandos"),
+        new(AppsManage, "Aplicacoes", "Cadastrar servidores, aplicacoes, acesso SSH, deploy e comandos salvos"),
+        new(AppsRun, "Aplicacoes", "Abrir terminal SSH, executar comandos e fazer deploy nos servidores"),
     ];
 
     private static readonly HashSet<string> Known = Catalog.Select(p => p.Key).ToHashSet(StringComparer.Ordinal);

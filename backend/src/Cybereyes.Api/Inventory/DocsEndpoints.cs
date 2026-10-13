@@ -26,7 +26,7 @@ public sealed record SaveDiagramRequest(int ClientId, int? SiteId, [property: Re
 public sealed record SaveCredentialRequest(
     int ClientId, int? SiteId, int? AssetId, [property: Required, StringLength(200, MinimumLength = 1)] string Name,
     [property: StringLength(256)] string? Username, [property: StringLength(10000)] string? Secret, [property: StringLength(2000)] string? Url,
-    [property: StringLength(5000)] string? Notes);
+    [property: StringLength(5000)] string? Notes, int? WebAppId = null, int? AppServerId = null);
 
 public sealed record SavePageRequest(int ClientId, int? SiteId, [property: Required, StringLength(200, MinimumLength = 2)] string Title,
     [property: StringLength(200000)] string? Body);
@@ -397,7 +397,7 @@ public static class DocsEndpoints
     // Credenciais
 
     private static async Task<IResult> CredentialsAsync(CybereyesDbContext db, Vault vault, CancellationToken ct, int? clientId = null, int? assetId = null,
-        string? search = null)
+        string? search = null, int? webAppId = null, int? appServerId = null)
     {
         if (!vault.Enabled)
         {
@@ -407,13 +407,22 @@ public static class DocsEndpoints
         return TypedResults.Ok(await (
             from x in db.Credentials.AsNoTracking()
             where (clientId == null || x.ClientId == clientId) && (assetId == null || x.AssetId == assetId) &&
+                  (webAppId == null || x.WebAppId == webAppId) && (appServerId == null || x.AppServerId == appServerId) &&
                   (term == null || EF.Functions.ILike(x.Name, term) || (x.Username != null && EF.Functions.ILike(x.Username, term)) ||
                    (x.Url != null && EF.Functions.ILike(x.Url, term)))
             join c in db.Clients on x.ClientId equals c.Id
             join a in db.Assets on x.AssetId equals a.Id into ag
             from a in ag.DefaultIfEmpty()
+            join w in db.WebApps on x.WebAppId equals w.Id into wg
+            from w in wg.DefaultIfEmpty()
+            join s in db.AppServers on x.AppServerId equals s.Id into sg
+            from s in sg.DefaultIfEmpty()
             orderby c.Name, x.Name
-            select new { x.Id, x.ClientId, ClientName = c.Name, x.SiteId, x.AssetId, AssetName = a.Name, x.Name, x.Username, x.Url, x.Notes, x.UpdatedAt, x.UpdatedBy })
+            select new
+            {
+                x.Id, x.ClientId, ClientName = c.Name, x.SiteId, x.AssetId, AssetName = a.Name, x.WebAppId, WebAppName = w.Name, x.AppServerId,
+                AppServerName = s.Name, x.Name, x.Username, x.Url, x.Notes, x.UpdatedAt, x.UpdatedBy,
+            })
             .ToListAsync(ct));
     }
 
@@ -459,6 +468,14 @@ public static class DocsEndpoints
         {
             return Problems.Validation("assetId", "O ativo precisa ser do mesmo cliente");
         }
+        if (r.WebAppId is { } webAppId && !await db.WebApps.AnyAsync(w => w.Id == webAppId && w.ClientId == r.ClientId, ct))
+        {
+            return Problems.Validation("webAppId", "A aplicacao precisa ser do mesmo cliente");
+        }
+        if (r.AppServerId is { } appServerId && !await db.AppServers.AnyAsync(s => s.Id == appServerId && s.ClientId == r.ClientId, ct))
+        {
+            return Problems.Validation("appServerId", "O servidor precisa ser do mesmo cliente");
+        }
         if (!string.IsNullOrWhiteSpace(r.Url) && (!Uri.TryCreate(r.Url.Trim(), UriKind.Absolute, out var uri) || uri.Scheme is "javascript" or "data" or "file"))
         {
             return Problems.Validation("url", "URL invalida");
@@ -490,6 +507,8 @@ public static class DocsEndpoints
         credential.ClientId = r.ClientId;
         credential.SiteId = r.SiteId;
         credential.AssetId = r.AssetId;
+        credential.WebAppId = r.WebAppId;
+        credential.AppServerId = r.AppServerId;
         credential.Name = r.Name.Trim();
         credential.Username = Clean(r.Username);
         credential.Url = Clean(r.Url);
@@ -501,8 +520,8 @@ public static class DocsEndpoints
             cancellationToken: ct);
         var body = new
         {
-            credential.Id, credential.ClientId, credential.SiteId, credential.AssetId, credential.Name, credential.Username, credential.Url, credential.Notes,
-            credential.UpdatedAt, credential.UpdatedBy,
+            credential.Id, credential.ClientId, credential.SiteId, credential.AssetId, credential.WebAppId, credential.AppServerId, credential.Name,
+            credential.Username, credential.Url, credential.Notes, credential.UpdatedAt, credential.UpdatedBy,
         };
         return id is null ? TypedResults.Created($"/api/credentials/{credential.Id}", body) : TypedResults.Ok(body);
     }
