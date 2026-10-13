@@ -26,6 +26,10 @@ interface StackedBarChartProps<K extends string> {
   /** Da base para o topo. */
   keys: StackKey<K>[];
   label: string;
+  /** "grouped" poe uma barra por serie lado a lado (series que nao somam um total). */
+  mode?: 'stacked' | 'grouped';
+  /** Formato da data na dica; o padrao mostra data e hora. */
+  tooltipFormat?: Intl.DateTimeFormat;
 }
 
 /** Retangulo com os cantos de cima arredondados (ponta do dado), base reta no eixo. */
@@ -35,11 +39,14 @@ function topRoundedRect(x: number, y: number, w: number, h: number, r: number): 
 }
 
 /** Barras empilhadas por periodo, com dica por barra (mouse ou setas do teclado). */
-export function StackedBarChart<K extends string>({ buckets, keys, label }: StackedBarChartProps<K>) {
+export function StackedBarChart<K extends string>({ buckets, keys, label, mode = 'stacked', tooltipFormat = fullFormat }: StackedBarChartProps<K>) {
   const { ref, width } = useElementSize();
   const [active, setActive] = useState<number | null>(null);
 
-  const totals = buckets.map((b) => keys.reduce((sum, k) => sum + (b.values[k.key] || 0), 0));
+  const grouped = mode === 'grouped';
+  const totals = buckets.map((b) =>
+    grouped ? Math.max(0, ...keys.map((k) => b.values[k.key] || 0)) : keys.reduce((sum, k) => sum + (b.values[k.key] || 0), 0),
+  );
   const yMax = niceMax(Math.max(0, ...totals));
   const plotW = Math.max(width - PAD.left - PAD.right, 1);
   const plotH = HEIGHT - PAD.top - PAD.bottom;
@@ -93,9 +100,17 @@ export function StackedBarChart<K extends string>({ buckets, keys, label }: Stac
             const bx = PAD.left + i * slot + (slot - barW) / 2;
             let base = PAD.top + plotH;
             const visible = keys.filter((k) => (b.values[k.key] || 0) > 0);
+            const subW = Math.max((barW - GAP * (keys.length - 1)) / Math.max(keys.length, 1), 1);
             return (
               <g key={b.time} opacity={active === null || active === i ? 1 : 0.55}>
-                {visible.map((k, j) => {
+                {grouped &&
+                  keys.map((k, j) => {
+                    const h = scale(b.values[k.key] || 0);
+                    if (h <= 0) return null;
+                    return <path key={k.key} d={topRoundedRect(bx + j * (subW + GAP), PAD.top + plotH - h, subW, h, RADIUS)} fill={k.color} />;
+                  })}
+                {!grouped &&
+                  visible.map((k, j) => {
                   const h = scale(b.values[k.key]);
                   const top = j === visible.length - 1;
                   // Espaco de 2 px entre segmentos (cor da superficie), sem invadir a base.
@@ -155,7 +170,7 @@ export function StackedBarChart<K extends string>({ buckets, keys, label }: Stac
           }}
         >
           <Text size="xs" c="dimmed" mb={4}>
-            {fullFormat.format(new Date(activeBucket.time))}
+            {tooltipFormat.format(new Date(activeBucket.time))}
           </Text>
           {[...keys].reverse().map((k) => (
             <Group key={k.key} gap={6} wrap="nowrap" justify="space-between">

@@ -325,9 +325,12 @@ export interface AgentListItem {
   description: string | null;
   /** Pessoa responsavel pelo ativo do inventario ligado ao agente. */
   responsible: PersonRef | null;
+  /** Nota do ultimo Health Check (0 a 100) e a classificacao; nulas enquanto nao houver coleta. */
+  healthScore?: number | null;
+  healthGrade?: HealthGrade | null;
 }
 
-export interface AgentDetail extends Omit<AgentListItem, 'responsible'> {
+export interface AgentDetail extends Omit<AgentListItem, 'responsible' | 'healthScore' | 'healthGrade'> {
   // O contrato escreve "goarch"; o backend serializa "goArch". Aceitar os dois.
   goArch?: string | null;
   goarch?: string | null;
@@ -347,7 +350,7 @@ export interface AgentDetail extends Omit<AgentListItem, 'responsible'> {
 }
 
 /** Colunas que a lista de agentes ordena no servidor. */
-export type AgentSortColumn = 'status' | 'hostname' | 'client' | 'type' | 'os' | 'user' | 'responsible' | 'version' | 'lastSeen' | 'reboot';
+export type AgentSortColumn = 'status' | 'hostname' | 'client' | 'type' | 'os' | 'user' | 'responsible' | 'version' | 'lastSeen' | 'reboot' | 'health';
 
 export interface ListAgentsParams {
   page: number;
@@ -2527,4 +2530,71 @@ export interface AppRunsChangedEvent {
   serverId: number;
   webAppId: number | null;
   status: AppRunStatus;
+}
+
+/** Painel: visao geral com filtro de cliente, tecnico (responsavel pelo chamado) e periodo. */
+export type DashboardPeriod = 7 | 14 | 30;
+
+export interface DashboardOverviewParams {
+  clientId?: number;
+  technicianId?: string;
+  days?: DashboardPeriod;
+}
+
+export interface DashboardAgentsClient {
+  clientId: number;
+  clientName: string;
+  total: number;
+  online: number;
+  overdue: number;
+  offline: number;
+}
+
+export interface DashboardAgents {
+  total: number;
+  online: number;
+  overdue: number;
+  offline: number;
+  byClient: DashboardAgentsClient[];
+}
+
+export interface DashboardTicketDay {
+  /** Dia no fuso do console (AAAA-MM-DD). */
+  date: string;
+  opened: number;
+  resolved: number;
+}
+
+export interface DashboardTickets {
+  open: number;
+  unassigned: number;
+  breached: number;
+  openedInPeriod: number;
+  resolvedInPeriod: number;
+  days: DashboardTicketDay[];
+}
+
+export interface DashboardCheckDay {
+  date: string;
+  passing: number;
+  failing: number;
+}
+
+export interface DashboardChecks {
+  total: number;
+  passing: number;
+  failing: number;
+  /** Dias que o servidor guarda do historico de checks. */
+  historyDays: number;
+  days: DashboardCheckDay[];
+}
+
+export interface DashboardOverview {
+  from: string;
+  to: string;
+  /** Nulo quando o papel nao pode ver agentes. */
+  agents: DashboardAgents | null;
+  /** Nulo quando o papel nao pode ver chamados. */
+  tickets: DashboardTickets | null;
+  checks: DashboardChecks | null;
 }

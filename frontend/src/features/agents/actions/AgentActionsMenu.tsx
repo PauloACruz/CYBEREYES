@@ -136,7 +136,8 @@ export function AgentActionsMenu({ agent, canControl }: AgentActionsMenuProps) {
   );
 }
 
-function ShutdownModal({ agent, opened, onClose }: { agent: AgentDetail; opened: boolean; onClose: () => void }) {
+/** Desligamento com confirmacao pelo nome da maquina (menu Acoes e menu do botao direito da lista). */
+export function ShutdownModal({ agent, opened, onClose }: { agent: Pick<AgentDetail, 'id' | 'hostname'>; opened: boolean; onClose: () => void }) {
   const [typed, setTyped] = useState('');
   const close = () => {
     setTyped('');

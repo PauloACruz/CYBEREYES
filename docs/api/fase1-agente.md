@@ -103,7 +103,7 @@ Mesmo padrao da fase 0 (cookie, 2FA, ProblemDetails com `code`).
 ### Agentes (`agents.view`, `agents.manage`)
 | Metodo | Rota | Resposta |
 |---|---|---|
-| GET | `/api/agents?clientId=&siteId=&status=&search=&page=&pageSize=&sortBy=&sortDir=` | `Paged<AgentListItem>`; `search` procura no hostname, descricao, ultimo usuario, IP publico e nome do responsavel; `sortBy`: `status`, `hostname`, `client`, `type`, `os`, `user`, `responsible`, `version`, `lastSeen`, `reboot` |
+| GET | `/api/agents?clientId=&siteId=&status=&search=&page=&pageSize=&sortBy=&sortDir=` | `Paged<AgentListItem>`; `search` procura no hostname, descricao, ultimo usuario, IP publico e nome do responsavel; `sortBy`: `status`, `hostname`, `client`, `type`, `os`, `user`, `responsible`, `version`, `lastSeen`, `reboot`, `health`; cada item traz `healthScore` (0 a 100) e `healthGrade` (`otimo`, `bom`, `atencao`, `critico`) do ultimo Health Check, nulos sem coleta |
 | GET | `/api/agents/{id}` | `AgentDetail` |
 | POST | `/api/agents/{id}/ping` | `{ status: "online" \| "offline" }` |
 | DELETE | `/api/agents/{id}` | 204 (`agents.manage`) |

@@ -1,56 +1,96 @@
-import { Badge, Box, Card, Group, SimpleGrid, Text, ThemeIcon } from '@mantine/core';
-import { IconClipboardList, type Icon } from '@tabler/icons-react';
-import { PERMISSIONS } from '../../api/types';
+import { Box, Grid, Group, Skeleton } from '@mantine/core';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router';
+import { dashboardApi } from '../../api/dashboard';
+import { queryKeys } from '../../api/queryKeys';
+import { PERMISSIONS, type DashboardOverviewParams, type DashboardPeriod } from '../../api/types';
 import { hasPermission } from '../../auth/permissions';
 import { useMe } from '../../auth/useMe';
-import { AgentStats } from './AgentStats';
-import { AlertStats } from './AlertStats';
-import { TicketStats } from './TicketStats';
 import { PageTitle } from '../../components/PageTitle';
+import { LoadError } from '../../components/TableStates';
+import { AlertStats } from './AlertStats';
+import { AgentsOnlineCard, ChecksCard, TicketsCard } from './DashboardCharts';
+import { DashboardFilters } from './DashboardFilters';
+import { DEFAULT_PERIOD, PERIODS, type DashboardFilterValues } from './filterValues';
 
-interface ComingSoonCard {
-  title: string;
-  description: string;
-  icon: Icon;
+function toId(value: string | null): number | undefined {
+  if (!value) return undefined;
+  const id = Number(value);
+  return Number.isInteger(id) && id > 0 ? id : undefined;
 }
-
-const CARDS: readonly ComingSoonCard[] = [
-  { title: 'Inventário', description: 'Ativos, hardware, software e usuários responsáveis.', icon: IconClipboardList },
-];
 
 export function DashboardPage() {
   const { data: me } = useMe();
   const firstName = (me?.fullName || me?.username || '').split(' ')[0] ?? '';
+  const canAgents = hasPermission(me, PERMISSIONS.agentsView);
+  const canTickets = hasPermission(me, PERMISSIONS.ticketsView);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Filtros na URL: o recorte do Painel pode ser compartilhado e sobrevive ao recarregar.
+  const daysParam = Number(searchParams.get('dias'));
+  const filters: DashboardFilterValues = {
+    clientId: toId(searchParams.get('cliente')),
+    technicianId: searchParams.get('tecnico') ?? undefined,
+    days: PERIODS.includes(daysParam as DashboardPeriod) ? (daysParam as DashboardPeriod) : DEFAULT_PERIOD,
+  };
+  const setFilters = (next: DashboardFilterValues) => {
+    const params = new URLSearchParams();
+    if (next.clientId) params.set('cliente', String(next.clientId));
+    if (next.technicianId) params.set('tecnico', next.technicianId);
+    if (next.days !== DEFAULT_PERIOD) params.set('dias', String(next.days));
+    setSearchParams(params, { replace: true });
+  };
+  const params: DashboardOverviewParams = { clientId: filters.clientId, technicianId: filters.technicianId, days: filters.days };
+  const overview = useQuery({
+    queryKey: queryKeys.dashboardOverview(params),
+    queryFn: () => dashboardApi.overview(params),
+    placeholderData: keepPreviousData,
+    refetchInterval: 60_000,
+    enabled: canAgents || canTickets,
+  });
+  const data = overview.data;
 
   return (
     <>
-      <Box mb="xl">
+      <Group justify="space-between" align="flex-start" mb="lg" wrap="wrap" gap="sm">
         <PageTitle title={`Olá, ${firstName}!`} description="Bem-vindo ao CYBEREYES." />
-      </Box>
-      {hasPermission(me, PERMISSIONS.agentsView) && <AgentStats />}
+        {(canAgents || canTickets) && (
+          <DashboardFilters value={filters} onChange={setFilters} canViewClients={hasPermission(me, PERMISSIONS.clientsView)} canViewTickets={canTickets} />
+        )}
+      </Group>
+      {overview.isError && <LoadError error={overview.error} onRetry={() => void overview.refetch()} />}
+      {overview.isPending && (canAgents || canTickets) && (
+        <Grid mb="lg">
+          <Grid.Col span={{ base: 12, md: 6 }}>
+            <Skeleton h={320} radius="md" />
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, md: 6 }}>
+            <Skeleton h={320} radius="md" />
+          </Grid.Col>
+        </Grid>
+      )}
+      {data && (
+        <Box style={{ opacity: overview.isPlaceholderData ? 0.6 : 1, transition: 'opacity 150ms ease-out' }}>
+          <Grid mb="lg">
+            {data.agents && (
+              <Grid.Col span={{ base: 12, md: data.tickets ? 6 : 12 }}>
+                <AgentsOnlineCard agents={data.agents} />
+              </Grid.Col>
+            )}
+            {data.tickets && (
+              <Grid.Col span={{ base: 12, md: data.agents ? 6 : 12 }}>
+                <TicketsCard tickets={data.tickets} technicianFiltered={Boolean(filters.technicianId)} />
+              </Grid.Col>
+            )}
+          </Grid>
+          {data.checks && (
+            <Box mb="xl">
+              <ChecksCard checks={data.checks} days={filters.days} />
+            </Box>
+          )}
+        </Box>
+      )}
       {hasPermission(me, PERMISSIONS.alertsView) && <AlertStats />}
-      {hasPermission(me, PERMISSIONS.ticketsView) && <TicketStats />}
-      <Text fw={600} mb="sm">
-        Próximas fases
-      </Text>
-      <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
-        {CARDS.map((card) => (
-          <Card key={card.title} withBorder padding="lg" component="section" aria-label={card.title}>
-            <Group justify="space-between" mb="sm">
-              <ThemeIcon size={40} radius="md" variant="light">
-                <card.icon size={22} />
-              </ThemeIcon>
-              <Badge variant="light" color="gray">
-                Em breve
-              </Badge>
-            </Group>
-            <Text fw={600}>{card.title}</Text>
-            <Text size="sm" c="dimmed" mt={4}>
-              {card.description}
-            </Text>
-          </Card>
-        ))}
-      </SimpleGrid>
     </>
   );
 }
