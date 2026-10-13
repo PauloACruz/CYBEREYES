@@ -1,4 +1,4 @@
-import { Badge, Group, Text, Tooltip } from '@mantine/core';
+import { Badge, Box, Group, Text, Tooltip } from '@mantine/core';
 import type { AgentStatus } from '../../api/types';
 import { formatDateTime, formatRelative } from '../../lib/format';
 import { platformInfo, STATUS_INFO } from './agentFormat';
@@ -21,6 +21,19 @@ export function OperatingSystem({ plat, operatingSystem }: { plat: string; opera
         {operatingSystem || info.label}
       </Text>
     </Group>
+  );
+}
+
+/** So o icone do sistema, com o nome completo na dica e no rotulo acessivel (lista de agentes). */
+export function OperatingSystemIcon({ plat, operatingSystem }: { plat: string; operatingSystem: string | null }) {
+  const info = platformInfo(plat);
+  const name = operatingSystem || info.label;
+  return (
+    <Tooltip label={name} withArrow>
+      <Box component="span" display="inline-flex" role="img" aria-label={name} c="dimmed">
+        <info.icon size={18} aria-hidden style={{ flexShrink: 0 }} />
+      </Box>
+    </Tooltip>
   );
 }
 

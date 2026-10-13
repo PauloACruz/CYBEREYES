@@ -40,15 +40,17 @@ describe('lista de agentes', () => {
     expect(row).not.toBeNull();
     const cells = within(row as HTMLElement);
     expect(cells.getByText('Em atraso')).toBeInTheDocument();
-    expect(cells.getByText('Servidor')).toBeInTheDocument();
-    expect(cells.getByText('Ubuntu 24.04 LTS')).toBeInTheDocument();
-    expect(cells.getByRole('img', { name: 'Linux' })).toBeInTheDocument();
+    // O sistema aparece so como icone; o nome completo fica no rotulo acessivel.
+    expect(cells.getByRole('img', { name: 'Ubuntu 24.04 LTS' })).toBeInTheDocument();
+    expect(cells.queryByText('Servidor')).not.toBeInTheDocument();
     expect(cells.getByText('root')).toBeInTheDocument();
     expect(cells.getByText('Pendente')).toBeInTheDocument();
     const firstRow = screen.getByText('PC-RECEPCAO').closest('tr') as HTMLElement;
     expect(within(firstRow).getByText('Online')).toBeInTheDocument();
     expect(screen.getByText('2 agentes')).toBeInTheDocument();
-    expect(screen.getByRole('textbox', { name: 'Buscar agentes' })).toBeInTheDocument();
+    // A busca fica recolhida num icone ate o clique.
+    expect(screen.queryByRole('textbox', { name: 'Buscar agentes' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Abrir a busca' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Instalar agente' })).not.toBeInTheDocument();
 
     const user = userEvent.setup();
@@ -126,6 +128,7 @@ describe('lista de agentes', () => {
     const other = screen.getByText('SRV-ARQUIVOS').closest('tr') as HTMLElement;
     expect(within(other).getByText('Sem responsável')).toBeInTheDocument();
 
+    await user.click(screen.getByRole('button', { name: 'Abrir a busca' }));
     await user.type(screen.getByRole('textbox', { name: 'Buscar agentes' }), 'renata');
     await waitFor(() => expect(screen.queryByText('SRV-ARQUIVOS')).not.toBeInTheDocument());
     expect(searched.at(-1)).toBe('renata');
