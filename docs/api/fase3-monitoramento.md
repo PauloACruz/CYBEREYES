@@ -120,10 +120,21 @@ Politica de patch (por politica ou agente; `DELETE /api/agents/{id}/patch-policy
 
 | Metodo | Rota | Permissao |
 |---|---|---|
-| GET | `/api/agents/{id}/software` | `agents.view` -> `{ updatedAt, items: [{ name, version, publisher, installDate, size, source, location, uninstall }] }` |
+| GET | `/api/agents/{id}/software` | `agents.view` -> `{ updatedAt, items: [{ name, version, publisher, installDate, size, source, location, uninstall, key }] }` (`key`: entrada de desinstalacao no registro, EYES 3.3.0+) |
 | POST | `/api/agents/{id}/software/refresh` | `agents.view` -> lista ao vivo e atualiza o inventario |
 | POST | `/api/agents/{id}/software/install` `{ package }` | `software.manage` (Windows, Chocolatey) -> 202 com `{ pendingActionId }` |
-| GET | `/api/agents/{id}/pending-actions` | `agents.view` -> `[{ id, type, details, status, createdAt }]` |
+| POST | `/api/agents/{id}/software/uninstall` `{ name, version, publisher, location, key, mode, runUninstaller, restorePoint }` | `software.manage` (Windows, EYES 3.3.0+) -> 202 com `{ pendingActionId }` |
+| POST | `/api/agents/{id}/software/cleanup` `{ actionId, items: [{ kind, path, name }] }` | `software.manage` -> 202 com `{ pendingActionId }`; 400 se algum item nao estiver nas sobras da desinstalacao `actionId` |
+| GET | `/api/agents/{id}/pending-actions` | `agents.view` -> `[{ id, type, details, status, output, createdAt }]` |
+
+### 6.1 Desinstalacao avancada
+
+Nos moldes do Revo Uninstaller, em duas etapas:
+
+1. `software/uninstall` cria a acao `softwareuninstall` e publica o comando de mesmo nome. O agente roda o desinstalador registrado sem janela (MSI, `QuietUninstallString`, Inno Setup, NSIS, WiX Burn ou Squirrel; outro tipo nao roda e a acao falha pedindo a remocao forcada), espera o processo e os filhos, confere se a entrada sumiu e procura as sobras. Com `runUninstaller: false` (remocao forcada) so procura as sobras. `mode`: `safe`, `moderate` (padrao) ou `advanced`.
+2. `software/cleanup` cria a acao `softwarecleanup` com os itens escolhidos, que precisam estar na lista devolvida pelo agente; o servidor envia os caminhos exatamente como o agente os encontrou. O agente confere cada item de novo, copia chaves, valores, servicos e tarefas para `%ProgramData%\Cybereyes\EYES\desinstalacao\` e apaga; o que estiver em uso fica para o proximo reinicio.
+
+Nas duas acoes, `output` e um JSON `{ ok, results, leftovers: [{ kind, path, name, detail, level, user }], scanned, ranUninstaller, stillInstalled, removed, failed, backup, reboot }` e `status` vira `completed` ou `failed`. `kind`: `key`, `value`, `dir`, `file`, `service` ou `task`; `level`: `high`, `medium` ou `low`; `user` marca dados de perfil de usuario. Auditoria: `software.uninstall` e `software.cleanup`.
 
 ## 7. Configuracoes globais (`settings.manage`)
 `GET/PUT /api/settings` -> `{ smtpHost, smtpPort, smtpUsername, smtpPasswordSet, smtpFrom, smtpUseTls, defaultWebhookUrl, timeZone, checkHistoryDays, agentHistoryDays }` (senha so e enviada na escrita, campo `smtpPassword`).

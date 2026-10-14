@@ -19,7 +19,7 @@ func collectSoftware(ctx context.Context) ([]Software, error) {
 	var list []Software
 	var errs []error
 	for _, view := range []uint32{registry.WOW64_64KEY, registry.WOW64_32KEY} {
-		items, err := readUninstall(ctx, registry.LOCAL_MACHINE, uninstallPath, view, false)
+		items, err := readUninstall(ctx, registry.LOCAL_MACHINE, uninstallPath, view, false, machineKeyPrefix(view))
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -30,14 +30,23 @@ func collectSoftware(ctx context.Context) ([]Software, error) {
 			if !strings.HasPrefix(sid, "S-1-5-21-") || strings.HasSuffix(sid, "_Classes") {
 				continue
 			}
-			items, _ := readUninstall(ctx, registry.USERS, sid+`\`+uninstallPath, 0, true)
+			items, _ := readUninstall(ctx, registry.USERS, sid+`\`+uninstallPath, 0, true, `HKU\`+sid+`\`+uninstallPath)
 			list = append(list, items...)
 		}
 	}
 	return list, joinErrs(errs)
 }
 
-func readUninstall(ctx context.Context, root registry.Key, path string, view uint32, user bool) ([]Software, error) {
+// machineKeyPrefix devolve a chave Uninstall no formato do console: a visao de 32 bits fica
+// explicita em WOW6432Node (o agente abre esses caminhos sempre na visao de 64 bits).
+func machineKeyPrefix(view uint32) string {
+	if view == registry.WOW64_32KEY {
+		return `HKLM\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall`
+	}
+	return `HKLM\` + uninstallPath
+}
+
+func readUninstall(ctx context.Context, root registry.Key, path string, view uint32, user bool, keyPrefix string) ([]Software, error) {
 	k, err := registry.OpenKey(root, path, registry.ENUMERATE_SUB_KEYS|registry.QUERY_VALUE|view)
 	if err != nil {
 		return nil, err
@@ -57,6 +66,7 @@ func readUninstall(ctx context.Context, root registry.Key, path string, view uin
 			continue
 		}
 		if s, ok := uninstallEntry(sk, user); ok {
+			s.Key = keyPrefix + `\` + name
 			list = append(list, s)
 		}
 		sk.Close()

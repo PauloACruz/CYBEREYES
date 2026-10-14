@@ -652,6 +652,12 @@ Fluxo:
 - Nos dois, `results` comecando com `error` marca a acao pendente como `failed`; senao, `completed`.
   - Grava a saida na acao pendente e marca `completed`, ou `failed` quando `results` comeca com `error` (`MonitoringProtocol.cs`; rota em `AgentProtocolEndpoints.cs`).
   - Sempre `"ok"`.
+- `PATCH /api/v4/{agent_id}/{pending_action_pk}/softwareresult/` (EYES 3.3.0+): resultado de `softwareuninstall` e `softwarecleanup` (4.3), com a mesma ordem de `agent_id` e `pk`. Corpo:
+  - `ok`: bool; `results`: str (registro dos passos, ate 64 KiB);
+  - desinstalacao: `leftovers` (lista de `{ kind, path, name?, detail?, level, user? }`, ate 500), `scanned`, `ran_uninstaller`, `still_installed`;
+  - limpeza: `removed`, `failed`, `backup` (pasta da copia de seguranca);
+  - ambos: `reboot`.
+  - O servidor so aceita a rota para acoes desses dois tipos do proprio agente, guarda os campos conhecidos e marca `completed` (`ok`) ou `failed`. Sempre `"ok"`.
 
 ### 3.9 `histresult`
 
@@ -802,6 +808,8 @@ O coletor escuta UDP em `trap_port`, que e 162 e exige privilegio. **PROPOSTA**:
 | `installwinupdates` | publish | | `AlertsPatchesEndpoints.cs:151`; `Schedulers.cs:210` |
 | `installwithchoco` | publish | | `AlertsPatchesEndpoints.cs` |
 | `installwithwinget` | publish | | `AlertsPatchesEndpoints.cs` (EYES 3.2.3) |
+| `softwareuninstall` (Windows, 3.3.0+) | publish | | `AlertsPatchesEndpoints.cs`, `UninstallSoftwareAsync` |
+| `softwarecleanup` (Windows, 3.3.0+) | publish | | `AlertsPatchesEndpoints.cs`, `CleanupSoftwareAsync` |
 | `softwarelist` | request | 60 s | `AlertsPatchesEndpoints.cs:423` |
 | `recover` (substituido na fase 12.8, ver ADR-023): o servidor nao envia mais e o EYES nao trata | request | 60 s | `MeshServices.cs:239` |
 | `snmp_test` | request | `min(120, timeout*(retries+1)+10)` s | `SnmpEndpoints.cs:357-361` |
@@ -810,7 +818,7 @@ O coletor escuta UDP em `trap_port`, que e 162 e exige privilegio. **PROPOSTA**:
 | `wincare_cancel` | request | 30 s | `CareService.cs:114-117` |
 | `wincare_health` | request | 6 min | `CareService.cs:273-274` |
 
-Nao existem `terminal_stop`, `uninstall`, `update` nem `agentupdate`: o servidor nunca os envia. O fim do terminal e `terminal_kill`.
+Nao existem `terminal_stop`, `uninstall`, `update` nem `agentupdate`: o servidor nunca os envia (`softwareuninstall` desinstala outros programas, nunca o EYES). O fim do terminal e `terminal_kill`.
 
 Acesso remoto (fase 12, ADR-023): os comandos `remote_start`, `remote_stop` e `wol` estao definidos em `docs/remoto/contrato-remoto.md`, que e a fonte normativa para eles.
 
@@ -990,13 +998,25 @@ Todos com `payload` de str (`SystemEndpoints.cs:50-66,253-277`):
 - Publish `{ func: "installwithchoco", choco_prog_name: str, pending_action_pk: int }`.
 - O agente executa `choco install <pacote>` e envia `PATCH /api/v4/{agent_id}/{pending_action_pk}/chocoresult/ { results: <saida> }`.
 
-
 #### `installwithwinget` (Windows, EYES 3.2.3)
 - Publish `{ func: "installwithwinget", winget_id: str, pending_action_pk: int }`. O identificador segue `^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$` (validado no servidor e no agente).
 - O EYES roda como SYSTEM e procura o `winget.exe` em `%ProgramFiles%\WindowsApps\Microsoft.DesktopAppInstaller_*__8wekyb3d8bbwe` (versao mais nova, arquitetura do EYES primeiro). Sem o App Installer, responde `error: winget nao encontrado...`.
 - Executa `winget install --id <id> --exact --source winget --silent --disable-interactivity --accept-package-agreements --accept-source-agreements --scope machine`; com `0x8A150014` (sem instalador para a maquina toda) repete sem `--scope`. `0x8A150061` (ja instalado), 3010 e 1641 contam como sucesso.
 - Envia `PATCH /api/v4/{agent_id}/{pending_action_pk}/wingetresult/ { results: <saida sem as linhas de progresso> }`; falha comeca com `error:`.
 - Pesquisa de pacotes no console: `GET /api/software/catalog/{choco|winget}?q=` (permissao `software.manage`). Chocolatey pela busca publica da comunidade (ordenada por downloads, 10 min em cache); winget pelo indice oficial `source2.msix`, baixado pela API e renovado a cada 12 h.
+
+#### `softwareuninstall` (Windows, EYES 3.3.0+)
+- Publish `{ func: "softwareuninstall", pending_action_pk: int, name: str, version: str, publisher: str, location: str, key: str, mode: "safe"|"moderate"|"advanced", run_uninstaller: bool, restore_point: bool }`.
+- `key` e a entrada de desinstalacao do inventario (`HKLM\SOFTWARE\...\Uninstall\X`, `HKLM\SOFTWARE\WOW6432Node\...` ou `HKU\<SID>\...`). O agente rele a entrada no proprio registro: a linha de comando do desinstalador **nunca** vem do servidor. Sem a chave (ou com a chave sumida), procura pelo nome; achando outra versao instalada, para e pede para atualizar o inventario.
+- Passos: ponto de restauracao (`Checkpoint-Computer`, opcional, falha so registra aviso); desinstalador sem janela (MSI `msiexec /x {GUID} /qn /norestart`, `QuietUninstallString`, Inno Setup `/VERYSILENT /SUPPRESSMSGBOXES /NORESTART`, NSIS `/S`, WiX Burn `/quiet /norestart`, Squirrel `-s`), dentro de um Job Object, esperando o job esvaziar (30 min no maximo); 0, 1605, 1641 e 3010 contam como sucesso. Tipo desconhecido: nao executa e devolve `ok: false`. Se o desinstalador falhar e o programa continuar registrado, nao procura sobras.
+- Com `run_uninstaller: false` (remocao forcada) so procura as sobras.
+- Sobras: entrada de desinstalacao, pastas registradas, pastas e atalhos pelo nome em Program Files, Common Files, ProgramData, menu Iniciar, area de trabalho publica e AppData/Desktop de cada perfil, chaves em `SOFTWARE` (64 e 32 bits) e em cada `HKU\<SID>\Software`; nos modos `moderate` e `advanced`, tambem valores `Run`, servicos e tarefas que executam algo nas pastas do programa; no `advanced`, nomes parecidos e o registro do Windows Installer. Nunca propoe nada no Windows, nas pastas e chaves da Microsoft, nas raizes, nem no proprio EYES.
+- Resultado por `PATCH .../softwareresult/` (3.8).
+
+#### `softwarecleanup` (Windows, EYES 3.3.0+)
+- Publish `{ func: "softwarecleanup", pending_action_pk: int, name: str, items: [{ kind, path, name }] }`.
+- O agente confere cada item com as mesmas regras da varredura (o que nao passa e recusado), remove servicos e tarefas antes, depois valores, chaves, atalhos e pastas. Chaves, valores (a chave `Run` inteira), servicos e tarefas sao copiados antes para `%ProgramData%\Cybereyes\EYES\desinstalacao\<data> <programa>\`; arquivos em uso ficam para o proximo reinicio (`MoveFileEx`).
+- Resultado por `PATCH .../softwareresult/` (3.8).
 
 #### `softwarelist`
 - Pedido: `{ func: "softwarelist" }`.
@@ -1156,6 +1176,7 @@ Referencias: `Api/Tickets/Tray.cs:120-130`, `Api/Rmm/Maintenance/CareEndpoints.c
 | Ligar coletor SNMP / `snmp_test` | `>= 2.13.0` (servidor) | `SnmpEndpoints.cs:351,485`; `Api/Snmp/SnmpService.cs:25-27` |
 | Cartao do coletor SNMP no console | `>= 2.13.0` (frontend, `MIN_COLLECTOR_VERSION`) | `front/features/snmp/snmpFormat.ts:58`; `SnmpCollectorCard.tsx:27` |
 | Logs (`logconfig`, `logs`) | 2.13.0 pela documentacao (`docs/api/fase8-logs-snmp.md:3`); o servidor nao confere | |
+| Desinstalacao avancada (`softwareuninstall`, `softwarecleanup`) | `>= 3.3.0` (servidor) | `Api/Rmm/Monitoring/SoftwareUninstall.cs` (`MinimumAgent`) |
 
 **PROPOSTA**:
 - O EYES informa versao **`3.0.0` ou maior**, que passa em todas as travas e se distingue do agente Go.

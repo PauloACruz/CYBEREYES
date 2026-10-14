@@ -1,11 +1,11 @@
-import { Fragment, useMemo, useState } from 'react';
-import { ActionIcon, Badge, Button, Group, Paper, Stack, Table, Text, TextInput, Title } from '@mantine/core';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { ActionIcon, Badge, Button, Group, Paper, Stack, Table, Text, TextInput, Title, Tooltip } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
-import { IconChevronDown, IconChevronRight, IconCircleCheck, IconCircleX, IconClockHour4, IconRefresh, IconSearch } from '@tabler/icons-react';
+import { IconChevronDown, IconChevronRight, IconCircleCheck, IconCircleX, IconClockHour4, IconRefresh, IconSearch, IconTrash } from '@tabler/icons-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { softwareApi } from '../../../api/monitoring';
 import { queryKeys } from '../../../api/queryKeys';
-import { PERMISSIONS, type AgentDetail, type PackageManager, type PendingActionDto } from '../../../api/types';
+import { PERMISSIONS, type AgentDetail, type SoftwareItem } from '../../../api/types';
 import { hasPermission } from '../../../auth/permissions';
 import { useMe } from '../../../auth/useMe';
 import { ApiErrorAlert } from '../../../components/ApiErrorAlert';
@@ -14,10 +14,11 @@ import { EmptyRow, LoadError, LoadingRows } from '../../../components/TableState
 import { notifySuccess } from '../../../lib/feedback';
 import { formatDateTime } from '../../../lib/format';
 import { isWindows } from '../actions/shells';
+import { LeftoversModal, type LeftoversTarget } from './LeftoversModal';
 import { PackageInstall } from './PackageInstall';
 import { MANAGER_LABEL } from './packageManagers';
-
-const COLUMNS = 4;
+import { actionName, actionOutput, actionResult, describeAction, installManager, UNINSTALL_TYPE } from './softwareActions';
+import { UninstallModal } from './UninstallModal';
 
 function normalize(text: string): string {
   return text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -25,8 +26,11 @@ function normalize(text: string): string {
 
 export function SoftwareTab({ agent }: { agent: AgentDetail }) {
   const { data: me } = useMe();
-  const canInstall = hasPermission(me, PERMISSIONS.softwareManage) && isWindows(agent.plat);
+  const canManage = hasPermission(me, PERMISSIONS.softwareManage) && isWindows(agent.plat);
+  const columns = canManage ? 5 : 4;
   const queryClient = useQueryClient();
+  const [uninstalling, setUninstalling] = useState<SoftwareItem | null>(null);
+  const [review, setReview] = useState<LeftoversTarget | null>(null);
   const software = useQuery({ queryKey: queryKeys.agentSoftware(agent.id), queryFn: () => softwareApi.list(agent.id) });
   const [search, setSearch] = useState('');
   const [debounced] = useDebouncedValue(search, 200);
@@ -49,8 +53,10 @@ export function SoftwareTab({ agent }: { agent: AgentDetail }) {
 
   return (
     <Stack>
-      {canInstall && <PackageInstall agent={agent} />}
-      {isWindows(agent.plat) && <PendingActions agentId={agent.id} />}
+      {canManage && <PackageInstall agent={agent} />}
+      {isWindows(agent.plat) && (
+        <PendingActions agentId={agent.id} canManage={canManage} onReview={setReview} onUninstallFinished={refresh.mutate} />
+      )}
       <Group justify="space-between">
         <TextInput
           placeholder="Pesquisar por nome, fabricante ou versão"
@@ -81,12 +87,13 @@ export function SoftwareTab({ agent }: { agent: AgentDetail }) {
                 <Table.Th w={160}>Versão</Table.Th>
                 <Table.Th>Fabricante</Table.Th>
                 <Table.Th w={130}>Instalado em</Table.Th>
+                {canManage && <Table.Th w={70} aria-label="Ações" />}
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {software.isPending && <LoadingRows columns={COLUMNS} />}
+              {software.isPending && <LoadingRows columns={columns} />}
               {software.isSuccess && rows.length === 0 && (
-                <EmptyRow columns={COLUMNS} message={(items ?? []).length === 0 ? 'Nenhum software no inventário. Use "Atualizar".' : 'Nenhum software encontrado.'} />
+                <EmptyRow columns={columns} message={(items ?? []).length === 0 ? 'Nenhum software no inventário. Use "Atualizar".' : 'Nenhum software encontrado.'} />
               )}
               {rows.map((item, index) => (
                 <Table.Tr key={`${item.name}-${item.version}-${index}`}>
@@ -94,6 +101,15 @@ export function SoftwareTab({ agent }: { agent: AgentDetail }) {
                   <Table.Td>{item.version || 'Não informada'}</Table.Td>
                   <Table.Td>{item.publisher || 'Não informado'}</Table.Td>
                   <Table.Td>{item.installDate || 'Não informada'}</Table.Td>
+                  {canManage && (
+                    <Table.Td>
+                      <Tooltip label="Desinstalação avançada">
+                        <ActionIcon variant="subtle" color="red" aria-label={`Desinstalar ${item.name}`} onClick={() => setUninstalling(item)}>
+                          <IconTrash size={16} />
+                        </ActionIcon>
+                      </Tooltip>
+                    </Table.Td>
+                  )}
                 </Table.Tr>
               ))}
             </Table.Tbody>
@@ -105,20 +121,14 @@ export function SoftwareTab({ agent }: { agent: AgentDetail }) {
           {rows.length} de {(items ?? []).length} programas
         </Text>
       )}
+      {canManage && (
+        <>
+          <UninstallModal agent={agent} item={uninstalling} onClose={() => setUninstalling(null)} />
+          <LeftoversModal agent={agent} target={review} onClose={() => setReview(null)} />
+        </>
+      )}
     </Stack>
   );
-}
-
-/** Pacote e gerenciador gravados nos detalhes da acao ({ name, manager }; acoes antigas so tem name). */
-function packageOf(action: PendingActionDto): { name: string; manager: PackageManager } {
-  const manager: PackageManager = action.type === 'wingetinstall' ? 'winget' : 'choco';
-  try {
-    const parsed: unknown = JSON.parse(action.details);
-    if (parsed && typeof parsed === 'object' && 'name' in parsed && typeof parsed.name === 'string') return { name: parsed.name, manager };
-  } catch {
-    // detalhes invalidos: mostra o texto bruto
-  }
-  return { name: action.details, manager };
 }
 
 function PendingStatus({ status }: { status: string }) {
@@ -143,7 +153,15 @@ function PendingStatus({ status }: { status: string }) {
   );
 }
 
-function PendingActions({ agentId }: { agentId: number }) {
+interface PendingActionsProps {
+  agentId: number;
+  canManage: boolean;
+  onReview: (target: LeftoversTarget) => void;
+  /** Chamado quando uma desinstalacao acompanhada nesta tela termina (para atualizar o inventario). */
+  onUninstallFinished: () => void;
+}
+
+function PendingActions({ agentId, canManage, onReview, onUninstallFinished }: PendingActionsProps) {
   const actions = useQuery({
     queryKey: queryKeys.agentPendingActions(agentId),
     queryFn: () => softwareApi.pendingActions(agentId),
@@ -151,6 +169,16 @@ function PendingActions({ agentId }: { agentId: number }) {
   });
   const [expanded, setExpanded] = useState<number | null>(null);
   const rows = actions.data ?? [];
+  const waiting = useRef(new Set<number>());
+  useEffect(() => {
+    let finished = false;
+    for (const action of actions.data ?? []) {
+      if (action.type !== UNINSTALL_TYPE) continue;
+      if (action.status === 'pending') waiting.current.add(action.id);
+      else if (waiting.current.delete(action.id)) finished = true;
+    }
+    if (finished) onUninstallFinished();
+  }, [actions.data, onUninstallFinished]);
   if (actions.isSuccess && rows.length === 0) return null;
   return (
     <Paper withBorder>
@@ -162,16 +190,20 @@ function PendingActions({ agentId }: { agentId: number }) {
         <Table.Thead>
           <Table.Tr>
             <Table.Th w={40} aria-label="Expandir" />
-            <Table.Th>Pacote</Table.Th>
+            <Table.Th>Ação</Table.Th>
             <Table.Th w={150}>Situação</Table.Th>
             <Table.Th w={150}>Criada em</Table.Th>
+            <Table.Th w={170} aria-label="Sobras" />
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
-          {actions.isPending && <LoadingRows columns={4} rows={2} />}
+          {actions.isPending && <LoadingRows columns={5} rows={2} />}
           {rows.map((action) => {
             const open = expanded === action.id;
-            const { name, manager } = packageOf(action);
+            const name = describeAction(action);
+            const manager = installManager(action);
+            const result = actionResult(action);
+            const leftovers = action.type === UNINSTALL_TYPE ? (result?.leftovers.length ?? 0) : 0;
             return (
               <Fragment key={action.id}>
                 <Table.Tr>
@@ -188,20 +220,43 @@ function PendingActions({ agentId }: { agentId: number }) {
                     </ActionIcon>
                   </Table.Td>
                   <Table.Td>
-                    {name}{' '}
-                    <Text span size="xs" c="dimmed">
-                      ({MANAGER_LABEL[manager]})
-                    </Text>
+                    {name}
+                    {manager && (
+                      <>
+                        {' '}
+                        <Text span size="xs" c="dimmed">
+                          ({MANAGER_LABEL[manager]})
+                        </Text>
+                      </>
+                    )}
                   </Table.Td>
                   <Table.Td>
-                    <PendingStatus status={action.status} />
+                    <Group gap={4}>
+                      <PendingStatus status={action.status} />
+                      {result?.reboot && (
+                        <Badge color="orange" variant="light">
+                          Reiniciar
+                        </Badge>
+                      )}
+                    </Group>
                   </Table.Td>
                   <Table.Td>{formatDateTime(action.createdAt)}</Table.Td>
+                  <Table.Td>
+                    {canManage && result && leftovers > 0 && (
+                      <Button
+                        size="xs"
+                        variant="light"
+                        onClick={() => onReview({ actionId: action.id, name: actionName(action), result })}
+                      >
+                        Revisar {leftovers} sobra(s)
+                      </Button>
+                    )}
+                  </Table.Td>
                 </Table.Tr>
                 {open && (
                   <Table.Tr>
-                    <Table.Td colSpan={4}>
-                      <OutputBlock label="Saída" value={action.output ?? ''} emptyText="Ainda sem saída." maxHeight={280} />
+                    <Table.Td colSpan={5}>
+                      <OutputBlock label="Saída" value={actionOutput(action)} emptyText="Ainda sem saída." maxHeight={280} />
                     </Table.Td>
                   </Table.Tr>
                 )}

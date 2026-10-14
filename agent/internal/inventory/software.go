@@ -22,6 +22,8 @@ type Software struct {
 	Source      string `json:"source"`
 	Location    string `json:"location"`
 	Uninstall   string `json:"uninstall"`
+	// Key e a entrada de desinstalacao no registro do Windows (usada pela desinstalacao avancada).
+	Key string `json:"key,omitempty"`
 }
 
 // softwareCache guarda a ultima lista coletada; sem permite uma coleta por vez.
@@ -92,6 +94,7 @@ func normalizeSoftware(in []Software) []Software {
 		s.Source = cleanText(s.Source)
 		s.Location = cleanText(s.Location)
 		s.Uninstall = cleanText(s.Uninstall)
+		s.Key = cleanText(s.Key)
 		key := strings.ToLower(s.Name) + "\x00" + strings.ToLower(s.Version)
 		if seen[key] {
 			continue

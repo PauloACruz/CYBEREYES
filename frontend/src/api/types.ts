@@ -988,6 +988,8 @@ export interface SoftwareItem {
   source: string;
   location: string;
   uninstall: string;
+  /** Entrada de desinstalacao no registro do Windows (vazia em agentes anteriores ao EYES 3.3.0). */
+  key?: string;
 }
 
 export interface SoftwareInventory {
@@ -1014,8 +1016,52 @@ export interface PendingActionDto {
   /** JSON com os detalhes da acao. */
   details: string;
   status: string;
+  /** Texto (chocoinstall) ou JSON SoftwareActionResult (softwareuninstall e softwarecleanup). */
   output: string | null;
   createdAt: string;
+}
+
+/** Profundidade da varredura de sobras da desinstalacao avancada. */
+export type UninstallScanMode = 'safe' | 'moderate' | 'advanced';
+
+export interface UninstallSoftwareRequest {
+  name: string;
+  version: string;
+  publisher: string;
+  location: string;
+  key: string;
+  mode: UninstallScanMode;
+  runUninstaller: boolean;
+  restorePoint: boolean;
+}
+
+export type LeftoverKind = 'key' | 'value' | 'dir' | 'file' | 'service' | 'task';
+
+/** Sobra encontrada pelo agente depois da desinstalacao. */
+export interface SoftwareLeftover {
+  kind: LeftoverKind;
+  /** Chave, pasta, arquivo, nome do servico ou caminho da tarefa. */
+  path: string;
+  /** Nome do valor (kind value). */
+  name: string | null;
+  detail: string | null;
+  level: 'high' | 'medium' | 'low';
+  /** Dados de perfil de usuario. */
+  user: boolean;
+}
+
+/** Saida das acoes softwareuninstall e softwarecleanup. */
+export interface SoftwareActionResult {
+  ok: boolean;
+  results: string;
+  leftovers: SoftwareLeftover[];
+  scanned: boolean;
+  ranUninstaller: boolean;
+  stillInstalled: boolean;
+  removed: number;
+  failed: number;
+  backup: string | null;
+  reboot: boolean;
 }
 
 export interface GlobalSettingsDto {

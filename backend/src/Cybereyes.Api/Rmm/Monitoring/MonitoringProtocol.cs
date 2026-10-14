@@ -359,6 +359,22 @@ public static class MonitoringProtocol
         return Ok;
     }
 
+    /// <summary>Resultado da desinstalacao avancada e da limpeza de sobras (<see cref="SoftwareUninstall"/>).</summary>
+    public static async Task<IResult> SoftwareResultAsync(long pk, JsonElement body, ClaimsPrincipal principal, CybereyesDbContext db, CancellationToken ct)
+    {
+        var agentPk = AgentPk(principal);
+        var action = await db.PendingActions.FirstOrDefaultAsync(p => p.Id == pk && p.AgentId == agentPk &&
+            (p.Type == SoftwareUninstall.UninstallType || p.Type == SoftwareUninstall.CleanupType), ct);
+        if (action is not null)
+        {
+            var result = SoftwareUninstall.Normalize(body);
+            action.Output = SoftwareUninstall.Serialize(result);
+            action.Status = result.Ok ? "completed" : "failed";
+            await db.SaveChangesAsync(ct);
+        }
+        return Ok;
+    }
+
     private static string Str(JsonElement item, string name) =>
         item.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? string.Empty : string.Empty;
 

@@ -19,7 +19,9 @@ import type {
   SavePolicyRequest,
   SaveTaskRequest,
   SoftwareInventory,
+  SoftwareLeftover,
   TaskDto,
+  UninstallSoftwareRequest,
   UpdateAction,
   WinUpdateDto,
 } from './types';
@@ -78,5 +80,9 @@ export const softwareApi = {
     api.post<{ pendingActionId: number }>(`${agent(agentId)}/software/install`, { package: pkg, manager }),
   catalog: (source: PackageManager, q: string) =>
     api.get<{ source: PackageManager; items: CatalogPackage[] }>(`/api/software/catalog/${source}?q=${encodeURIComponent(q)}`),
+  uninstall: (agentId: number, body: UninstallSoftwareRequest) =>
+    api.post<{ pendingActionId: number }>(`${agent(agentId)}/software/uninstall`, body),
+  cleanup: (agentId: number, actionId: number, items: Pick<SoftwareLeftover, 'kind' | 'path' | 'name'>[]) =>
+    api.post<{ pendingActionId: number }>(`${agent(agentId)}/software/cleanup`, { actionId, items }),
   pendingActions: (agentId: number) => api.get<PendingActionDto[]>(`${agent(agentId)}/pending-actions`),
 };
