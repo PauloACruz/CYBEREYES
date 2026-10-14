@@ -173,6 +173,8 @@ public static partial class AlertsPatchesEndpoints
         }).RequireAuthorization(view);
         ag.MapPost("/software/refresh", RefreshSoftwareAsync).RequireAuthorization(view);
         ag.MapPost("/software/install", InstallSoftwareAsync).RequireAuthorization(Policies.Permission(Permissions.SoftwareManage));
+        ag.MapPost("/software/uninstall", UninstallSoftwareAsync).RequireAuthorization(Policies.Permission(Permissions.SoftwareManage));
+        ag.MapPost("/software/cleanup", CleanupSoftwareAsync).RequireAuthorization(Policies.Permission(Permissions.SoftwareManage));
         ag.MapGet("/pending-actions", async (int id, CybereyesDbContext db, CancellationToken ct) => TypedResults.Ok(await db.PendingActions.AsNoTracking()
             .Where(p => p.AgentId == id).OrderByDescending(p => p.CreatedAt).Take(100)
             .Select(p => new { p.Id, p.Type, p.Details, p.Status, p.Output, p.CreatedAt }).ToListAsync(ct))).RequireAuthorization(view);
@@ -409,7 +411,7 @@ public static partial class AlertsPatchesEndpoints
         return doc.RootElement.ValueKind != JsonValueKind.Array ? [] : doc.RootElement.EnumerateArray().Select(i => (object)new
         {
             name = S(i, "name"), version = S(i, "version"), publisher = S(i, "publisher"), installDate = S(i, "install_date"),
-            size = S(i, "size"), source = S(i, "source"), location = S(i, "location"), uninstall = S(i, "uninstall"),
+            size = S(i, "size"), source = S(i, "source"), location = S(i, "location"), uninstall = S(i, "uninstall"), key = S(i, "key"),
         }).ToList();
     }
 
@@ -488,6 +490,104 @@ public static partial class AlertsPatchesEndpoints
             : new Dictionary<string, object?> { ["func"] = "installwithwinget", ["winget_id"] = package, ["pending_action_pk"] = (int)action.Id };
         await rpc.PublishAsync(agent.AgentId, request, ct);
         await audit.LogAsync("software.install", "agent", Id(id), $"{agent.Hostname}: instalar {package} ({label})", cancellationToken: ct);
+        return TypedResults.Accepted((string?)null, new { pendingActionId = action.Id });
+    }
+
+    private static async Task<IResult> UninstallSoftwareAsync(int id, UninstallSoftwareRequest r, CybereyesDbContext db, IAgentRpc rpc, IAuditService audit, CancellationToken ct)
+    {
+        var agent = await AgentRef.FindAsync(db, id, ct);
+        if (agent is null)
+        {
+            return Problems.NotFound("Agente");
+        }
+        if (!agent.IsWindows)
+        {
+            return Problems.BadRequest("A desinstalacao avancada so existe no Windows");
+        }
+        var mode = r.Mode ?? "moderate";
+        if (!SoftwareUninstall.Modes.Contains(mode))
+        {
+            return Problems.BadRequest("Modo de varredura invalido");
+        }
+        var version = await db.Agents.Where(a => a.Id == id).Select(a => a.Version).FirstAsync(ct);
+        if (!SoftwareUninstall.Supports(version))
+        {
+            return Problems.BadRequest($"Atualize o agente para a versao {SoftwareUninstall.MinimumAgent} ou maior para usar a desinstalacao avancada");
+        }
+        var name = r.Name.Trim();
+        var action = new PendingAction
+        {
+            AgentId = id, Type = SoftwareUninstall.UninstallType,
+            Details = JsonSerializer.Serialize(new { name, version = r.Version, publisher = r.Publisher, mode, runUninstaller = r.RunUninstaller, restorePoint = r.RestorePoint }),
+        };
+        db.PendingActions.Add(action);
+        await db.SaveChangesAsync(ct);
+        await rpc.PublishAsync(agent.AgentId, new Dictionary<string, object?>
+        {
+            ["func"] = SoftwareUninstall.UninstallType, ["pending_action_pk"] = (int)action.Id, ["name"] = name,
+            ["version"] = r.Version ?? string.Empty, ["publisher"] = r.Publisher ?? string.Empty, ["location"] = r.Location ?? string.Empty,
+            ["key"] = r.Key ?? string.Empty, ["mode"] = mode, ["run_uninstaller"] = r.RunUninstaller, ["restore_point"] = r.RestorePoint,
+        }, ct);
+        var how = r.RunUninstaller ? "desinstalar" : "remocao forcada de";
+        await audit.LogAsync("software.uninstall", "agent", Id(id), $"{agent.Hostname}: {how} {name} (varredura {mode})", cancellationToken: ct);
+        return TypedResults.Accepted((string?)null, new { pendingActionId = action.Id });
+    }
+
+    private static async Task<IResult> CleanupSoftwareAsync(int id, CleanupSoftwareRequest r, CybereyesDbContext db, IAgentRpc rpc, IAuditService audit, CancellationToken ct)
+    {
+        var agent = await AgentRef.FindAsync(db, id, ct);
+        if (agent is null)
+        {
+            return Problems.NotFound("Agente");
+        }
+        if (!agent.IsWindows)
+        {
+            return Problems.BadRequest("A desinstalacao avancada so existe no Windows");
+        }
+        var items = r.Items ?? [];
+        if (items.Count == 0)
+        {
+            return Problems.BadRequest("Escolha ao menos uma sobra para remover");
+        }
+        if (items.Count > SoftwareUninstall.MaxItems)
+        {
+            return Problems.BadRequest($"Escolha no maximo {SoftwareUninstall.MaxItems} sobras por vez");
+        }
+        var source = await db.PendingActions.AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == r.ActionId && p.AgentId == id && p.Type == SoftwareUninstall.UninstallType, ct);
+        if (source is null)
+        {
+            return Problems.NotFound("Desinstalacao");
+        }
+        // So vale o que o proprio agente encontrou: o console escolhe, mas nao inventa caminhos.
+        var found = SoftwareUninstall.Leftovers(source.Output).ToDictionary(l => SoftwareUninstall.ItemKey(l.Kind, l.Path, l.Name), StringComparer.OrdinalIgnoreCase);
+        var chosen = new List<SoftwareUninstall.Leftover>();
+        foreach (var item in items)
+        {
+            if (!found.TryGetValue(SoftwareUninstall.ItemKey(item.Kind, item.Path, item.Name), out var leftover))
+            {
+                return Problems.BadRequest($"Item fora da lista de sobras encontradas: {item.Path}");
+            }
+            if (!chosen.Contains(leftover))
+            {
+                chosen.Add(leftover);
+            }
+        }
+        using var details = JsonDocument.Parse(source.Details);
+        var name = details.RootElement.ValueKind == JsonValueKind.Object ? S(details.RootElement, "name") : string.Empty;
+        var action = new PendingAction
+        {
+            AgentId = id, Type = SoftwareUninstall.CleanupType,
+            Details = JsonSerializer.Serialize(new { name, sourceActionId = source.Id, count = chosen.Count }),
+        };
+        db.PendingActions.Add(action);
+        await db.SaveChangesAsync(ct);
+        await rpc.PublishAsync(agent.AgentId, new Dictionary<string, object?>
+        {
+            ["func"] = SoftwareUninstall.CleanupType, ["pending_action_pk"] = (int)action.Id, ["name"] = name,
+            ["items"] = chosen.Select(l => (object?)new Dictionary<string, object?> { ["kind"] = l.Kind, ["path"] = l.Path, ["name"] = l.Name ?? string.Empty }).ToList(),
+        }, ct);
+        await audit.LogAsync("software.cleanup", "agent", Id(id), $"{agent.Hostname}: remover {chosen.Count} sobra(s) de {name}", cancellationToken: ct);
         return TypedResults.Accepted((string?)null, new { pendingActionId = action.Id });
     }
 

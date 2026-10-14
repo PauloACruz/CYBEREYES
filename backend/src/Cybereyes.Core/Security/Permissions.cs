@@ -69,7 +69,7 @@ public static class Permissions
         new(AlertsView, "Alertas", "Ver alertas"),
         new(AlertsManage, "Alertas", "Resolver e silenciar alertas, editar templates"),
         new(PatchesManage, "Atualizacoes", "Aprovar e instalar atualizacoes do Windows"),
-        new(SoftwareManage, "Software", "Instalar software nos agentes"),
+        new(SoftwareManage, "Software", "Instalar e desinstalar software nos agentes"),
         new(AgentsRemote, "Agentes", "Acesso remoto a tela e area de transferencia"),
         new(AgentsFiles, "Agentes", "Navegar e transferir arquivos das maquinas"),
         new(TicketsView, "Chamados", "Ver chamados, conversas, anexos e apontamentos"),
