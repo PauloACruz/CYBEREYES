@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Anchor, Button, Center, Group, PinInput, Stack, Text, TextInput } from '@mantine/core';
+import { Anchor, Button, Center, Checkbox, Group, PinInput, Stack, Text, TextInput } from '@mantine/core';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { authApi } from '../../api/auth';
 import { PATHS } from '../../app/paths';
 import { takeReturnPath } from '../../auth/returnPath';
 import { ME_QUERY_KEY } from '../../auth/useMe';
+import { isAppLogin } from '../mobile/mobileMode';
 import { AuthLayout } from './AuthLayout';
 import type { TwoFactorLocationState } from './LoginPage';
 
@@ -26,6 +27,9 @@ export function TwoFactorPage() {
   const [mode, setMode] = useState<Mode>('totp');
   const [code, setCode] = useState('');
   const [recoveryCode, setRecoveryCode] = useState('');
+  // No app do celular o codigo e pedido uma vez a cada 30 dias por aparelho (o tecnico pode desmarcar).
+  const app = isAppLogin();
+  const [rememberDevice, setRememberDevice] = useState(app);
 
   const onSuccess = async () => {
     queryClient.removeQueries({ queryKey: ME_QUERY_KEY });
@@ -40,7 +44,7 @@ export function TwoFactorPage() {
   const verifyRecovery = useMutation({ mutationFn: authApi.loginRecovery, onSuccess });
 
   const submitTotp = (value: string) => {
-    if (value.length === 6 && !verifyTotp.isPending) verifyTotp.mutate({ code: value, rememberMe });
+    if (value.length === 6 && !verifyTotp.isPending) verifyTotp.mutate({ code: value, rememberMe, rememberDevice: app && rememberDevice });
   };
 
   if (mode === 'recovery') {
@@ -106,6 +110,13 @@ export function TwoFactorPage() {
               disabled={verifyTotp.isPending}
             />
           </Center>
+          {app && (
+            <Checkbox
+              label="Não pedir o código neste celular por 30 dias"
+              checked={rememberDevice}
+              onChange={(e) => setRememberDevice(e.currentTarget.checked)}
+            />
+          )}
           <Button type="submit" fullWidth loading={verifyTotp.isPending} disabled={code.length !== 6}>
             Verificar
           </Button>

@@ -41,6 +41,42 @@ public sealed class AuthTests(ApiFixture fixture)
     }
 
     [Fact]
+    public async Task RememberedDevice_SkipsTheCodeForThirtyDays_UntilForgotten()
+    {
+        var admin = await fixture.AdminClientAsync();
+        var roles = await admin.GetFromJsonAsync<List<RoleBody>>("/api/roles");
+        await fixture.CreateUserAsync(admin, "lembrado", "senha-do-lembrado-1", roles!.Single(r => r.Name == "Tecnico").Id);
+        await fixture.SignedInClientAsync("lembrado", "senha-do-lembrado-1");
+        var credentials = new { username = "lembrado", password = "senha-do-lembrado-1" };
+
+        var phone = fixture.NewClient();
+        var first = await phone.PostAsJsonAsync("/api/auth/login", credentials);
+        Assert.Equal("requires2fa", (await first.Content.ReadFromJsonAsync<ApiFixture.StatusBody>())!.Status);
+        var verify = await phone.PostAsJsonAsync("/api/auth/login/2fa", new { code = fixture.CurrentCode("lembrado"), rememberDevice = true });
+        Assert.Equal(HttpStatusCode.OK, verify.StatusCode);
+        var device = await phone.GetFromJsonAsync<JsonElement>("/api/auth/2fa/device");
+        Assert.True(device.GetProperty("remembered").GetBoolean());
+        var expires = device.GetProperty("expiresAt").GetDateTimeOffset();
+        Assert.InRange(expires, DateTimeOffset.UtcNow.AddDays(29.9), DateTimeOffset.UtcNow.AddDays(30.1));
+
+        // Sair nao esquece o aparelho: a senha basta e a sessao ja vale como MFA.
+        await phone.PostAsync("/api/auth/logout", null);
+        var again = await phone.PostAsJsonAsync("/api/auth/login", credentials);
+        Assert.Equal("ok", (await again.Content.ReadFromJsonAsync<ApiFixture.StatusBody>())!.Status);
+        var me = await phone.GetFromJsonAsync<JsonElement>("/api/auth/me");
+        Assert.True(me.GetProperty("mfaSatisfied").GetBoolean());
+
+        // Outro aparelho continua pedindo o codigo.
+        var other = await fixture.NewClient().PostAsJsonAsync("/api/auth/login", credentials);
+        Assert.Equal("requires2fa", (await other.Content.ReadFromJsonAsync<ApiFixture.StatusBody>())!.Status);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await phone.DeleteAsync("/api/auth/2fa/device")).StatusCode);
+        await phone.PostAsync("/api/auth/logout", null);
+        var forgotten = await phone.PostAsJsonAsync("/api/auth/login", credentials);
+        Assert.Equal("requires2fa", (await forgotten.Content.ReadFromJsonAsync<ApiFixture.StatusBody>())!.Status);
+    }
+
+    [Fact]
     public async Task Login_AcceptsTheEmailInPlaceOfTheUsername()
     {
         var admin = await fixture.AdminClientAsync();

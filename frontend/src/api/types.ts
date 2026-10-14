@@ -74,6 +74,58 @@ export interface LoginResponse {
 export interface LoginTwoFactorRequest {
   code: string;
   rememberMe?: boolean;
+  /** Este aparelho deixa de pedir o codigo por 30 dias. */
+  rememberDevice?: boolean;
+}
+
+export interface RememberedDeviceDto {
+  remembered: boolean;
+  expiresAt: string | null;
+}
+
+// Biometria (passkeys / WebAuthn). Os binarios chegam em base64url, como no JSON do WebAuthn.
+
+interface PasskeyDescriptorJson {
+  id: string;
+  type: string;
+  transports?: string[];
+}
+
+export interface PasskeyCreationOptionsJson {
+  rp: { id?: string; name: string };
+  user: { id: string; name: string; displayName: string };
+  challenge: string;
+  pubKeyCredParams: { type: string; alg: number }[];
+  timeout?: number;
+  excludeCredentials?: PasskeyDescriptorJson[];
+  authenticatorSelection?: Record<string, unknown>;
+  attestation?: string;
+}
+
+export interface PasskeyRequestOptionsJson {
+  challenge: string;
+  rpId?: string;
+  timeout?: number;
+  allowCredentials?: PasskeyDescriptorJson[];
+  userVerification?: string;
+}
+
+export interface PasskeyDto {
+  id: string;
+  name: string;
+  createdAt: string;
+  /** Copiada para a nuvem do aparelho (iCloud, Google). */
+  synced: boolean;
+}
+
+export interface PasskeyRegisterRequest {
+  credential: Record<string, unknown>;
+  name?: string;
+}
+
+export interface PasskeyLoginRequest {
+  credential: Record<string, unknown>;
+  rememberMe?: boolean;
 }
 
 export interface LoginRecoveryRequest {

@@ -12,6 +12,7 @@ import { useMe } from '../../auth/useMe';
 import { ChangePasswordModal } from '../../components/layout/ChangePasswordModal';
 import { MobileHeader, MobilePage, MobileSection } from './MobilePage';
 import { setPrefersConsole } from './mobileMode';
+import { MobileSignInSection } from './MobileSignInSection';
 import { MOBILE_CARD } from './mobileStyles';
 
 function initials(name: string): string {
@@ -97,6 +98,7 @@ export function MobileMorePage() {
           )}
         </Box>
       </MobileSection>
+      <MobileSignInSection />
       <MobileSection title="Conta">
         <Box style={MOBILE_CARD}>
           <Row

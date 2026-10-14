@@ -109,6 +109,20 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
         builder.Entity<AppUser>(e =>
         {
             e.Property(u => u.FullName).HasMaxLength(200);
+            e.Property(u => u.PhoneNumber).Metadata.SetMaxLength(null);
+        });
+
+        // A versao 3 do esquema do Identity (passkeys) tambem limita estas colunas a 128; ficam como antes, sem limite, para nao
+        // cortar o "sub" de provedores SSO ja gravado.
+        builder.Entity<Microsoft.AspNetCore.Identity.IdentityUserLogin<Guid>>(e =>
+        {
+            e.Property(l => l.LoginProvider).Metadata.SetMaxLength(null);
+            e.Property(l => l.ProviderKey).Metadata.SetMaxLength(null);
+        });
+        builder.Entity<Microsoft.AspNetCore.Identity.IdentityUserToken<Guid>>(e =>
+        {
+            e.Property(t => t.LoginProvider).Metadata.SetMaxLength(null);
+            e.Property(t => t.Name).Metadata.SetMaxLength(null);
         });
 
         builder.Entity<AppRole>(e =>

@@ -13,6 +13,21 @@ public static class AuthSetup
     private const string SelectorScheme = "Cybereyes";
     public const string AuthRateLimitPolicy = "auth";
 
+    /// <summary>Por quanto tempo um aparelho que passou pelo 2FA deixa de pedir o codigo (app do tecnico: uma vez por mes).</summary>
+    public static readonly TimeSpan RememberDeviceLifespan = TimeSpan.FromDays(30);
+
+    /// <summary>A origem do navegador tem de ser o endereco publico do console (ou o da propria requisicao, sem App:PublicUrl).</summary>
+    private static bool PasskeyOriginAllowed(PasskeyOriginValidationContext ctx, IConfiguration config)
+    {
+        if (ctx.CrossOrigin || !Uri.TryCreate(ctx.Origin, UriKind.Absolute, out var origin))
+        {
+            return false;
+        }
+        var expected = Rmm.InstallerEndpoints.PublicUrl(ctx.HttpContext, config);
+        return Uri.TryCreate(expected, UriKind.Absolute, out var allowed)
+            && string.Equals(origin.GetLeftPart(UriPartial.Authority), allowed.GetLeftPart(UriPartial.Authority), StringComparison.OrdinalIgnoreCase);
+    }
+
     public static IServiceCollection AddCybereyesAuth(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddIdentity<AppUser, AppRole>(o =>
@@ -26,6 +41,8 @@ public static class AuthSetup
                 o.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
                 o.Lockout.AllowedForNewUsers = true;
                 o.User.RequireUniqueEmail = true;
+                // Versao 3 do esquema do Identity: tabela AspNetUserPasskeys (entrada por biometria, ADR-027).
+                o.Stores.SchemaVersion = IdentitySchemaVersions.Version3;
             })
             .AddEntityFrameworkStores<CybereyesDbContext>()
             .AddDefaultTokenProviders()
@@ -56,6 +73,33 @@ public static class AuthSetup
             o.Cookie.Name = "cybereyes.2fa";
             o.Cookie.SameSite = SameSiteMode.Strict;
             o.Cookie.SecurePolicy = secureCookies;
+        });
+
+        // Aparelho lembrado: prazo fixo (sem renovar a cada uso) e preso ao carimbo de seguranca da conta; trocar a senha ou o
+        // autenticador invalida todos os aparelhos (validador de carimbo do proprio Identity neste esquema).
+        services.Configure<Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationOptions>(IdentityConstants.TwoFactorRememberMeScheme, o =>
+        {
+            o.Cookie.Name = "cybereyes.2fa-aparelho";
+            o.Cookie.HttpOnly = true;
+            o.Cookie.SameSite = SameSiteMode.Strict;
+            o.Cookie.SecurePolicy = secureCookies;
+            o.ExpireTimeSpan = RememberDeviceLifespan;
+            o.SlidingExpiration = false;
+        });
+
+        // Biometria do celular (WebAuthn): so o autenticador do proprio aparelho, com verificacao do usuario (digital, rosto ou
+        // PIN do aparelho) e credencial guardada nele, para entrar sem digitar o usuario. Origem e dominio vem de App:PublicUrl.
+        services.AddOptions<IdentityPasskeyOptions>().Configure<IConfiguration>((o, config) =>
+        {
+            o.AuthenticatorAttachment = "platform";
+            o.ResidentKeyRequirement = "required";
+            o.UserVerificationRequirement = "required";
+            o.AuthenticatorTimeout = TimeSpan.FromMinutes(2);
+            if (Uri.TryCreate(config["App:PublicUrl"], UriKind.Absolute, out var publicUrl))
+            {
+                o.ServerDomain = publicUrl.Host;
+            }
+            o.ValidateOrigin = ctx => ValueTask.FromResult(PasskeyOriginAllowed(ctx, config));
         });
 
         services.Configure<SecurityStampValidatorOptions>(o =>
