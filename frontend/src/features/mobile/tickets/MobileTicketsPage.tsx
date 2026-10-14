@@ -14,6 +14,7 @@ import { LoadError } from '../../../components/TableStates';
 import { formatRelative } from '../../../lib/format';
 import { TicketPriorityBadge, TicketStatusBadge } from '../../tickets/TicketBadges';
 import { useTicketSummary } from '../../tickets/useTicketSummary';
+import { CONSOLE_STATE } from '../mobileMode';
 import { MobileHeader, MobilePage } from '../MobilePage';
 import { MOBILE_CARD } from '../mobileStyles';
 
@@ -216,7 +217,7 @@ export function MobileTicketsPage() {
           <Text size="sm" c="var(--ce-text-tertiary)">
             Mostrando {all.length} de {tickets.data.total} chamados abertos
           </Text>
-          <Button component={Link} to={PATHS.tickets} variant="subtle">
+          <Button component={Link} to={PATHS.tickets} state={CONSOLE_STATE} variant="subtle">
             Ver todos no console
           </Button>
         </Stack>

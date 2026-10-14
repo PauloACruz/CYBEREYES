@@ -53,7 +53,7 @@ describe('app do técnico', () => {
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/login'));
     const user = userEvent.setup();
-    await user.type(screen.getByLabelText(/Usuário/), 'tecnico');
+    await user.type(await screen.findByLabelText(/Usuário/), 'tecnico');
     await user.type(screen.getByLabelText(/Senha/), 'segredo123');
     await user.click(screen.getByRole('button', { name: 'Entrar' }));
 
@@ -63,13 +63,13 @@ describe('app do técnico', () => {
   });
 });
 
-/** Simula um celular: tela estreita com toque. */
-function phone() {
+/** Simula um celular: tela estreita com toque; com `wide`, o modo "versao para computador" (janela larga). */
+function phone({ wide = false }: { wide?: boolean } = {}) {
   vi.stubGlobal(
     'matchMedia',
     (query: string) =>
       ({
-        matches: query.includes('pointer: coarse'),
+        matches: query.includes('pointer: coarse') || (!wide && query.includes('max-width: 768px')),
         media: query,
         onchange: null,
         addListener: vi.fn(),
@@ -103,6 +103,46 @@ describe('app do técnico no celular', () => {
     const second = renderApp('/');
     expect(await screen.findByRole('heading', { name: /Olá, Maria/ })).toBeInTheDocument();
     expect(second.router.state.location.pathname).toBe('/');
+  });
+
+  it('agentes, chamados e aplicações abertos pelo endereço do console vão para o app', async () => {
+    phone();
+    mockFetch({ 'GET /api/auth/me': () => json(makeMe({ permissions: ['agents.view', 'tickets.view', 'apps.view'] })) });
+    for (const [from, to] of [
+      ['/agentes', '/app/agentes'],
+      ['/agentes/7', '/app/agentes/7'],
+      ['/chamados/101', '/app/chamados/101'],
+      ['/aplicacoes', '/app/aplicacoes'],
+    ] as const) {
+      const { router, unmount } = renderApp(from);
+      await waitFor(() => expect(router.state.location.pathname).toBe(to));
+      unmount();
+    }
+  });
+
+  it('no celular, abas do console e a escolha pelo console completo ficam no console', async () => {
+    phone();
+    mockFetch({ 'GET /api/auth/me': () => json(makeMe({ permissions: ['agents.view'] })) });
+    const files = renderApp('/agentes/7?aba=arquivos');
+    expect(await screen.findByRole('button', { name: 'Menu do usuário' })).toBeInTheDocument();
+    expect(files.router.state.location.pathname).toBe('/agentes/7');
+    files.unmount();
+
+    localStorage.setItem('cybereyes:console-no-celular', '1');
+    const list = renderApp('/agentes');
+    expect(await screen.findByRole('button', { name: 'Menu do usuário' })).toBeInTheDocument();
+    expect(list.router.state.location.pathname).toBe('/agentes');
+  });
+
+  it('no modo "versão para computador" do celular a página inicial também abre o app', async () => {
+    phone({ wide: true });
+    vi.stubGlobal('screen', { width: 412, height: 915 });
+    mockFetch({
+      'GET /api/auth/me': () => json(makeMe({ permissions: ['agents.view'] })),
+      'GET /api/agents': agentsList,
+    });
+    const { router } = renderApp('/');
+    await waitFor(() => expect(router.state.location.pathname).toBe('/app/agentes'));
   });
 
   it('o console leva de volta ao app pelo menu do usuário', async () => {
