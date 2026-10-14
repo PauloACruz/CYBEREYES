@@ -29,7 +29,9 @@ public static class AuthEndpoints
     private static async Task<IResult> LoginAsync(LoginRequest request, UserManager<AppUser> userManager,
         SignInManager<AppUser> signInManager, IAuditService audit, Cybereyes.Core.Persistence.CybereyesDbContext db, CancellationToken ct)
     {
-        var user = await userManager.FindByNameAsync(request.Username);
+        // Usuario ou e-mail: o e-mail e unico (RequireUniqueEmail), entao identifica uma conta so.
+        var user = await userManager.FindByNameAsync(request.Username)
+            ?? (request.Username.Contains('@', StringComparison.Ordinal) ? await userManager.FindByEmailAsync(request.Username) : null);
         if (user is null || !user.IsActive)
         {
             await audit.LogAsync("login.failed", "user", null, "Usuario inexistente ou inativo", request.Username, ct);

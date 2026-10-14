@@ -7,6 +7,7 @@ import { authApi } from '../../api/auth';
 import type { LoginRequest } from '../../api/types';
 import { PATHS } from '../../app/paths';
 import { takeReturnPath } from '../../auth/returnPath';
+import { isAppLogin } from '../mobile/mobileMode';
 import { ME_QUERY_KEY } from '../../auth/useMe';
 import { applyServerErrors } from '../../lib/forms';
 import { AuthLayout } from './AuthLayout';
@@ -64,34 +65,51 @@ export function LoginPage() {
   const providers = sso.data?.providers ?? [];
   // Enquanto a lista carrega (ou se falhar) o formulario fica visivel: o login por senha e o caminho padrao.
   const passwordHidden = sso.data?.passwordLoginEnabled === false && !showPassword;
-  const subtitle = passwordHidden ? 'Acesse o console com a conta da sua organização.' : 'Acesse o console com seu usuário e senha.';
+  const app = isAppLogin();
+  const subtitle = app
+    ? undefined
+    : passwordHidden
+      ? 'Acesse o console com a conta da sua organização.'
+      : 'Acesse o console com seu usuário e senha.';
+  const forgot = (
+    <Anchor component={Link} to={PATHS.forgotPassword} size="sm" ta={app ? 'center' : undefined}>
+      Esqueci minha senha
+    </Anchor>
+  );
 
   const passwordForm = (
     <form onSubmit={form.onSubmit((values) => login.mutate({ ...values, username: values.username.trim() }))} noValidate>
       <Stack>
         <TextInput
-          label="Usuário"
+          label="Usuário ou e-mail"
           autoComplete="username"
           autoFocus={providers.length === 0 || showPassword}
           required
           {...form.getInputProps('username')}
         />
         <PasswordInput label="Senha" autoComplete="current-password" required {...form.getInputProps('password')} />
-        <Group justify="space-between" wrap="nowrap">
-          <Checkbox label="Manter conectado neste dispositivo" {...form.getInputProps('rememberMe', { type: 'checkbox' })} />
-          <Anchor component={Link} to={PATHS.forgotPassword} size="sm">
-            Esqueci minha senha
-          </Anchor>
-        </Group>
-        <Button type="submit" fullWidth loading={login.isPending}>
+        {app ? (
+          <Checkbox label="Manter conectado neste celular" {...form.getInputProps('rememberMe', { type: 'checkbox' })} />
+        ) : (
+          <Group justify="space-between" wrap="nowrap">
+            <Checkbox label="Manter conectado neste dispositivo" {...form.getInputProps('rememberMe', { type: 'checkbox' })} />
+            {forgot}
+          </Group>
+        )}
+        <Button type="submit" fullWidth loading={login.isPending} size={app ? 'md' : undefined}>
           Entrar
         </Button>
+        {app && forgot}
       </Stack>
     </form>
   );
 
   return (
-    <AuthLayout title="Entrar" subtitle={subtitle}>
+    <AuthLayout
+      title="Entrar"
+      subtitle={subtitle}
+      footer={app ? 'Depois da senha, o app pede o código do autenticador (verificação em duas etapas).' : undefined}
+    >
       <Stack>
         {ssoError !== null && <SsoErrorAlert message={ssoErrorMessage(ssoError)} />}
         <SsoLoginOptions

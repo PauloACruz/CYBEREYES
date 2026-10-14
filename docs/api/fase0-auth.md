@@ -45,6 +45,8 @@ Validacao (400) inclui `errors: { "campo": ["mensagem"] }`.
 | GET | `/api/auth/me` | | 200 `MeDto` |
 | POST | `/api/auth/password` | `{ currentPassword, newPassword }` | 204 |
 
+No login, `username` aceita tambem o e-mail do usuario (o e-mail e unico por conta).
+
 `MeDto`: `{ id, username, email, fullName, isSuperuser, roles: string[], permissions: string[], twoFactorEnabled, mfaSatisfied }`
 
 ### Usuarios (permissoes `users.view` e `users.manage`)

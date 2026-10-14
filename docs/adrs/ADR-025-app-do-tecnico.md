@@ -14,6 +14,11 @@
 4. **Reuso das pecas do console**: formulario de novo chamado, resposta e conversa do chamado, cartoes de status e tecnico, formulario e execucao do Cybereyes Care, desligar e alterar hostname. A logica comum saiu para hooks (`ticketReply.ts`, `careRuns.ts`).
 5. **O que fica no console**: scripts, arquivos, cadastros, deploy e terminal SSH. No app esses itens abrem a tela correspondente do console.
 6. **Comandos rapidos so com efeito seguro**: leitura ou acoes reversiveis do dia a dia (espaco em disco, servicos parados, reiniciar o spooler, limpar o cache DNS). Nada que derrube a rede da maquina, porque o agente perderia a conexao no meio do comando. Todo comando pede confirmacao e fica no historico e na auditoria, como no console.
+7. **No celular, o endereco principal abre o app** (tela estreita com toque, ou o app instalado): a pagina inicial `/` leva para
+   `/app`. "Abrir o console completo" no app guarda a escolha no aparelho (`localStorage`); "App do tecnico" no menu do usuario
+   do console desfaz. Links diretos para telas do console (por exemplo `/agentes/12`) continuam abrindo o console.
+8. **Entrada no formato do app**: no celular, ou com uma tela do app esperando o login, a tela de login mostra "App do tecnico",
+   aceita usuario ou e-mail (o e-mail e unico por conta) e explica a verificacao em duas etapas.
 
 ## Consequencias
 - Uma unica base de codigo: mudancas na API valem para o console e para o app ao mesmo tempo, e os testes do frontend cobrem as duas areas.

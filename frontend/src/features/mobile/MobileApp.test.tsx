@@ -63,6 +63,83 @@ describe('app do técnico', () => {
   });
 });
 
+/** Simula um celular: tela estreita com toque. */
+function phone() {
+  vi.stubGlobal(
+    'matchMedia',
+    (query: string) =>
+      ({
+        matches: query.includes('pointer: coarse'),
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      }) as unknown as MediaQueryList,
+  );
+}
+
+describe('app do técnico no celular', () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+    localStorage.clear();
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('a página inicial abre o app no celular, e o console quando o técnico escolheu', async () => {
+    phone();
+    mockFetch({
+      'GET /api/auth/me': () => json(makeMe({ permissions: ['agents.view'] })),
+      'GET /api/agents': agentsList,
+      'GET /api/dashboard/overview': () => json({ from: '2026-10-08', to: '2026-10-14', agents: null, tickets: null, checks: null }),
+    });
+    const first = renderApp('/');
+    await waitFor(() => expect(first.router.state.location.pathname).toBe('/app/agentes'));
+    first.unmount();
+
+    localStorage.setItem('cybereyes:console-no-celular', '1');
+    const second = renderApp('/');
+    expect(await screen.findByRole('heading', { name: /Olá, Maria/ })).toBeInTheDocument();
+    expect(second.router.state.location.pathname).toBe('/');
+  });
+
+  it('o console leva de volta ao app pelo menu do usuário', async () => {
+    localStorage.setItem('cybereyes:console-no-celular', '1');
+    mockFetch({
+      'GET /api/auth/me': () => json(makeMe({ permissions: ['agents.view'] })),
+      'GET /api/agents': agentsList,
+      'GET /api/dashboard/overview': () => json({ from: '2026-10-08', to: '2026-10-14', agents: null, tickets: null, checks: null }),
+    });
+    const { router } = renderApp('/');
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Menu do usuário' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'App do técnico' }));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/app/agentes'));
+    expect(localStorage.getItem('cybereyes:console-no-celular')).toBeNull();
+  });
+
+  it('no celular o login aparece como a entrada do app', async () => {
+    phone();
+    mockFetch({ 'GET /api/auth/me': () => problem(401, 'UNAUTHORIZED', 'Não autenticado') });
+    renderApp('/login');
+
+    expect(await screen.findByText('App do técnico')).toBeInTheDocument();
+    expect(screen.getByText(/o app pede o código do autenticador/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Usuário ou e-mail/)).toBeInTheDocument();
+    expect(screen.queryByText('Acesse o console com seu usuário e senha.')).not.toBeInTheDocument();
+  });
+
+  it('no computador o login continua o do console', async () => {
+    mockFetch({ 'GET /api/auth/me': () => problem(401, 'UNAUTHORIZED', 'Não autenticado') });
+    renderApp('/login');
+
+    expect(await screen.findByText('Acesse o console com seu usuário e senha.')).toBeInTheDocument();
+    expect(screen.queryByText('App do técnico')).not.toBeInTheDocument();
+  });
+});
+
 describe('caminho de volta depois do login', () => {
   beforeEach(() => sessionStorage.clear());
 

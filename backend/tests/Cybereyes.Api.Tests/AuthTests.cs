@@ -41,6 +41,23 @@ public sealed class AuthTests(ApiFixture fixture)
     }
 
     [Fact]
+    public async Task Login_AcceptsTheEmailInPlaceOfTheUsername()
+    {
+        var admin = await fixture.AdminClientAsync();
+        var roles = await admin.GetFromJsonAsync<List<RoleBody>>("/api/roles");
+        await fixture.CreateUserAsync(admin, "pelo-email", "senha-pelo-email-1", roles!.Single(r => r.Name == "Tecnico").Id);
+
+        var byEmail = await fixture.NewClient().PostAsJsonAsync("/api/auth/login", new { username = "pelo-email@exemplo.com", password = "senha-pelo-email-1" });
+        Assert.Equal(HttpStatusCode.OK, byEmail.StatusCode);
+        Assert.Equal("requires2faSetup", (await byEmail.Content.ReadFromJsonAsync<ApiFixture.StatusBody>())!.Status);
+
+        var wrong = await fixture.NewClient().PostAsJsonAsync("/api/auth/login", new { username = "pelo-email@exemplo.com", password = "errada-errada" });
+        Assert.Equal("INVALID_CREDENTIALS", await CodeOf(wrong));
+        var unknown = await fixture.NewClient().PostAsJsonAsync("/api/auth/login", new { username = "ninguem@exemplo.com", password = "senha-pelo-email-1" });
+        Assert.Equal("INVALID_CREDENTIALS", await CodeOf(unknown));
+    }
+
+    [Fact]
     public async Task NewUser_MustSetUpTwoFactor_BeforeUsingTheApi()
     {
         var admin = await fixture.AdminClientAsync();

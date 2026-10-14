@@ -4,7 +4,7 @@ import { RequireAuth } from '../auth/RequireAuth';
 import { RequirePermission } from '../auth/RequirePermission';
 import { AppLayout } from '../components/layout/AppLayout';
 import { NotFound } from '../components/NotFound';
-import { DashboardPage } from '../features/dashboard/DashboardPage';
+import { HomeRoute } from '../features/dashboard/HomeRoute';
 import { AcceptInvitePage } from '../features/auth/AcceptInvitePage';
 import { ForgotPasswordPage } from '../features/auth/ForgotPasswordPage';
 import { LoginPage } from '../features/auth/LoginPage';
@@ -83,7 +83,7 @@ export const routes: RouteObject[] = [
       {
         element: <AppLayout />,
         children: [
-          { index: true, element: <DashboardPage /> },
+          { index: true, element: <HomeRoute /> },
           {
             element: <RequirePermission permission={PERMISSIONS.agentsView} />,
             children: [
