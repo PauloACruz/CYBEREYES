@@ -1203,6 +1203,61 @@ namespace Cybereyes.Core.Persistence.Migrations
                     b.ToTable("people", (string)null);
                 });
 
+            modelBuilder.Entity("Cybereyes.Core.Notifications.PushSubscription", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Auth")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Device")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Endpoint")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTimeOffset?>("LastSentAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("Messages")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("NewTickets")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("P256dh")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<bool>("Updates")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Endpoint")
+                        .IsUnique();
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("push_subscriptions", (string)null);
+                });
+
             modelBuilder.Entity("Cybereyes.Core.Reports.ReportDispatch", b =>
                 {
                     b.Property<long>("Id")
@@ -2352,6 +2407,14 @@ namespace Cybereyes.Core.Persistence.Migrations
 
                     b.Property<bool>("LogsEnabled")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("PushPrivateKeyProtected")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("PushPublicKey")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
 
                     b.Property<bool>("SelfServiceEnabled")
                         .HasColumnType("boolean");
@@ -4318,6 +4381,15 @@ namespace Cybereyes.Core.Persistence.Migrations
                     b.HasOne("Cybereyes.Core.Rmm.Client", null)
                         .WithMany()
                         .HasForeignKey("ClientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Cybereyes.Core.Notifications.PushSubscription", b =>
+                {
+                    b.HasOne("Cybereyes.Core.Identity.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

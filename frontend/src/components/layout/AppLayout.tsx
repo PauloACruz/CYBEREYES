@@ -20,6 +20,7 @@ import {
 } from '@mantine/core';
 import { useDisclosure, useLocalStorage, useMediaQuery } from '@mantine/hooks';
 import {
+  IconBell,
   IconChevronDown,
   IconDeviceMobile,
   IconKey,
@@ -30,8 +31,10 @@ import {
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router';
 import { authApi } from '../../api/auth';
+import { PERMISSIONS } from '../../api/types';
 import { visibleNavItems } from '../../app/navigation';
 import { MOBILE_PATHS, PATHS } from '../../app/paths';
+import { hasPermission } from '../../auth/permissions';
 import { useMe } from '../../auth/useMe';
 import { ConsoleHubContext } from '../../realtime/consoleHubContext';
 import { useConsoleHub } from '../../realtime/useConsoleHub';
@@ -40,6 +43,8 @@ import { BrandToggle } from './BrandToggle';
 import { ChangePasswordModal } from './ChangePasswordModal';
 import { SideNav } from './SideNav';
 import { setPrefersConsole } from '../../features/mobile/mobileMode';
+import { NotificationsModal } from '../../features/notifications/NotificationsModal';
+import { forgetPushOnLogout } from '../../features/notifications/pushClient';
 
 /** Conteineres flutuantes do shell: cantos de 15px, borda sutil e sombra. */
 const FLOATING = {
@@ -61,6 +66,7 @@ export function AppLayout() {
   const hub = useConsoleHub();
   const [navOpened, nav] = useDisclosure(false);
   const [passwordOpened, passwordModal] = useDisclosure(false);
+  const [notificationsOpened, notificationsModal] = useDisclosure(false);
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -73,7 +79,10 @@ export function AppLayout() {
   const veil = colorScheme === 'dark' ? 'rgba(10, 12, 14, 0.9)' : 'rgba(248, 249, 246, 0.9)';
 
   const logout = useMutation({
-    mutationFn: authApi.logout,
+    mutationFn: async () => {
+      await forgetPushOnLogout();
+      await authApi.logout();
+    },
     onSettled: async () => {
       queryClient.clear();
       await navigate(PATHS.login, { replace: true });
@@ -148,6 +157,11 @@ export function AppLayout() {
                   >
                     App do técnico
                   </Menu.Item>
+                  {hasPermission(me, PERMISSIONS.ticketsView) && (
+                    <Menu.Item leftSection={<IconBell size={16} />} onClick={notificationsModal.open}>
+                      Notificações
+                    </Menu.Item>
+                  )}
                   <Menu.Item leftSection={<IconKey size={16} />} onClick={passwordModal.open}>
                     Trocar senha
                   </Menu.Item>
@@ -203,6 +217,7 @@ export function AppLayout() {
         </AppShell.Main>
 
         <ChangePasswordModal opened={passwordOpened} onClose={passwordModal.close} />
+        <NotificationsModal opened={notificationsOpened} onClose={notificationsModal.close} />
       </AppShell>
     </Box>
   );

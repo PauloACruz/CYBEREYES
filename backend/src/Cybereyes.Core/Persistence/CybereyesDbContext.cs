@@ -5,6 +5,7 @@ using Cybereyes.Core.Apps;
 using Cybereyes.Core.Audit;
 using Cybereyes.Core.Identity;
 using Cybereyes.Core.Inventory;
+using Cybereyes.Core.Notifications;
 using Cybereyes.Core.Reports;
 using Cybereyes.Core.Rmm;
 using Cybereyes.Core.Tickets;
@@ -82,6 +83,7 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
     public DbSet<WebAppCheck> WebAppChecks => Set<WebAppCheck>();
     public DbSet<AppCommand> AppCommands => Set<AppCommand>();
     public DbSet<AppRun> AppRuns => Set<AppRun>();
+    public DbSet<PushSubscription> PushSubscriptions => Set<PushSubscription>();
 
     // Escopo de clientes do usuario da requisicao. Nulo = sem restricao (agentes, servicos internos e
     // usuarios com acesso a todos os clientes). Os filtros globais de ConfigureClientScope leem estes campos.
@@ -1108,6 +1110,24 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
             e.Property(x => x.AllowedDomains).HasColumnType("text[]");
             e.HasIndex(x => x.Name).IsUnique();
             e.HasOne<AppRole>().WithMany().HasForeignKey(x => x.DefaultRoleId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<PushSubscription>(e =>
+        {
+            e.ToTable("push_subscriptions");
+            e.Property(x => x.Endpoint).HasMaxLength(2000);
+            e.Property(x => x.P256dh).HasMaxLength(200);
+            e.Property(x => x.Auth).HasMaxLength(100);
+            e.Property(x => x.Device).HasMaxLength(100);
+            e.HasIndex(x => x.Endpoint).IsUnique();
+            e.HasIndex(x => x.UserId);
+            e.HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<CoreSettings>(e =>
+        {
+            e.Property(x => x.PushPublicKey).HasMaxLength(200);
+            e.Property(x => x.PushPrivateKeyProtected).HasMaxLength(2000);
         });
     }
 }

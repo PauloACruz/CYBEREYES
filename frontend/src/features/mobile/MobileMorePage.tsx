@@ -10,6 +10,8 @@ import { PATHS } from '../../app/paths';
 import { hasPermission } from '../../auth/permissions';
 import { useMe } from '../../auth/useMe';
 import { ChangePasswordModal } from '../../components/layout/ChangePasswordModal';
+import { NotificationSettings } from '../notifications/NotificationSettings';
+import { forgetPushOnLogout } from '../notifications/pushClient';
 import { MobileHeader, MobilePage, MobileSection } from './MobilePage';
 import { setPrefersConsole } from './mobileMode';
 import { MobileSignInSection } from './MobileSignInSection';
@@ -55,7 +57,7 @@ function Row({ icon, label, to, onClick, danger = false }: RowProps) {
 
 const DIVIDER = { borderTop: '1px solid var(--ce-border-subtle)' } as const;
 
-/** Conta, tema, atalhos para o console completo e sair. */
+/** Conta, notificacoes, tema, atalhos para o console completo e sair. */
 export function MobileMorePage() {
   const { data: me } = useMe();
   const navigate = useNavigate();
@@ -65,7 +67,10 @@ export function MobileMorePage() {
   const [passwordOpened, passwordModal] = useDisclosure(false);
   const displayName = me?.fullName || me?.username || '';
   const logout = useMutation({
-    mutationFn: authApi.logout,
+    mutationFn: async () => {
+      await forgetPushOnLogout();
+      await authApi.logout();
+    },
     onSettled: async () => {
       queryClient.clear();
       await navigate(PATHS.login, { replace: true });
@@ -98,6 +103,13 @@ export function MobileMorePage() {
           )}
         </Box>
       </MobileSection>
+      {hasPermission(me, PERMISSIONS.ticketsView) && (
+        <MobileSection title="Notificações">
+          <Box style={MOBILE_CARD}>
+            <NotificationSettings mobile />
+          </Box>
+        </MobileSection>
+      )}
       <MobileSignInSection />
       <MobileSection title="Conta">
         <Box style={MOBILE_CARD}>
