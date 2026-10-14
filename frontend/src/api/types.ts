@@ -74,6 +74,58 @@ export interface LoginResponse {
 export interface LoginTwoFactorRequest {
   code: string;
   rememberMe?: boolean;
+  /** Este aparelho deixa de pedir o codigo por 30 dias. */
+  rememberDevice?: boolean;
+}
+
+export interface RememberedDeviceDto {
+  remembered: boolean;
+  expiresAt: string | null;
+}
+
+// Biometria (passkeys / WebAuthn). Os binarios chegam em base64url, como no JSON do WebAuthn.
+
+interface PasskeyDescriptorJson {
+  id: string;
+  type: string;
+  transports?: string[];
+}
+
+export interface PasskeyCreationOptionsJson {
+  rp: { id?: string; name: string };
+  user: { id: string; name: string; displayName: string };
+  challenge: string;
+  pubKeyCredParams: { type: string; alg: number }[];
+  timeout?: number;
+  excludeCredentials?: PasskeyDescriptorJson[];
+  authenticatorSelection?: Record<string, unknown>;
+  attestation?: string;
+}
+
+export interface PasskeyRequestOptionsJson {
+  challenge: string;
+  rpId?: string;
+  timeout?: number;
+  allowCredentials?: PasskeyDescriptorJson[];
+  userVerification?: string;
+}
+
+export interface PasskeyDto {
+  id: string;
+  name: string;
+  createdAt: string;
+  /** Copiada para a nuvem do aparelho (iCloud, Google). */
+  synced: boolean;
+}
+
+export interface PasskeyRegisterRequest {
+  credential: Record<string, unknown>;
+  name?: string;
+}
+
+export interface PasskeyLoginRequest {
+  credential: Record<string, unknown>;
+  rememberMe?: boolean;
 }
 
 export interface LoginRecoveryRequest {
@@ -1337,6 +1389,8 @@ export interface TimeEntryDto {
   /** Data (AAAA-MM-DD). */
   workDate: string;
   createdAt: string;
+  /** Procedimento no agente que gerou o apontamento, quando veio de um. */
+  procedureId?: number | null;
 }
 
 export interface CreateTimeEntryRequest {
@@ -2635,6 +2689,35 @@ export interface DashboardChecks {
   days: DashboardCheckDay[];
 }
 
+export interface DashboardProcedureDay {
+  date: string;
+  count: number;
+  seconds: number;
+}
+
+export interface DashboardProcedureKind {
+  kind: ProcedureKind;
+  count: number;
+  seconds: number;
+}
+
+export interface DashboardProcedureUser {
+  userId: string | null;
+  userName: string;
+  count: number;
+  seconds: number;
+}
+
+export interface DashboardProcedures {
+  total: number;
+  seconds: number;
+  inTickets: number;
+  unlinked: number;
+  days: DashboardProcedureDay[];
+  byKind: DashboardProcedureKind[];
+  byUser: DashboardProcedureUser[];
+}
+
 export interface DashboardOverview {
   from: string;
   to: string;
@@ -2643,4 +2726,94 @@ export interface DashboardOverview {
   /** Nulo quando o papel nao pode ver chamados. */
   tickets: DashboardTickets | null;
   checks: DashboardChecks | null;
+  /** Procedimentos feitos nos agentes no periodo; nulo sem agents.view. Ausente em servidores antigos. */
+  procedures?: DashboardProcedures | null;
+}
+
+// Procedimentos nos agentes (registro de atendimento com duracao, incluivel em chamado).
+
+export type ProcedureKind =
+  | 'remote'
+  | 'files'
+  | 'care'
+  | 'command'
+  | 'script'
+  | 'terminal'
+  | 'rename'
+  | 'reboot'
+  | 'shutdown'
+  | 'service'
+  | 'process'
+  | 'registry'
+  | 'software'
+  | 'updates'
+  | 'task'
+  | 'wake'
+  | 'agent_update';
+
+export type ProcedureStatus = 'running' | 'ok' | 'warning' | 'error' | 'cancelled' | 'timeout';
+
+export interface ProcedureDto {
+  id: number;
+  agentId: number | null;
+  hostname: string;
+  clientId: number;
+  clientName: string;
+  kind: ProcedureKind;
+  title: string;
+  detail: string | null;
+  status: ProcedureStatus;
+  /** "console" ou "tray" (pedido pelo usuario da maquina no app de bandeja). */
+  source: string;
+  userId: string | null;
+  userName: string;
+  startedAt: string;
+  finishedAt: string | null;
+  durationSeconds: number | null;
+  ticketId: number | null;
+  ticketTitle: string | null;
+  timeEntryId: number | null;
+  /** Minutos apontados no chamado (tempo de servico). */
+  serviceMinutes: number | null;
+}
+
+export interface ProcedureTotals {
+  count: number;
+  seconds: number;
+  inTickets: number;
+  serviceMinutes: number;
+  unlinked: number;
+}
+
+export interface ProcedurePage extends Paged<ProcedureDto> {
+  totals: ProcedureTotals;
+}
+
+export interface ListProceduresParams {
+  agentId?: number;
+  clientId?: number;
+  userId?: string;
+  kind?: ProcedureKind;
+  status?: ProcedureStatus;
+  ticketId?: number;
+  /** true: so os incluidos em chamado; false: so os sem chamado. */
+  linked?: boolean;
+  /** Datas AAAA-MM-DD no fuso do console, inclusivas. */
+  from?: string;
+  to?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface IncludeProceduresRequest {
+  items: { procedureId: number; minutes?: number | null }[];
+}
+
+export interface ProceduresTicketRequest {
+  procedureIds: number[];
+  title: string;
+  description?: string;
+  type?: TicketType;
+  priority?: TicketPriority;
+  resolve: boolean;
 }

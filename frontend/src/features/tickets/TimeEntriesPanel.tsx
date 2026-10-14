@@ -1,4 +1,4 @@
-import { ActionIcon, Button, Group, NumberInput, Paper, Stack, Table, Text, TextInput, Title, Tooltip } from '@mantine/core';
+import { ActionIcon, Badge, Button, Group, NumberInput, Paper, Stack, Table, Text, TextInput, Title, Tooltip } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
 import { useForm } from '@mantine/form';
 import { IconPlus, IconTrash } from '@tabler/icons-react';
@@ -29,6 +29,9 @@ export function TimeEntriesPanel({ ticketId, canManage, me }: TimeEntriesPanelPr
     onSuccess: () => {
       notifySuccess('Apontamento excluído.');
       void queryClient.invalidateQueries({ queryKey: queryKeys.ticketTime(ticketId) });
+      // O apontamento de um procedimento tira o procedimento do chamado.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.ticketProcedures(ticketId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.procedures });
       refreshTicketDetail(queryClient, ticketId);
     },
   });
@@ -64,6 +67,11 @@ export function TimeEntriesPanel({ ticketId, canManage, me }: TimeEntriesPanelPr
                 </Table.Td>
                 <Table.Td>
                   <Text size="sm">{entry.description || 'Sem descrição'}</Text>
+                  {entry.procedureId != null && (
+                    <Badge size="xs" variant="light" color="gray" mt={2} title="Veio de um procedimento no agente">
+                      Procedimento
+                    </Badge>
+                  )}
                 </Table.Td>
                 <Table.Td ta="right" style={{ whiteSpace: 'nowrap' }}>
                   {formatMinutes(entry.minutes)}

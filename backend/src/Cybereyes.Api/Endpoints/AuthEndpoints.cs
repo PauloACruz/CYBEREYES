@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
 using Cybereyes.Api.Infrastructure;
 using Cybereyes.Core.Audit;
@@ -19,17 +20,23 @@ public static class AuthEndpoints
         group.MapPost("/login/2fa", LoginTwoFactorAsync).AllowAnonymous().RequireRateLimiting(AuthSetup.AuthRateLimitPolicy);
         group.MapPost("/login/recovery", LoginRecoveryAsync).AllowAnonymous().RequireRateLimiting(AuthSetup.AuthRateLimitPolicy);
         group.MapGet("/2fa/setup", SetupTwoFactorAsync).RequireAuthorization(Policies.Partial);
+        group.MapGet("/2fa/device", RememberedDeviceAsync).RequireAuthorization(Policies.Partial);
+        group.MapDelete("/2fa/device", ForgetDeviceAsync).RequireAuthorization(Policies.Partial);
         group.MapPost("/2fa/enable", EnableTwoFactorAsync).RequireAuthorization(Policies.Partial).RequireRateLimiting(AuthSetup.AuthRateLimitPolicy);
         group.MapPost("/logout", LogoutAsync).RequireAuthorization(Policies.Partial);
         group.MapGet("/me", MeAsync).RequireAuthorization(Policies.Partial);
         group.MapPost("/password", ChangePasswordAsync).RequireAuthorization();
         group.MapAccountEndpoints();
+        group.MapPasskeyEndpoints();
     }
 
     private static async Task<IResult> LoginAsync(LoginRequest request, UserManager<AppUser> userManager,
-        SignInManager<AppUser> signInManager, IAuditService audit, Cybereyes.Core.Persistence.CybereyesDbContext db, CancellationToken ct)
+        SignInManager<AppUser> signInManager, IAuditService audit, Cybereyes.Core.Persistence.CybereyesDbContext db, TimeProvider time,
+        CancellationToken ct)
     {
-        var user = await userManager.FindByNameAsync(request.Username);
+        // Usuario ou e-mail: o e-mail e unico (RequireUniqueEmail), entao identifica uma conta so.
+        var user = await userManager.FindByNameAsync(request.Username)
+            ?? (request.Username.Contains('@', StringComparison.Ordinal) ? await userManager.FindByEmailAsync(request.Username) : null);
         if (user is null || !user.IsActive)
         {
             await audit.LogAsync("login.failed", "user", null, "Usuario inexistente ou inativo", request.Username, ct);
@@ -52,6 +59,16 @@ public static class AuthEndpoints
         {
             return TypedResults.Ok(new LoginResponse("requires2fa"));
         }
+        if (result.Succeeded && user.TwoFactorEnabled)
+        {
+            // Aparelho lembrado (2FA feito nele nos ultimos 30 dias): o Identity entra so com "pwd"; aqui vale como MFA.
+            await signInManager.SignInWithClaimsAsync(user, request.RememberMe ?? false, [new Claim(CybereyesClaims.AuthMethods, CybereyesClaims.Mfa)]);
+            user.LastLoginAt = time.GetUtcNow();
+            await userManager.UpdateAsync(user);
+            await audit.LogAsync("login.success", "user", user.Id.ToString(), "Login com senha em aparelho lembrado (2FA nos ultimos 30 dias)",
+                user.UserName, ct);
+            return TypedResults.Ok(new LoginResponse("ok"));
+        }
         if (result.Succeeded)
         {
             await audit.LogAsync("login.partial", "user", user.Id.ToString(), "Senha validada, 2FA pendente de configuracao", user.UserName, ct);
@@ -71,8 +88,10 @@ public static class AuthEndpoints
             return Problems.Unauthorized("Sessao de login expirada, entre novamente");
         }
 
-        var result = await signInManager.TwoFactorAuthenticatorSignInAsync(NormalizeCode(request.Code), request.RememberMe ?? false, rememberClient: false);
-        return await CompleteTwoFactorAsync(result, user, userManager, audit, time, "codigo do autenticador", ct);
+        var rememberDevice = request.RememberDevice ?? false;
+        var result = await signInManager.TwoFactorAuthenticatorSignInAsync(NormalizeCode(request.Code), request.RememberMe ?? false, rememberClient: rememberDevice);
+        return await CompleteTwoFactorAsync(result, user, userManager, audit, time,
+            rememberDevice ? "codigo do autenticador (aparelho lembrado por 30 dias)" : "codigo do autenticador", ct);
     }
 
     private static async Task<IResult> LoginRecoveryAsync(RecoveryRequest request, UserManager<AppUser> userManager,
@@ -106,6 +125,23 @@ public static class AuthEndpoints
         await userManager.UpdateAsync(user);
         await audit.LogAsync("login.success", "user", user.Id.ToString(), $"Login com {method}", user.UserName, ct);
         return TypedResults.Ok(new LoginResponse("ok"));
+    }
+
+    /// <summary>Este aparelho esta dispensado do codigo? E ate quando.</summary>
+    private static async Task<IResult> RememberedDeviceAsync(HttpContext context, ClaimsPrincipal principal)
+    {
+        var remembered = await context.AuthenticateAsync(IdentityConstants.TwoFactorRememberMeScheme);
+        var mine = remembered.Succeeded && remembered.Principal?.FindFirstValue(ClaimTypes.Name) == principal.UserId()?.ToString();
+        return TypedResults.Ok(new RememberedDeviceResponse(mine, mine ? remembered.Properties?.ExpiresUtc : null));
+    }
+
+    /// <summary>Volta a pedir o codigo do autenticador neste aparelho no proximo login.</summary>
+    private static async Task<IResult> ForgetDeviceAsync(ClaimsPrincipal principal, SignInManager<AppUser> signInManager, IAuditService audit,
+        CancellationToken ct)
+    {
+        await signInManager.ForgetTwoFactorClientAsync();
+        await audit.LogAsync("2fa.device-forgotten", "user", principal.UserId()?.ToString(), "Aparelho deixou de ser lembrado", principal.Identity?.Name, ct);
+        return TypedResults.NoContent();
     }
 
     private static async Task<IResult> SetupTwoFactorAsync(ClaimsPrincipal principal, UserManager<AppUser> userManager,

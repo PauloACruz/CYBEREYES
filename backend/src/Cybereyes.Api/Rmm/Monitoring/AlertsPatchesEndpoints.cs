@@ -7,6 +7,7 @@ using Cybereyes.Api.Endpoints;
 using Cybereyes.Api.Infrastructure;
 using Cybereyes.Api.Rmm.Actions;
 using Cybereyes.Api.Rmm.Nats;
+using Cybereyes.Api.Rmm.Procedures;
 using Cybereyes.Core.Audit;
 using Cybereyes.Core.Persistence;
 using Cybereyes.Core.Rmm;
@@ -141,15 +142,21 @@ public static partial class AlertsPatchesEndpoints
         }).RequireAuthorization(patches);
         ag.MapPost("/updates/scan", (int id, CybereyesDbContext db, IAgentRpc rpc, CancellationToken ct) => PublishAsync(id, db, rpc, "getwinupdates", null, ct))
             .RequireAuthorization(view);
-        ag.MapPost("/updates/install", async (int id, CybereyesDbContext db, IAgentRpc rpc, IAuditService audit, CancellationToken ct) =>
+        ag.MapPost("/updates/install", async (int id, CybereyesDbContext db, IAgentRpc rpc, IAuditService audit, ProcedureLog procedures, CancellationToken ct) =>
         {
-            var guids = await db.WinUpdates.Where(u => u.AgentId == id && !u.Installed && u.Action == "approve").Select(u => u.UpdateGuid).ToListAsync(ct);
-            if (guids.Count == 0)
+            var updates = await db.WinUpdates.Where(u => u.AgentId == id && !u.Installed && u.Action == "approve").Select(u => new { u.UpdateGuid, u.Kb })
+                .ToListAsync(ct);
+            if (updates.Count == 0)
             {
                 return Problems.BadRequest("Nenhuma atualizacao aprovada pendente");
             }
-            await audit.LogAsync("update.install", "agent", Id(id), $"Instalacao de {guids.Count} atualizacoes", cancellationToken: ct);
-            return await PublishAsync(id, db, rpc, "installwinupdates", new() { ["guids"] = guids }, ct);
+            await audit.LogAsync("update.install", "agent", Id(id), $"Instalacao de {updates.Count} atualizacoes", cancellationToken: ct);
+            // O Windows Update roda no agente sem aviso de fim: o procedimento registra o pedido de instalacao.
+            return await procedures.TrackAsync(id, ProcedureKind.Updates,
+                updates.Count == 1 ? "1 atualização aprovada" : $"{updates.Count} atualizações aprovadas",
+                ProcedureLog.Truncate(string.Join(", ", updates.Select(u => u.Kb).Where(kb => !string.IsNullOrWhiteSpace(kb))), 2000),
+                () => PublishAsync(id, db, rpc, "installwinupdates", new() { ["guids"] = updates.Select(u => u.UpdateGuid).ToList() }, ct),
+                ProcedureLog.StatusOf, ct);
         }).RequireAuthorization(patches);
         ag.MapGet("/patch-policy", async (int id, CybereyesDbContext db, CancellationToken ct) =>
             TypedResults.Ok(new { own = await db.PatchPolicies.AsNoTracking().FirstOrDefaultAsync(p => p.AgentId == id, ct), effective = await PatchPolicies.EffectiveAsync(db, id, ct) }))
@@ -454,7 +461,8 @@ public static partial class AlertsPatchesEndpoints
     [System.Text.RegularExpressions.GeneratedRegex(@"^[A-Za-z0-9][A-Za-z0-9_.+\-]{0,127}$")]
     private static partial System.Text.RegularExpressions.Regex WingetPackage();
 
-    private static async Task<IResult> InstallSoftwareAsync(int id, InstallSoftwareRequest r, CybereyesDbContext db, IAgentRpc rpc, IAuditService audit, CancellationToken ct)
+    private static async Task<IResult> InstallSoftwareAsync(int id, InstallSoftwareRequest r, CybereyesDbContext db, IAgentRpc rpc, IAuditService audit,
+        ProcedureLog procedures, CancellationToken ct)
     {
         var agent = await AgentRef.FindAsync(db, id, ct);
         if (agent is null)
@@ -485,6 +493,9 @@ public static partial class AlertsPatchesEndpoints
         };
         db.PendingActions.Add(action);
         await db.SaveChangesAsync(ct);
+        // Concluido quando o agente devolve o resultado da instalacao (MonitoringProtocol.ChocoResultAsync).
+        await procedures.StartAsync(id, ProcedureKind.Software, package, label, refType: ProcedureRef.PendingAction,
+            refId: action.Id.ToString(CultureInfo.InvariantCulture), ct: ct);
         var request = manager == "choco"
             ? new Dictionary<string, object?> { ["func"] = "installwithchoco", ["choco_prog_name"] = package, ["pending_action_pk"] = (int)action.Id }
             : new Dictionary<string, object?> { ["func"] = "installwithwinget", ["winget_id"] = package, ["pending_action_pk"] = (int)action.Id };

@@ -16,7 +16,13 @@ public sealed record DashboardTicketDay(DateOnly Date, int Opened, int Resolved)
 public sealed record DashboardTickets(int Open, int Unassigned, int Breached, int OpenedInPeriod, int ResolvedInPeriod, IReadOnlyList<DashboardTicketDay> Days);
 public sealed record DashboardCheckDay(DateOnly Date, int Passing, int Failing);
 public sealed record DashboardChecks(int Total, int Passing, int Failing, int HistoryDays, IReadOnlyList<DashboardCheckDay> Days);
-public sealed record DashboardOverview(DateOnly From, DateOnly To, DashboardAgents? Agents, DashboardTickets? Tickets, DashboardChecks? Checks);
+public sealed record DashboardProcedureDay(DateOnly Date, int Count, long Seconds);
+public sealed record DashboardProcedureKind(string Kind, int Count, long Seconds);
+public sealed record DashboardProcedureUser(Guid? UserId, string UserName, int Count, long Seconds);
+public sealed record DashboardProcedures(int Total, long Seconds, int InTickets, int Unlinked, IReadOnlyList<DashboardProcedureDay> Days,
+    IReadOnlyList<DashboardProcedureKind> ByKind, IReadOnlyList<DashboardProcedureUser> ByUser);
+public sealed record DashboardOverview(DateOnly From, DateOnly To, DashboardAgents? Agents, DashboardTickets? Tickets, DashboardChecks? Checks,
+    DashboardProcedures? Procedures);
 
 /// <summary>Visao geral do Painel: estacoes online, chamados e checks por dia, com filtro de cliente, tecnico e periodo.</summary>
 public static class DashboardEndpoints
@@ -83,6 +89,37 @@ public static class DashboardEndpoints
             checks = new DashboardChecks(passing + failing, passing, failing, settings.CheckHistoryDays, checkDays);
         }
 
+        DashboardProcedures? procedures = null;
+        if (principal.HasPermission(Permissions.AgentsView))
+        {
+            // Procedimentos feitos nos agentes no periodo; o filtro de tecnico aqui e quem fez o procedimento.
+            var procedureQuery = db.AgentProcedures.AsNoTracking().Where(p => p.StartedAt >= since);
+            if (clientId is { } pc)
+            {
+                procedureQuery = procedureQuery.Where(p => p.ClientId == pc);
+            }
+            if (technicianId is { } pt)
+            {
+                procedureQuery = procedureQuery.Where(p => p.UserId == pt);
+            }
+            var rows = await procedureQuery
+                .Select(p => new { p.StartedAt, p.Kind, p.UserId, p.UserName, Seconds = (long)(p.DurationSeconds ?? 0), InTicket = p.TicketId != null })
+                .ToListAsync(ct);
+            DateOnly LocalDay(DateTimeOffset value) => DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(value, zone).DateTime);
+            var byDay = rows.GroupBy(r => LocalDay(r.StartedAt)).ToDictionary(g => g.Key, g => (Count: g.Count(), Seconds: g.Sum(r => r.Seconds)));
+            procedures = new DashboardProcedures(
+                rows.Count,
+                rows.Sum(r => r.Seconds),
+                rows.Count(r => r.InTicket),
+                rows.Count(r => !r.InTicket),
+                dates.Select(d => byDay.TryGetValue(d, out var v) ? new DashboardProcedureDay(d, v.Count, v.Seconds) : new DashboardProcedureDay(d, 0, 0)).ToList(),
+                rows.GroupBy(r => r.Kind).Select(g => new DashboardProcedureKind(g.Key, g.Count(), g.Sum(r => r.Seconds)))
+                    .OrderByDescending(k => k.Count).ToList(),
+                rows.GroupBy(r => r.UserId?.ToString() ?? r.UserName)
+                    .Select(g => new DashboardProcedureUser(g.First().UserId, g.First().UserName, g.Count(), g.Sum(r => r.Seconds)))
+                    .OrderByDescending(u => u.Count).ToList());
+        }
+
         DashboardTickets? tickets = null;
         if (principal.HasPermission(Permissions.TicketsView))
         {
@@ -108,6 +145,6 @@ public static class DashboardEndpoints
             tickets = new DashboardTickets(openCount, unassigned, breached, ticketDays.Sum(d => d.Opened), ticketDays.Sum(d => d.Resolved), ticketDays);
         }
 
-        return TypedResults.Ok(new DashboardOverview(from, today, agents, tickets, checks));
+        return TypedResults.Ok(new DashboardOverview(from, today, agents, tickets, checks, procedures));
     }
 }

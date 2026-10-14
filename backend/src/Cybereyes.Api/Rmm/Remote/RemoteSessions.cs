@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Cybereyes.Api.Rmm.Nats;
+using Cybereyes.Api.Rmm.Procedures;
 using Cybereyes.Core.Audit;
 using Cybereyes.Core.Persistence;
 using Cybereyes.Core.Rmm;
@@ -231,6 +232,8 @@ public sealed partial class RemoteSessionManager(
             }
             handle.State = RemoteSessionState.Ended;
         }
+        // Antes do cancelamento abaixo: conectou se a tela chegou a parear ou o canal de arquivos abriu.
+        var connected = handle.Paired.Task.IsCompletedSuccessfully || handle.Files is not null;
         sessions.TryRemove(handle.SessionId, out _);
         // Primeiro o aviso de fechamento as pontas; so depois o cancelamento, que encerra os lacos e descarta os sockets.
         foreach (var end in new[] { handle.ViewerDesktop, handle.AgentDesktop })
@@ -277,6 +280,8 @@ public sealed partial class RemoteSessionManager(
                 .SetProperty(x => x.BytesToAgent, handle.BytesToAgent)
                 .SetProperty(x => x.ClipboardToRemote, handle.ClipboardToRemote)
                 .SetProperty(x => x.ClipboardToLocal, handle.ClipboardToLocal));
+            await scope.ServiceProvider.GetRequiredService<ProcedureLog>().FinishByRefAsync(ProcedureRef.RemoteSession, handle.SessionId,
+                connected ? ProcedureStatus.Ok : ProcedureStatus.Cancelled, connected ? null : NotConnectedReason(reason));
             var audit = scope.ServiceProvider.GetRequiredService<IAuditService>();
             var minutes = Math.Max(0, (int)Math.Round((now - handle.CreatedAt).TotalMinutes));
             await audit.LogAsync("remote.session-end", "agent", handle.AgentPk.ToString(CultureInfo.InvariantCulture),
@@ -290,6 +295,18 @@ public sealed partial class RemoteSessionManager(
         }
         await NotifyAsync(handle);
     }
+
+    /// <summary>Por que o acesso terminou sem conectar, para o registro do procedimento.</summary>
+    public static string NotConnectedReason(string reason) => reason switch
+    {
+        "consent-denied" => "Não conectou: o usuário recusou o acesso",
+        "consent-timeout" => "Não conectou: o usuário não respondeu ao pedido de acesso",
+        "agent-refused" => "Não conectou: o agente recusou o acesso",
+        "agent-timeout" => "Não conectou: o agente não respondeu",
+        "timeout" => "Não conectou: tempo esgotado",
+        "permission" => "Não conectou: permissão revogada",
+        _ => "Não conectou",
+    };
 
     private Task NotifyAsync(RemoteSessionHandle handle) =>
         hub.Clients.All.SendAsync("remoteSessionChanged",
@@ -348,14 +365,18 @@ public sealed class RemoteSessionReaper(RemoteSessionManager manager, IRemoteDir
         var db = scope.ServiceProvider.GetRequiredService<CybereyesDbContext>();
         var cutoff = time.GetUtcNow().AddMinutes(-2);
         var open = await db.RemoteSessions.AsNoTracking().Where(s => s.State != RemoteSessionState.Ended && s.StartedAt < cutoff)
-            .Select(s => s.SessionId).ToListAsync(ct);
-        foreach (var id in open)
+            .Select(s => new { s.SessionId, Connected = s.FirstFrameAt != null || s.Channels == RemoteFrames.Files }).ToListAsync(ct);
+        var procedures = scope.ServiceProvider.GetRequiredService<ProcedureLog>();
+        foreach (var session in open)
         {
+            var id = session.SessionId;
             if (!manager.TryGet(id, out _) && await directory.GetAsync(id) is null)
             {
                 var now = time.GetUtcNow();
                 await db.RemoteSessions.Where(s => s.SessionId == id && s.State != RemoteSessionState.Ended).ExecuteUpdateAsync(s => s
                     .SetProperty(x => x.State, RemoteSessionState.Ended).SetProperty(x => x.EndedAt, now).SetProperty(x => x.EndReason, "server"), ct);
+                await procedures.FinishByRefAsync(ProcedureRef.RemoteSession, id, session.Connected ? ProcedureStatus.Ok : ProcedureStatus.Cancelled,
+                    session.Connected ? null : RemoteSessionManager.NotConnectedReason("server"), ct);
             }
         }
     }

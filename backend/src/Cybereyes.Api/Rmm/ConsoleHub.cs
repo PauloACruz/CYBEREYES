@@ -5,15 +5,17 @@ using Cybereyes.Api.Apps;
 using Cybereyes.Api.Infrastructure;
 using Cybereyes.Api.Inventory;
 using Cybereyes.Api.Rmm.Actions;
+using Cybereyes.Api.Rmm.Procedures;
 using Cybereyes.Core.Audit;
 using Cybereyes.Core.Persistence;
+using Cybereyes.Core.Rmm;
 using Cybereyes.Core.Security;
 
 namespace Cybereyes.Api.Rmm;
 
 [Authorize]
 public sealed class ConsoleHub(TerminalSessions terminals, SshTerminalSessions sshTerminals, CybereyesDbContext db, IAuditService audit, Vault vault,
-    TimeProvider time) : Hub
+    ProcedureLog procedures, TimeProvider time) : Hub
 {
     private const int MaxSshTerminalsPerConnection = 8;
 
@@ -37,6 +39,9 @@ public sealed class ConsoleHub(TerminalSessions terminals, SshTerminalSessions s
         var sessionId = await terminals.StartAsync(Context.ConnectionId, username, agent.AgentId, selected, cols, rows);
         await audit.LogAsync("agent.terminal-opened", "agent", agent.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
             $"Terminal ({selected}) aberto em {agent.Hostname}", username, Context.ConnectionAborted);
+        // Concluido pelo TerminalSessions quando o terminal fecha (pelo tecnico, pelo agente ou pela conexao).
+        await procedures.StartAsync(agent.Id, ProcedureKind.Terminal, selected, refType: ProcedureRef.Terminal, refId: sessionId,
+            ct: Context.ConnectionAborted);
         return sessionId;
     }
 

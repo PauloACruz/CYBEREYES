@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Cybereyes.Api.Rmm.Actions;
 using Cybereyes.Api.Rmm.Nats;
+using Cybereyes.Api.Rmm.Procedures;
 using Cybereyes.Core.Persistence;
 using Cybereyes.Core.Rmm;
 using Cybereyes.Core.Security;
@@ -199,7 +200,7 @@ public static class MonitoringProtocol
     }
 
     public static async Task<IResult> TaskResultAsync(int pk, JsonElement body, ClaimsPrincipal principal, CybereyesDbContext db, AlertService alerts,
-        TimeProvider time, CancellationToken ct)
+        ProcedureLog procedures, TimeProvider time, CancellationToken ct)
     {
         var agentPk = AgentPk(principal);
         var task = (await PolicyResolver.TasksForAgentAsync(db, agentPk, ct)).FirstOrDefault(t => t.Id == pk);
@@ -230,6 +231,9 @@ public static class MonitoringProtocol
                 (int)(result.Retcode ?? 1), result.ExecutionTime ?? 0)),
         });
         await db.SaveChangesAsync(ct);
+        // So existe procedimento aberto quando um tecnico rodou a tarefa a mao; as agendadas nao contam como atendimento.
+        await procedures.FinishByRefAsync(ProcedureRef.Task, ChecksTasksEndpoints.TaskRef(agentPk, pk),
+            result.Retcode == 0 ? ProcedureStatus.Ok : ProcedureStatus.Error, ct: ct);
 
         if (result.Status == CheckStatus.Failing)
         {
@@ -345,7 +349,8 @@ public static class MonitoringProtocol
         return Ok;
     }
 
-    public static async Task<IResult> ChocoResultAsync(long pk, JsonElement body, ClaimsPrincipal principal, CybereyesDbContext db, CancellationToken ct)
+    public static async Task<IResult> ChocoResultAsync(long pk, JsonElement body, ClaimsPrincipal principal, CybereyesDbContext db, ProcedureLog procedures,
+        CancellationToken ct)
     {
         var agentPk = AgentPk(principal);
         var action = await db.PendingActions.FirstOrDefaultAsync(p => p.Id == pk && p.AgentId == agentPk, ct);
@@ -355,6 +360,8 @@ public static class MonitoringProtocol
             // O agente comeca o texto com "error:" quando a instalacao falhou (contrato, secao 3.8).
             action.Status = action.Output.StartsWith("error", StringComparison.OrdinalIgnoreCase) ? "failed" : "completed";
             await db.SaveChangesAsync(ct);
+            await procedures.FinishByRefAsync(ProcedureRef.PendingAction, action.Id.ToString(CultureInfo.InvariantCulture),
+                action.Status == "failed" ? ProcedureStatus.Error : ProcedureStatus.Ok, ct: ct);
         }
         return Ok;
     }

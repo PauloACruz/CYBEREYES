@@ -17,6 +17,7 @@ import { RemoteSessionsCompact } from '../remote/RemoteSessionsTable';
 import { TicketStatusBadge } from './TicketBadges';
 import { isOverdue, isTicketStatus, STATUS_OPTIONS, TICKET_STATUS_INFO } from './ticketFormat';
 import { storeTicket } from './ticketActions';
+import { TicketProceduresPanel } from '../procedures/TicketProceduresPanel';
 import { TimeEntriesPanel } from './TimeEntriesPanel';
 
 const UNASSIGNED = 'sem-tecnico';
@@ -52,6 +53,7 @@ export function TicketSidebar({ ticket, me }: SidebarProps) {
       <SlaCard ticket={ticket} />
       <MachineCard ticket={ticket} me={me} />
       <RequesterCard ticket={ticket} />
+      <TicketProceduresPanel ticket={ticket} canManage={canManage} canPick={hasPermission(me, PERMISSIONS.agentsView)} />
       <TimeEntriesPanel ticketId={ticket.id} canManage={canManage} me={me} />
     </Stack>
   );

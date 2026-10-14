@@ -234,6 +234,12 @@ public sealed partial class MaintenanceService(IServiceScopeFactory scopes, Time
                 await db.AgentHistory.Where(h => h.Time < now.AddDays(-settings.AgentHistoryDays)).ExecuteDeleteAsync(stoppingToken);
                 await db.TaskDispatches.Where(d => d.Slot < now.AddDays(-2)).ExecuteDeleteAsync(stoppingToken);
                 await db.InstallerTokens.Where(t => t.ExpiresAt < now.AddDays(-1)).ExecuteDeleteAsync(stoppingToken);
+                // Procedimento sem fim registrado (servidor reiniciado com terminal aberto, agente que nunca devolveu o resultado):
+                // fecha como falha sem duracao, para nao inflar o tempo dos indicadores.
+                await db.AgentProcedures.Where(p => p.Status == ProcedureStatus.Running && p.StartedAt < now.AddDays(-1)).ExecuteUpdateAsync(u => u
+                    .SetProperty(p => p.Status, ProcedureStatus.Error)
+                    .SetProperty(p => p.FinishedAt, now)
+                    .SetProperty(p => p.Detail, p => p.Detail ?? "Sem registro de término"), stoppingToken);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

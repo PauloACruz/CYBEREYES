@@ -1,10 +1,11 @@
 import { useState, type ReactNode } from 'react';
 import { Anchor, Card, Chip, Group, Progress, RingProgress, SimpleGrid, Stack, Text, Tooltip } from '@mantine/core';
 import { Link } from 'react-router';
-import type { DashboardAgents, DashboardChecks, DashboardTickets } from '../../api/types';
+import type { DashboardAgents, DashboardChecks, DashboardProcedures, DashboardTickets } from '../../api/types';
 import { PATHS } from '../../app/paths';
 import { StackedBarChart, type StackKey } from '../../components/charts/StackedBarChart';
 import { formatInteger } from '../../lib/format';
+import { formatTotalSeconds, PROCEDURE_KIND_INFO } from '../procedures/procedureFormat';
 
 const ONLINE = 'var(--mantine-color-teal-5)';
 const OVERDUE = 'var(--mantine-color-orange-5)';
@@ -228,6 +229,80 @@ export function ChecksCard({ checks, days }: { checks: DashboardChecks; days: nu
         <Text size="xs" c="dimmed">
           O servidor guarda {checks.historyDays} dias de histórico de checks; os dias mais antigos aparecem vazios.
         </Text>
+      )}
+    </ChartCard>
+  );
+}
+
+type ProcedureKey = 'count';
+const PROCEDURE_KEYS: StackKey<ProcedureKey>[] = [{ key: 'count', label: 'Procedimentos', color: RESOLVED }];
+
+/** Linha de ranking: nome em texto, numero ao lado e uma barra de uma cor so (a identidade vem do nome, nao da cor). */
+function RankRow({ label, count, max, hint }: { label: ReactNode; count: number; max: number; hint: string }) {
+  return (
+    <Stack gap={4}>
+      <Group justify="space-between" gap="xs" wrap="nowrap">
+        <Text size="sm" truncate>
+          {label}
+        </Text>
+        <Text size="sm" c="dimmed" style={{ whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+          {formatInteger(count)} · {hint}
+        </Text>
+      </Group>
+      <Progress value={max > 0 ? (count / max) * 100 : 0} size={6} color={RESOLVED} aria-hidden />
+    </Stack>
+  );
+}
+
+/** Procedimentos feitos nos agentes no periodo: quantos, quanto tempo, quantos ja entraram em chamado, por dia, tipo e tecnico. */
+export function ProceduresCard({ procedures, technicianFiltered }: { procedures: DashboardProcedures; technicianFiltered: boolean }) {
+  const kinds = procedures.byKind.slice(0, 6);
+  const users = procedures.byUser.slice(0, 6);
+  const maxKind = Math.max(0, ...kinds.map((k) => k.count));
+  const maxUser = Math.max(0, ...users.map((u) => u.count));
+  return (
+    <ChartCard title="Procedimentos nos agentes" link={{ to: PATHS.procedures, label: 'Ver procedimentos' }}>
+      <SimpleGrid cols={{ base: 2, sm: 4 }}>
+        <Stat label="No período" value={procedures.total} />
+        <Stat label="Tempo de execução" value={formatTotalSeconds(procedures.seconds)} />
+        <Stat label="Em chamados" value={procedures.inTickets} color="blue.5" />
+        <Stat
+          label="Sem chamado"
+          value={procedures.unlinked}
+          color={procedures.unlinked > 0 ? 'orange.6' : undefined}
+          to={`${PATHS.procedures}?chamado=sem-chamado`}
+        />
+      </SimpleGrid>
+      <Text size="sm" fw={600}>
+        Procedimentos por dia
+      </Text>
+      <StackedBarChart
+        label="Procedimentos feitos nos agentes por dia"
+        keys={PROCEDURE_KEYS}
+        tooltipFormat={dayTooltip}
+        buckets={procedures.days.map((d) => ({ time: dayTime(d.date), values: { count: d.count } }))}
+      />
+      {procedures.total > 0 && (
+        <SimpleGrid cols={{ base: 1, sm: technicianFiltered ? 1 : 2 }} spacing="xl">
+          <Stack gap="sm" component="section" aria-label="Procedimentos por tipo">
+            <Text size="sm" fw={600}>
+              Por tipo
+            </Text>
+            {kinds.map((k) => (
+              <RankRow key={k.kind} label={PROCEDURE_KIND_INFO[k.kind].label} count={k.count} max={maxKind} hint={formatTotalSeconds(k.seconds)} />
+            ))}
+          </Stack>
+          {!technicianFiltered && (
+            <Stack gap="sm" component="section" aria-label="Procedimentos por técnico">
+              <Text size="sm" fw={600}>
+                Por técnico
+              </Text>
+              {users.map((u) => (
+                <RankRow key={u.userId ?? u.userName} label={u.userName} count={u.count} max={maxUser} hint={formatTotalSeconds(u.seconds)} />
+              ))}
+            </Stack>
+          )}
+        </SimpleGrid>
       )}
     </ChartCard>
   );

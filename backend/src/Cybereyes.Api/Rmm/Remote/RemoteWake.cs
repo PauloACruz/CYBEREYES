@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Cybereyes.Api.Infrastructure;
 using Cybereyes.Api.Inventory;
 using Cybereyes.Api.Rmm.Nats;
+using Cybereyes.Api.Rmm.Procedures;
 using Cybereyes.Core.Audit;
 using Cybereyes.Core.Persistence;
 using Cybereyes.Core.Rmm;
@@ -143,7 +144,7 @@ public static class RemoteWake
         return prefix == 32 || value << prefix == 0 ? prefix : null;
     }
 
-    private static async Task<IResult> WakeAsync(int id, CybereyesDbContext db, IAgentRpc rpc, IAuditService audit, CancellationToken ct)
+    private static async Task<IResult> WakeAsync(int id, CybereyesDbContext db, IAgentRpc rpc, IAuditService audit, ProcedureLog procedures, CancellationToken ct)
     {
         var target = await db.Agents.AsNoTracking().Where(a => a.Id == id)
             .Select(a => new { a.Id, a.Hostname, a.SiteId, a.Plat, a.WmiDetail }).FirstOrDefaultAsync(ct);
@@ -185,6 +186,7 @@ public static class RemoteWake
                 {
                     await audit.LogAsync("agent.wake", "agent", id.ToString(CultureInfo.InvariantCulture),
                         $"Wake-on-LAN enviado para {target.Hostname} por {relay.Agent.Hostname}", cancellationToken: ct);
+                    await procedures.RecordAsync(id, ProcedureKind.Wake, $"Enviado por {relay.Agent.Hostname}", ProcedureStatus.Ok, ct: ct);
                     return TypedResults.Ok(new { result = "ok", via = relay.Agent.Hostname });
                 }
                 lastError = answer as string ?? "resposta invalida";
@@ -194,6 +196,7 @@ public static class RemoteWake
                 lastError = $"{relay.Agent.Hostname} nao respondeu";
             }
         }
+        await procedures.RecordAsync(id, ProcedureKind.Wake, "Nenhum agente conseguiu enviar", ProcedureStatus.Error, lastError, ct: ct);
         return Results.Problem(statusCode: StatusCodes.Status502BadGateway, title: "Nenhum agente conseguiu enviar o Wake-on-LAN", detail: lastError,
             extensions: new Dictionary<string, object?> { ["code"] = RemoteErrors.AgentError });
     }

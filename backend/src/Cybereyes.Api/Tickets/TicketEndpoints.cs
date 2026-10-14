@@ -465,7 +465,11 @@ public static class TicketEndpoints
         where e.TicketId == id
         join u in db.Users on e.UserId equals u.Id
         orderby e.WorkDate, e.Id
-        select new { e.Id, e.UserId, UserName = u.FullName != "" ? u.FullName : u.UserName, e.Minutes, e.Description, e.WorkDate, e.CreatedAt })
+        select new
+        {
+            e.Id, e.UserId, UserName = u.FullName != "" ? u.FullName : u.UserName, e.Minutes, e.Description, e.WorkDate, e.CreatedAt,
+            ProcedureId = db.AgentProcedures.Where(p => p.TimeEntryId == e.Id).Select(p => (long?)p.Id).FirstOrDefault(),
+        })
         .ToListAsync(ct));
 
     private static async Task<IResult> TimeAddAsync(int id, TimeEntryRequest r, ClaimsPrincipal principal, CybereyesDbContext db, TicketService svc,
@@ -506,6 +510,9 @@ public static class TicketEndpoints
             return Problems.Forbidden("Somente o autor pode excluir o apontamento");
         }
         db.TimeEntries.Remove(entry);
+        // Apontamento que veio de um procedimento: o procedimento volta a ficar sem chamado.
+        await db.AgentProcedures.Where(p => p.TimeEntryId == entryId)
+            .ExecuteUpdateAsync(u => u.SetProperty(p => p.TicketId, (int?)null).SetProperty(p => p.TimeEntryId, (long?)null), ct);
         await db.SaveChangesAsync(ct);
         await audit.LogAsync("ticket.time-delete", "ticket", Id(id), $"Apontamento removido do chamado #{id}", cancellationToken: ct);
         await svc.TicketsChangedAsync(id, ct);

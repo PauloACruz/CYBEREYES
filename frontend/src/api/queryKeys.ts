@@ -1,4 +1,5 @@
 import type {
+  ListProceduresParams,
   DashboardOverviewParams,
   AgentStatus,
   ListReportRunsParams,
@@ -71,6 +72,10 @@ export const queryKeys = {
   ticketMessages: (id: number) => ['tickets', 'detail', id, 'messages'] as const,
   ticketAttachments: (id: number) => ['tickets', 'detail', id, 'attachments'] as const,
   ticketTime: (id: number) => ['tickets', 'detail', id, 'time'] as const,
+  ticketProcedures: (id: number) => ['tickets', 'detail', id, 'procedures'] as const,
+  /** Prefixo de todas as listas de procedimentos (pagina, aba do agente, escolha no chamado). */
+  procedures: ['procedures'] as const,
+  procedureList: (params: ListProceduresParams) => ['procedures', params] as const,
   ticketAssignees: ['ticket-assignees'] as const,
   ticketQueues: ['ticket-queues'] as const,
   ticketSla: ['ticket-sla'] as const,

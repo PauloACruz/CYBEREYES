@@ -1,16 +1,21 @@
 import type { ReactNode } from 'react';
 import { Box, Center, Paper, Stack, Text, Title, useComputedColorScheme } from '@mantine/core';
 import { BrandMark } from '../../components/layout/BrandMark';
+import { isAppLogin } from '../mobile/mobileMode';
 
 interface AuthLayoutProps {
   title: string;
   subtitle?: string;
   width?: number;
+  /** Texto curto abaixo do cartao (o login do app explica a verificacao em duas etapas). */
+  footer?: ReactNode;
   children: ReactNode;
 }
 
+
 /** Login e 2FA: textura de asas com veu de 90% e cartao central com o emblema. */
-export function AuthLayout({ title, subtitle, width = 400, children }: AuthLayoutProps) {
+export function AuthLayout({ title, subtitle, width = 400, footer, children }: AuthLayoutProps) {
+  const app = isAppLogin();
   const scheme = useComputedColorScheme('dark');
   const texture = scheme === 'dark' ? '/brand/textura-asas-escura.webp' : '/brand/textura-asas-clara.webp';
   const veil = scheme === 'dark' ? 'rgba(10, 12, 14, 0.9)' : 'rgba(248, 249, 246, 0.9)';
@@ -33,9 +38,14 @@ export function AuthLayout({ title, subtitle, width = 400, children }: AuthLayou
           withBorder
           style={{ backgroundColor: 'var(--ce-bg-surface)', boxShadow: 'var(--ce-shadow-md)' }}
         >
-          <Center mb={28}>
+          <Stack align="center" gap={6} mb={28}>
             <BrandMark size={40} nameSize={32} />
-          </Center>
+            {app && (
+              <Text c="dimmed" fz={15}>
+                App do técnico
+              </Text>
+            )}
+          </Stack>
           <Stack gap={4} mb="lg">
             <Title order={1} fz={20} lh="28px">
               {title}
@@ -47,6 +57,11 @@ export function AuthLayout({ title, subtitle, width = 400, children }: AuthLayou
             )}
           </Stack>
           {children}
+          {footer && (
+            <Text c="dimmed" fz={13} lh="18px" ta="center" mt="lg">
+              {footer}
+            </Text>
+          )}
         </Paper>
       </Center>
     </Box>

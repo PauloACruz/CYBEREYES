@@ -7,7 +7,18 @@ public sealed record LoginRequest(
     [property: Required, StringLength(256)] string Password,
     bool? RememberMe);
 
-public sealed record TwoFactorRequest([property: Required, StringLength(16)] string Code, bool? RememberMe);
+/// <summary>RememberDevice: este aparelho nao pede o codigo de novo por <see cref="Infrastructure.AuthSetup.RememberDeviceLifespan"/>.</summary>
+public sealed record TwoFactorRequest([property: Required, StringLength(16)] string Code, bool? RememberMe, bool? RememberDevice = null);
+
+public sealed record RememberedDeviceResponse(bool Remembered, DateTimeOffset? ExpiresAt);
+
+/// <summary>Credential: o PublicKeyCredential do navegador em JSON (WebAuthn). Name: opcional; sem ele vale o tipo do aparelho.</summary>
+public sealed record PasskeyRegisterRequest(System.Text.Json.JsonElement Credential, [property: StringLength(60)] string? Name = null);
+
+public sealed record PasskeyLoginRequest(System.Text.Json.JsonElement Credential, bool? RememberMe = null);
+
+/// <summary>Id: id da credencial em base64url. Synced: a credencial tem copia na nuvem do aparelho (iCloud, Google).</summary>
+public sealed record PasskeyDto(string Id, string Name, DateTimeOffset CreatedAt, bool Synced);
 
 public sealed record RecoveryRequest([property: Required, StringLength(64)] string RecoveryCode);
 

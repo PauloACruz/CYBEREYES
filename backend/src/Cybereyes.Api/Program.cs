@@ -67,6 +67,7 @@ if (builder.Configuration.GetConnectionString("Redis") is { Length: > 0 } redis)
 }
 builder.Services.AddSingleton<IAgentNotifier, AgentNotifier>();
 builder.Services.AddScoped<Cybereyes.Api.Rmm.Actions.SystemEndpoints.Deps>();
+builder.Services.AddScoped<Cybereyes.Api.Rmm.Procedures.ProcedureLog>();
 builder.Services.AddHttpClient("webhooks");
 builder.Services.AddHttpClient("oidc");
 builder.Services.Configure<Cybereyes.Api.Rmm.Software.SoftwareCatalogSettings>(builder.Configuration.GetSection(Cybereyes.Api.Rmm.Software.SoftwareCatalogSettings.Section));
@@ -124,7 +125,7 @@ builder.Services.AddSingleton<Cybereyes.Api.Logs.LogAlertEvaluator>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<Cybereyes.Api.Logs.LogAlertEvaluator>());
 builder.Services.AddSingleton(sp => new Cybereyes.Api.Rmm.Actions.TerminalSessions(
     sp.GetService<NATS.Client.Core.INatsConnection>(), sp.GetRequiredService<IAgentRpc>(),
-    sp.GetRequiredService<Microsoft.AspNetCore.SignalR.IHubContext<ConsoleHub>>(),
+    sp.GetRequiredService<Microsoft.AspNetCore.SignalR.IHubContext<ConsoleHub>>(), sp.GetRequiredService<IServiceScopeFactory>(),
     sp.GetRequiredService<ILogger<Cybereyes.Api.Rmm.Actions.TerminalSessions>>()));
 builder.Services.AddSingleton<Cybereyes.Api.Apps.SshTerminalSessions>();
 builder.Services.AddSingleton<Cybereyes.Api.Apps.AppRunner>();
@@ -217,6 +218,7 @@ app.MapAuditEndpoints();
 app.MapClientEndpoints();
 app.MapAgentEndpoints();
 app.MapDashboardEndpoints();
+Cybereyes.Api.Rmm.Procedures.ProcedureEndpoints.MapProcedureEndpoints(app);
 app.MapInstallerEndpoints();
 app.MapAgentUpdateEndpoints();
 Cybereyes.Api.Rmm.Software.SoftwareCatalogEndpoints.MapSoftwareCatalogEndpoints(app);

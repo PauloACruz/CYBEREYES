@@ -4,6 +4,8 @@ using MessagePack;
 using Microsoft.AspNetCore.SignalR;
 using NATS.Client.Core;
 using Cybereyes.Api.Rmm.Nats;
+using Cybereyes.Api.Rmm.Procedures;
+using Cybereyes.Core.Rmm;
 
 namespace Cybereyes.Api.Rmm.Actions;
 
@@ -15,7 +17,8 @@ public sealed record TerminalFrame(byte[]? Output, bool Done, int ExitCode);
 /// do terminal como bytes crus (base64), sem decodificar texto, para nao quebrar caracteres divididos entre blocos.
 /// Cada sessao vive na replica que atende a conexao WebSocket do navegador.
 /// </summary>
-public sealed partial class TerminalSessions(INatsConnection? nats, IAgentRpc rpc, IHubContext<ConsoleHub> hub, ILogger<TerminalSessions> logger)
+public sealed partial class TerminalSessions(INatsConnection? nats, IAgentRpc rpc, IHubContext<ConsoleHub> hub, IServiceScopeFactory scopes,
+    ILogger<TerminalSessions> logger)
 {
     private sealed record Session(string ConnectionId, string AgentId, string Username, CancellationTokenSource Cancel);
 
@@ -69,6 +72,7 @@ public sealed partial class TerminalSessions(INatsConnection? nats, IAgentRpc rp
         await rpc.PublishAsync(s.AgentId, Command("terminal_kill", sessionId, []));
         await s.Cancel.CancelAsync();
         s.Cancel.Dispose();
+        await EndedAsync(sessionId, ProcedureStatus.Ok);
     }
 
     public async Task StopAllAsync(string connectionId)
@@ -112,6 +116,7 @@ public sealed partial class TerminalSessions(INatsConnection? nats, IAgentRpc rp
                 {
                     sessions.TryRemove(sessionId, out _);
                     await client.SendAsync("terminalClosed", sessionId, frame.ExitCode, (string?)null, CancellationToken.None);
+                    await EndedAsync(sessionId, ProcedureStatus.Ok);
                     return;
                 }
             }
@@ -125,6 +130,7 @@ public sealed partial class TerminalSessions(INatsConnection? nats, IAgentRpc rp
             LogPumpFailed(logger, ex, sessionId);
             sessions.TryRemove(sessionId, out _);
             await client.SendAsync("terminalClosed", sessionId, 1, "Falha na sessao de terminal", CancellationToken.None);
+            await EndedAsync(sessionId, ProcedureStatus.Error);
         }
     }
 
@@ -154,6 +160,23 @@ public sealed partial class TerminalSessions(INatsConnection? nats, IAgentRpc rp
                 return null;
         }
     }
+
+    /// <summary>Conclui o procedimento do terminal; uma falha aqui nao pode derrubar o fechamento da sessao.</summary>
+    private async Task EndedAsync(string sessionId, string status)
+    {
+        try
+        {
+            await using var scope = scopes.CreateAsyncScope();
+            await scope.ServiceProvider.GetRequiredService<ProcedureLog>().FinishByRefAsync(ProcedureRef.Terminal, sessionId, status);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            LogProcedureFailed(logger, ex, sessionId);
+        }
+    }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Falha ao concluir o procedimento do terminal {SessionId}")]
+    private static partial void LogProcedureFailed(ILogger logger, Exception ex, string sessionId);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Sessao de terminal {SessionId} interrompida")]
     private static partial void LogPumpFailed(ILogger logger, Exception ex, string sessionId);

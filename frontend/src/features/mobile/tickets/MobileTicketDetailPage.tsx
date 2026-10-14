@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router';
 import { ApiError } from '../../../api/client';
 import { queryKeys } from '../../../api/queryKeys';
+import { proceduresApi } from '../../../api/procedures';
 import { ticketsApi } from '../../../api/tickets';
 import { PERMISSIONS, type TicketDetail } from '../../../api/types';
 import { MOBILE_PATHS, mobileAgentPath } from '../../../app/paths';
@@ -21,7 +22,11 @@ import { MessageItem } from '../../tickets/TicketConversation';
 import { AssigneeCard, StatusCard } from '../../tickets/TicketSidebar';
 import { storeTicket } from '../../tickets/ticketActions';
 import { REPLY_OPTIONS, useTicketRealtime, useTicketReply } from '../../tickets/ticketReply';
+import { formatMinutes } from '../../tickets/ticketFormat';
+import { procedureDuration } from '../../procedures/procedureFormat';
+import { ProcedureKindBadge } from '../../procedures/ProceduresTable';
 import { InfoRows, MobileHeader, MobilePage, MobileSection } from '../MobilePage';
+import { MOBILE_CARD } from '../mobileStyles';
 
 export function MobileTicketDetailPage() {
   const { id: rawId } = useParams();
@@ -162,6 +167,8 @@ function TicketView({ ticket, header }: { ticket: TicketDetail; header: ReactNod
         </MobileSection>
       )}
 
+      <TicketProcedures ticketId={ticket.id} />
+
       <MobileSection title="Descrição">
         <Text size="md" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }} c={ticket.description ? undefined : 'var(--ce-text-secondary)'}>
           {ticket.description || 'Sem descrição.'}
@@ -274,5 +281,33 @@ function ReplyBar({ ticketId }: { ticketId: number }) {
         </Group>
       </Stack>
     </form>
+  );
+}
+
+/** Procedimentos no agente incluidos no chamado (acesso remoto aberto por ele entra sozinho), com o tempo de servico. */
+function TicketProcedures({ ticketId }: { ticketId: number }) {
+  const procedures = useQuery({ queryKey: queryKeys.ticketProcedures(ticketId), queryFn: () => proceduresApi.forTicket(ticketId) });
+  const items = procedures.data ?? [];
+  if (items.length === 0) return null;
+  const service = items.reduce((sum, p) => sum + (p.serviceMinutes ?? 0), 0);
+  return (
+    <MobileSection title={`Procedimentos (${formatMinutes(service)})`}>
+      <Box style={MOBILE_CARD}>
+        {items.map((p, index) => (
+          <Stack key={p.id} gap={4} px={16} py={10} style={index > 0 ? { borderTop: '1px solid var(--ce-border-subtle)' } : undefined}>
+            <Group gap={6} wrap="nowrap" justify="space-between">
+              <ProcedureKindBadge procedure={p} />
+              <Text size="sm" fw={600}>
+                {p.serviceMinutes !== null ? formatMinutes(p.serviceMinutes) : ''}
+              </Text>
+            </Group>
+            {p.title && <Text size="sm">{p.title}</Text>}
+            <Text size="xs" c="var(--ce-text-secondary)">
+              {p.hostname} · {formatDateTime(p.startedAt, '')} · {p.userName} · durou {procedureDuration(p)}
+            </Text>
+          </Stack>
+        ))}
+      </Box>
+    </MobileSection>
   );
 }

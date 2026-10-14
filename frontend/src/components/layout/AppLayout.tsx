@@ -21,6 +21,7 @@ import {
 import { useDisclosure, useLocalStorage, useMediaQuery } from '@mantine/hooks';
 import {
   IconChevronDown,
+  IconDeviceMobile,
   IconKey,
   IconLogout,
   IconMoon,
@@ -30,7 +31,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router';
 import { authApi } from '../../api/auth';
 import { visibleNavItems } from '../../app/navigation';
-import { PATHS } from '../../app/paths';
+import { MOBILE_PATHS, PATHS } from '../../app/paths';
 import { useMe } from '../../auth/useMe';
 import { ConsoleHubContext } from '../../realtime/consoleHubContext';
 import { useConsoleHub } from '../../realtime/useConsoleHub';
@@ -38,6 +39,7 @@ import { AppFooter } from './AppFooter';
 import { BrandToggle } from './BrandToggle';
 import { ChangePasswordModal } from './ChangePasswordModal';
 import { SideNav } from './SideNav';
+import { setPrefersConsole } from '../../features/mobile/mobileMode';
 
 /** Conteineres flutuantes do shell: cantos de 15px, borda sutil e sombra. */
 const FLOATING = {
@@ -137,6 +139,15 @@ export function AppLayout() {
                 </Menu.Target>
                 <Menu.Dropdown>
                   <Menu.Label>{me?.username}</Menu.Label>
+                  <Menu.Item
+                    leftSection={<IconDeviceMobile size={16} />}
+                    onClick={() => {
+                      setPrefersConsole(false);
+                      void navigate(MOBILE_PATHS.root);
+                    }}
+                  >
+                    App do técnico
+                  </Menu.Item>
                   <Menu.Item leftSection={<IconKey size={16} />} onClick={passwordModal.open}>
                     Trocar senha
                   </Menu.Item>

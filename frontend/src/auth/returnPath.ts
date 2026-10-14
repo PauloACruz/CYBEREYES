@@ -17,6 +17,16 @@ export function rememberReturnPath(path: string): void {
   }
 }
 
+/** Ha uma tela do app esperando o login (sem apagar): o login aparece como o do app do tecnico. */
+export function hasAppReturnPath(): boolean {
+  try {
+    const saved = sessionStorage.getItem(KEY);
+    return saved !== null && isAppPath(saved);
+  } catch {
+    return false;
+  }
+}
+
 /** Destino depois do login: a tela guardada do app ou o Painel. Le uma vez e apaga. */
 export function takeReturnPath(): string {
   try {

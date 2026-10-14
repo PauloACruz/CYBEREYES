@@ -23,7 +23,7 @@ export function DashboardFilters({ value, onChange, canViewClients, canViewTicke
   const clientName = clients.data?.find((c) => c.id === value.clientId)?.name;
   const technicianName = technicians.data?.find((t) => t.id === value.technicianId)?.name;
   const active = (value.clientId ? 1 : 0) + (value.technicianId ? 1 : 0) + (value.days !== DEFAULT_PERIOD ? 1 : 0);
-  const scope = [clientName, technicianName && `chamados de ${technicianName}`, `últimos ${value.days} dias`].filter(Boolean).join(' · ');
+  const scope = [clientName, technicianName && `técnico ${technicianName}`, `últimos ${value.days} dias`].filter(Boolean).join(' · ');
 
   return (
     <Group gap="sm" wrap="nowrap">
@@ -68,7 +68,7 @@ export function DashboardFilters({ value, onChange, canViewClients, canViewTicke
             {canViewTickets && (
               <Select
                 label="Técnico"
-                description="Filtra os chamados pelo técnico responsável."
+                description="Chamados pelo técnico responsável; procedimentos por quem os fez."
                 placeholder="Todos os técnicos"
                 data={(technicians.data ?? []).map((t) => ({ value: t.id, label: t.name }))}
                 value={value.technicianId ?? null}

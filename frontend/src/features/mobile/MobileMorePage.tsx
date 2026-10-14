@@ -11,6 +11,8 @@ import { hasPermission } from '../../auth/permissions';
 import { useMe } from '../../auth/useMe';
 import { ChangePasswordModal } from '../../components/layout/ChangePasswordModal';
 import { MobileHeader, MobilePage, MobileSection } from './MobilePage';
+import { setPrefersConsole } from './mobileMode';
+import { MobileSignInSection } from './MobileSignInSection';
 import { MOBILE_CARD } from './mobileStyles';
 
 function initials(name: string): string {
@@ -41,7 +43,7 @@ function Row({ icon, label, to, onClick, danger = false }: RowProps) {
     </Group>
   );
   return to ? (
-    <UnstyledButton component={Link} to={to} display="block">
+    <UnstyledButton component={Link} to={to} display="block" onClick={onClick}>
       {content}
     </UnstyledButton>
   ) : (
@@ -87,7 +89,8 @@ export function MobileMorePage() {
       </Group>
       <MobileSection title="Console">
         <Box style={MOBILE_CARD}>
-          <Row icon={<IconLayoutDashboard size={22} />} label="Abrir o console completo" to={PATHS.dashboard} />
+          {/* Guarda a escolha: neste celular a pagina inicial passa a abrir o console, ate voltar ao app pelo menu do usuario. */}
+          <Row icon={<IconLayoutDashboard size={22} />} label="Abrir o console completo" to={PATHS.dashboard} onClick={() => setPrefersConsole(true)} />
           {hasPermission(me, PERMISSIONS.alertsView) && (
             <Box style={DIVIDER}>
               <Row icon={<IconAlertTriangle size={22} />} label="Alertas" to={PATHS.alerts} />
@@ -95,6 +98,7 @@ export function MobileMorePage() {
           )}
         </Box>
       </MobileSection>
+      <MobileSignInSection />
       <MobileSection title="Conta">
         <Box style={MOBILE_CARD}>
           <Row

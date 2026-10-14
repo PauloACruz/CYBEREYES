@@ -258,8 +258,17 @@ public static class UserEndpoints
 
         await userManager.SetTwoFactorEnabledAsync(user, false);
         await userManager.ResetAuthenticatorKeyAsync(user);
+        // Celular perdido e o caso comum: a biometria cadastrada nele sai junto (ADR-027). O novo carimbo de seguranca
+        // tambem invalida os aparelhos lembrados por 30 dias.
+        var passkeys = await userManager.GetPasskeysAsync(user);
+        foreach (var passkey in passkeys)
+        {
+            await userManager.RemovePasskeyAsync(user, passkey.CredentialId);
+        }
         await userManager.UpdateSecurityStampAsync(user);
-        await audit.LogAsync("user.2fa-reset", "user", id.ToString(), $"2FA de {user.UserName} redefinido", cancellationToken: ct);
+        await audit.LogAsync("user.2fa-reset", "user", id.ToString(),
+            passkeys.Count > 0 ? $"2FA de {user.UserName} redefinido; {passkeys.Count} biometria(s) removida(s)" : $"2FA de {user.UserName} redefinido",
+            cancellationToken: ct);
         return TypedResults.NoContent();
     }
 
