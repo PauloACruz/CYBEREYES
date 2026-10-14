@@ -19,6 +19,7 @@ como apontamento de horas (tempo de serviço) ou gerar um chamado. Decisão em `
 | `task` | Tarefa rodada à mão | Do pedido ao resultado da tarefa; as agendadas não contam |
 | `wake` | Wake-on-LAN | Envio pelo agente vizinho |
 | `agent_update` | Atualização do EYES | Pedido ao agente |
+| `startup` | Programa da inicialização do Windows habilitado ou desabilitado | Em volta do script de inicialização |
 
 Situações (`status`): `running`, `ok`, `warning`, `error`, `cancelled`, `timeout`. Um procedimento ainda `running` depois de 24 horas
 (servidor reiniciado com terminal aberto, agente que nunca respondeu) é fechado como `error` sem duração, para não inflar os indicadores.

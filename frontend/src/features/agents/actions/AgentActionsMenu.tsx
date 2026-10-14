@@ -1,14 +1,17 @@
 import { useState } from 'react';
 import { Button, Group, Loader, Menu, Modal, Stack, Text, TextInput } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { IconChevronDown, IconCloudDownload, IconExternalLink, IconPlugConnected, IconPower, IconRefresh, IconRotateClockwise } from '@tabler/icons-react';
+import { IconChevronDown, IconCloudDownload, IconExternalLink, IconPlugConnected, IconPower, IconRefresh, IconRocket, IconRotateClockwise } from '@tabler/icons-react';
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router';
 import { agentActionsApi } from '../../../api/agentActions';
 import { remoteApi } from '../../../api/remote';
 import { queryKeys } from '../../../api/queryKeys';
 import { urlActionsApi } from '../../../api/settings';
 import type { AgentDetail, UrlActionDto } from '../../../api/types';
+import { agentPath } from '../../../app/paths';
 import { confirmAction, notifySuccess } from '../../../lib/feedback';
+import { isWindows } from './shells';
 
 const BLOCKED_SCHEMES = /^\s*(javascript|data|vbscript):/i;
 
@@ -19,6 +22,7 @@ interface AgentActionsMenuProps {
 
 export function AgentActionsMenu({ agent, canControl }: AgentActionsMenuProps) {
   const [opened, setOpened] = useState(false);
+  const navigate = useNavigate();
   const [shutdownOpen, setShutdownOpen] = useState(false);
   const urlActions = useQuery({ queryKey: queryKeys.urlActions, queryFn: urlActionsApi.list, enabled: opened, staleTime: 60_000 });
 
@@ -108,6 +112,15 @@ export function AgentActionsMenu({ agent, canControl }: AgentActionsMenuProps) {
               <Menu.Item leftSection={<IconPlugConnected size={16} />} onClick={() => wake.mutate()}>
                 Wake-on-LAN
               </Menu.Item>
+              {isWindows(agent.plat) && (
+                <>
+                  <Menu.Divider />
+                  <Menu.Label>Windows</Menu.Label>
+                  <Menu.Item leftSection={<IconRocket size={16} />} onClick={() => void navigate(`${agentPath(agent.id)}?aba=inicializacao`)}>
+                    Programas da inicialização
+                  </Menu.Item>
+                </>
+              )}
               <Menu.Divider />
               <Menu.Label>Agente</Menu.Label>
               <Menu.Item leftSection={<IconCloudDownload size={16} />} onClick={confirmUpdate}>

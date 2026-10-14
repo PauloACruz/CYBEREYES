@@ -20,9 +20,10 @@ public static class ProcedureKind
     public const string Task = "task";
     public const string Wake = "wake";
     public const string AgentUpdate = "agent_update";
+    public const string Startup = "startup";
 
     public static readonly string[] All =
-        [Remote, Files, Care, Command, Script, Terminal, Rename, Reboot, Shutdown, Service, Process, Registry, Software, Updates, Task, Wake, AgentUpdate];
+        [Remote, Files, Care, Command, Script, Terminal, Rename, Reboot, Shutdown, Service, Process, Registry, Software, Updates, Task, Wake, AgentUpdate, Startup];
 }
 
 public static class ProcedureStatus

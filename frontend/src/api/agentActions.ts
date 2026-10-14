@@ -15,6 +15,8 @@ import type {
   RunScriptResponse,
   ServiceAction,
   ServiceStartType,
+  StartupChangeRequest,
+  StartupListDto,
   SuccessMessage,
   UrlResponse,
   WindowsServiceDto,
@@ -38,6 +40,8 @@ export const agentActionsApi = {
   killProcess: (id: number, pid: number) => api.delete(`${base(id)}/processes/${pid}`),
 
   services: (id: number) => api.get<WindowsServiceDto[]>(`${base(id)}/services`),
+  startup: (id: number) => api.get<StartupListDto>(`${base(id)}/startup`),
+  changeStartup: (id: number, body: StartupChangeRequest) => api.put<StartupListDto>(`${base(id)}/startup`, body),
   serviceAction: (id: number, name: string, action: ServiceAction) =>
     api.post<SuccessMessage>(`${base(id)}/services/${encodeURIComponent(name)}/action`, { action }),
   serviceStartType: (id: number, name: string, startType: ServiceStartType) =>

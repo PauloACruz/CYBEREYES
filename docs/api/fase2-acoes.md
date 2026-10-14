@@ -97,6 +97,22 @@ auditoria. `result` e a linha `RESULTADO` do script; `retcode`: 0 renomeado com 
 3010 renomeado e falta reiniciar, 1 renomeado com alerta (SQL Server), 2 falha, 3 recusado (nome invalido, controlador de dominio,
 Autoridade Certificadora, credencial ausente). O hostname do console muda sozinho no primeiro check-in depois do reinicio.
 
+## Programas da inicializacao (so Windows)
+- `GET /api/agents/{id}/startup` (`agents.view`) -> `{ items, users }`
+- `PUT /api/agents/{id}/startup` (`agents.control`) `{ scope, location, name, enabled }` -> a lista atualizada
+
+Roda pelo agente, como SYSTEM, o script embutido `win-conf-inicializacao.ps1` (tempo limite de 90 s). Lista os mesmos programas do
+Gerenciador de Tarefas: chaves `Run` da maquina (`location` `Run` e `Run32`, `scope` `HKLM`), a pasta Inicializar de todos os
+usuarios (`StartupFolder`) e, de cada usuario com sessao aberta (`scope` = SID), a chave `Run` e a pasta Inicializar dele. Usuarios
+sem sessao nao tem o registro carregado e ficam de fora (`users` lista os que aparecem). Cada item traz `command`, `file`,
+`description` e `publisher` (do executavel), `enabled` e `disabledAt`.
+
+Habilitar e desabilitar gravam so o valor de `...\Explorer\StartupApproved\{Run,Run32,StartupFolder}`, como o Gerenciador de
+Tarefas (`02` habilitado, `03` + data desabilitado): a entrada continua e pode voltar. O nome vai ao agente em base64 por variavel de
+ambiente. 400 para escopo, local ou nome invalidos; 409 com a linha `RESULTADO` quando o script recusa (entrada que sumiu, usuario
+que saiu da sessao). A alteracao entra no historico do agente, na auditoria (`agent.startup`) e em Procedimentos (`startup`); a
+listagem nao. O teste `backend/tests/scripts/win-conf-inicializacao.Tests.ps1` roda o script num Windows real no CI.
+
 ## Terminal (SignalR, hub `/hubs/console`, `agents.run`)
 | Metodo do hub | Parametros | Retorno |
 |---|---|---|

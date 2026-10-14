@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import { Box, Menu, Text } from '@mantine/core';
-import { IconCode, IconDeviceDesktopShare, IconFolders, IconPencil, IconPower, IconPrompt, IconRefresh } from '@tabler/icons-react';
+import { IconCode, IconDeviceDesktopShare, IconFolders, IconPencil, IconPower, IconPrompt, IconRefresh, IconRocket } from '@tabler/icons-react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 import { agentActionsApi } from '../../../api/agentActions';
@@ -98,7 +98,7 @@ export function AgentContextMenu({ agent, x, y, onClose, dialog, onDialog }: Age
               Arquivos
             </Menu.Item>
           )}
-          {(canRun || canScripts) && <Menu.Divider />}
+          {(canRun || canScripts || (canControl && isWindows(agent.plat))) && <Menu.Divider />}
           {canRun && (
             <Menu.Item leftSection={<IconPrompt size={16} />} disabled={!online} onClick={() => goTo('comando')}>
               Enviar comando
@@ -107,6 +107,11 @@ export function AgentContextMenu({ agent, x, y, onClose, dialog, onDialog }: Age
           {canScripts && (
             <Menu.Item leftSection={<IconCode size={16} />} disabled={!online} onClick={() => goTo('scripts')}>
               Executar script
+            </Menu.Item>
+          )}
+          {canControl && isWindows(agent.plat) && (
+            <Menu.Item leftSection={<IconRocket size={16} />} disabled={!online} onClick={() => goTo('inicializacao')}>
+              Programas da inicialização
             </Menu.Item>
           )}
           {canControl && (

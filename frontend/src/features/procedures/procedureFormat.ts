@@ -11,6 +11,7 @@ import {
   IconPower,
   IconPrompt,
   IconRefresh,
+  IconRocket,
   IconBinaryTree,
   IconServer,
   IconTerminal2,
@@ -39,6 +40,7 @@ export const PROCEDURE_KIND_INFO: Record<ProcedureKind, { label: string; icon: I
   task: { label: 'Tarefa', icon: IconListCheck, color: 'gray' },
   wake: { label: 'Wake-on-LAN', icon: IconWifi, color: 'cyan' },
   agent_update: { label: 'Atualização do EYES', icon: IconAppWindow, color: 'gray' },
+  startup: { label: 'Inicialização', icon: IconRocket, color: 'orange' },
 };
 
 export const PROCEDURE_KINDS = Object.keys(PROCEDURE_KIND_INFO) as ProcedureKind[];

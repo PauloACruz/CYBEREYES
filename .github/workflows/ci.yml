@@ -50,6 +50,15 @@ jobs:
           echo "DISPLAY=:99" >> "$GITHUB_ENV"
       - run: dotnet test --no-build -c Release --collect:"XPlat Code Coverage"
 
+  # Scripts PowerShell embutidos na API, rodados num Windows de verdade (como administrador).
+  scripts-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Programas da inicializacao
+        shell: powershell
+        run: .\backend\tests\scripts\win-conf-inicializacao.Tests.ps1
+
   frontend:
     runs-on: ubuntu-latest
     defaults:
