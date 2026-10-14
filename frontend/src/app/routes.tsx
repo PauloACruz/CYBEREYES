@@ -2,7 +2,7 @@ import type { RouteObject } from 'react-router';
 import { PERMISSIONS } from '../api/types';
 import { RequireAuth } from '../auth/RequireAuth';
 import { RequirePermission } from '../auth/RequirePermission';
-import { AppLayout } from '../components/layout/AppLayout';
+import { ConsoleRoute } from '../components/layout/ConsoleRoute';
 import { NotFound } from '../components/NotFound';
 import { HomeRoute } from '../features/dashboard/HomeRoute';
 import { AcceptInvitePage } from '../features/auth/AcceptInvitePage';
@@ -81,7 +81,7 @@ export const routes: RouteObject[] = [
         ],
       },
       {
-        element: <AppLayout />,
+        element: <ConsoleRoute />,
         children: [
           { index: true, element: <HomeRoute /> },
           {

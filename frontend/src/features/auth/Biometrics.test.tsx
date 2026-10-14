@@ -12,7 +12,7 @@ function phone() {
     'matchMedia',
     (query: string) =>
       ({
-        matches: query.includes('pointer: coarse'),
+        matches: query.includes('pointer: coarse') || query.includes('max-width: 768px'),
         media: query,
         onchange: null,
         addListener: vi.fn(),
