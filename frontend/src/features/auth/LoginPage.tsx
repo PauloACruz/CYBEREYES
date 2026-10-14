@@ -6,6 +6,7 @@ import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { authApi } from '../../api/auth';
 import type { LoginRequest } from '../../api/types';
 import { PATHS } from '../../app/paths';
+import { takeReturnPath } from '../../auth/returnPath';
 import { ME_QUERY_KEY } from '../../auth/useMe';
 import { applyServerErrors } from '../../lib/forms';
 import { AuthLayout } from './AuthLayout';
@@ -37,7 +38,7 @@ export function LoginPage() {
       queryClient.removeQueries({ queryKey: ME_QUERY_KEY });
       switch (status) {
         case 'ok':
-          await navigate(PATHS.dashboard, { replace: true });
+          await navigate(takeReturnPath(), { replace: true });
           break;
         case 'requires2fa': {
           const state: TwoFactorLocationState = { rememberMe: variables.rememberMe ?? false };

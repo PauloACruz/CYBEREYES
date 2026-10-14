@@ -57,7 +57,7 @@ export function TicketSidebar({ ticket, me }: SidebarProps) {
   );
 }
 
-function StatusCard({ ticket, canManage }: { ticket: TicketDetail; canManage: boolean }) {
+export function StatusCard({ ticket, canManage }: { ticket: TicketDetail; canManage: boolean }) {
   const queryClient = useQueryClient();
   const [pending, setPending] = useState<string | null>(null);
   const [message, setMessage] = useState('');
@@ -130,7 +130,15 @@ function StatusCard({ ticket, canManage }: { ticket: TicketDetail; canManage: bo
   );
 }
 
-function AssigneeCard({ ticket, canManage, me }: { ticket: TicketDetail; canManage: boolean; me: MeDto | undefined }) {
+interface AssigneeCardProps {
+  ticket: TicketDetail;
+  canManage: boolean;
+  me: MeDto | undefined;
+  /** O app mostra o Assumir como acao rapida no topo; aqui ele ficaria repetido. */
+  showAssume?: boolean;
+}
+
+export function AssigneeCard({ ticket, canManage, me, showAssume = true }: AssigneeCardProps) {
   const queryClient = useQueryClient();
   const assignees = useQuery({ queryKey: queryKeys.ticketAssignees, queryFn: ticketsApi.assignees, enabled: canManage });
   const assign = useMutation({
@@ -154,7 +162,7 @@ function AssigneeCard({ ticket, canManage, me }: { ticket: TicketDetail; canMana
         <Title order={5} id="tecnico-title">
           Técnico
         </Title>
-        {canManage && !isMine && me && (
+        {showAssume && canManage && !isMine && me && (
           <Button size="compact-sm" variant="light" leftSection={<IconUserCheck size={14} />} loading={assign.isPending} onClick={() => assign.mutate(me.id)}>
             Assumir
           </Button>

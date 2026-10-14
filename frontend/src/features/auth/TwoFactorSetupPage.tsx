@@ -21,6 +21,7 @@ import QRCode from 'qrcode';
 import { Navigate, useNavigate } from 'react-router';
 import { authApi } from '../../api/auth';
 import { PATHS } from '../../app/paths';
+import { takeReturnPath } from '../../auth/returnPath';
 import { ME_QUERY_KEY, useMe } from '../../auth/useMe';
 import { CopyField } from '../../components/CopyField';
 import { LoadError } from '../../components/TableStates';
@@ -149,7 +150,7 @@ function RecoveryCodesStep({ codes }: { codes: string[] }) {
 
   const finish = async () => {
     queryClient.removeQueries({ queryKey: ME_QUERY_KEY });
-    await navigate(PATHS.dashboard, { replace: true });
+    await navigate(takeReturnPath(), { replace: true });
   };
 
   return (

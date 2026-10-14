@@ -1,5 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query';
 import { configureApiClient } from '../api/client';
+import { rememberReturnPath } from '../auth/returnPath';
 import { PATHS } from './paths';
 
 interface NavigableRouter {
@@ -16,6 +17,7 @@ export function connectApiClient(router: NavigableRouter, queryClient: QueryClie
       if (pathname !== PATHS.login) {
         // Caminho de origem: o login por SSO volta para ele (returnUrl).
         const isAuthPage = pathname === PATHS.loginTwoFactor || pathname === PATHS.twoFactorSetup;
+        if (!isAuthPage) rememberReturnPath(`${pathname}${search}`);
         void router.navigate(PATHS.login, { replace: true, state: isAuthPage ? undefined : { from: `${pathname}${search}` } });
       }
     },

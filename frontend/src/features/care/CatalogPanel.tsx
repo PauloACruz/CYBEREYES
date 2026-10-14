@@ -26,6 +26,7 @@ import type { CareModule, CareParam, CareParamValue, CareRunDto, CareTask } from
 import { careApi } from '../../api/care';
 import { LoadError } from '../../components/TableStates';
 import { AGENT_BUSY_MESSAGE, AGENT_NO_RESPONSE, CARE_NAME } from './careFormat';
+import { storeStartedRun } from './careRuns';
 
 type ParamValues = Record<string, CareParamValue>;
 
@@ -113,14 +114,14 @@ function ParamField({ id, param, value, error, onChange }: ParamFieldProps) {
   }
 }
 
-interface ModuleFormProps {
+export interface ModuleFormProps {
   agentId: number;
   module: CareModule;
   canRun: boolean;
   onStarted: (run: CareRunDto) => void;
 }
 
-function ModuleForm({ agentId, module, canRun, onStarted }: ModuleFormProps) {
+export function ModuleForm({ agentId, module, canRun, onStarted }: ModuleFormProps) {
   const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set(module.tasks.filter((t) => t.default).map((t) => t.key)));
   const [values, setValues] = useState<ParamValues>({});
   const [submitted, setSubmitted] = useState(false);
@@ -214,7 +215,8 @@ function ModuleForm({ agentId, module, canRun, onStarted }: ModuleFormProps) {
             const checked = selected.has(task.key);
             return (
               <Stack key={task.key} gap={6}>
-                <Group gap="xs" wrap="nowrap" align="flex-start">
+                {/* Em tela estreita as etiquetas descem para a linha de baixo em vez de serem cortadas. */}
+                <Group gap="xs" wrap="wrap" align="flex-start">
                   <Checkbox
                     id={`care-${module.key}-${task.key}`}
                     label={task.label}
@@ -223,7 +225,11 @@ function ModuleForm({ agentId, module, canRun, onStarted }: ModuleFormProps) {
                     disabled={!canRun}
                     onChange={(e) => toggle(task.key, e.currentTarget.checked)}
                   />
-                  <TaskBadges task={task} />
+                  {(task.reboot || task.dangerous) && (
+                    <Group gap="xs" wrap="nowrap" style={{ flexShrink: 0 }}>
+                      <TaskBadges task={task} />
+                    </Group>
+                  )}
                 </Group>
                 {checked && task.params.length > 0 && (
                   <Stack gap="xs" pl={32}>
@@ -313,8 +319,7 @@ export function CatalogPanel({ agentId, canRun, onStarted }: CatalogPanelProps) 
               module={module}
               canRun={canRun}
               onStarted={(run) => {
-                queryClient.setQueryData(queryKeys.careRun(run.runId), { ...run, events: run.events ?? [] });
-                void queryClient.invalidateQueries({ queryKey: queryKeys.careRunLists });
+                storeStartedRun(queryClient, run);
                 onStarted(run);
               }}
             />

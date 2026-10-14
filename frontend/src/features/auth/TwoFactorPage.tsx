@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { authApi } from '../../api/auth';
 import { PATHS } from '../../app/paths';
+import { takeReturnPath } from '../../auth/returnPath';
 import { ME_QUERY_KEY } from '../../auth/useMe';
 import { AuthLayout } from './AuthLayout';
 import type { TwoFactorLocationState } from './LoginPage';
@@ -28,7 +29,7 @@ export function TwoFactorPage() {
 
   const onSuccess = async () => {
     queryClient.removeQueries({ queryKey: ME_QUERY_KEY });
-    await navigate(PATHS.dashboard, { replace: true });
+    await navigate(takeReturnPath(), { replace: true });
   };
 
   const verifyTotp = useMutation({
