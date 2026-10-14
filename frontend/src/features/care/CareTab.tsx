@@ -1,32 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Grid, Stack, Text, Title } from '@mantine/core';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '../../api/queryKeys';
-import { PERMISSIONS, type AgentDetail, type CareRunDto } from '../../api/types';
+import { PERMISSIONS, type AgentDetail } from '../../api/types';
 import { careApi } from '../../api/care';
 import { hasPermission } from '../../auth/permissions';
 import { useMe } from '../../auth/useMe';
-import { useConsoleHubConnection } from '../../realtime/consoleHubContext';
 import { CatalogPanel } from './CatalogPanel';
 import { HealthCard } from './HealthCard';
 import { RunHistory } from './RunHistory';
 import { RunPanel } from './RunPanel';
-import { applyRunChanged } from './runEvents';
-
-/** careRunChanged (para todos): atualiza listas e a execucao aberta. */
-function useRunChanged() {
-  const queryClient = useQueryClient();
-  const { connection } = useConsoleHubConnection();
-  useEffect(() => {
-    if (!connection) return;
-    const onChanged = (run: CareRunDto) => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.careRunLists });
-      queryClient.setQueryData<CareRunDto>(queryKeys.careRun(run.runId), (prev) => (prev ? applyRunChanged(prev, run) : prev));
-    };
-    connection.on('careRunChanged', onChanged);
-    return () => connection.off('careRunChanged', onChanged);
-  }, [connection, queryClient]);
-}
+import { useRunChanged } from './careRuns';
 
 export function CareTab({ agent }: { agent: AgentDetail }) {
   const { data: me } = useMe();

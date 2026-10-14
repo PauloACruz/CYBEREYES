@@ -70,7 +70,14 @@ function buildBody(v: FormValues): CreateTicketRequest {
   return body;
 }
 
-function CreateTicketForm({ onClose, agent }: { onClose: () => void; agent?: TicketAgentRef }) {
+interface CreateTicketFormProps {
+  onClose: () => void;
+  agent?: TicketAgentRef;
+  /** Caminho do chamado criado (o app do tecnico usa as proprias rotas). */
+  ticketHref?: (id: number) => string;
+}
+
+export function CreateTicketForm({ onClose, agent, ticketHref = ticketPath }: CreateTicketFormProps) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { data: me } = useMe();
@@ -121,7 +128,7 @@ function CreateTicketForm({ onClose, agent }: { onClose: () => void; agent?: Tic
       void queryClient.invalidateQueries({ queryKey: queryKeys.ticketSummary });
       void queryClient.invalidateQueries({ queryKey: queryKeys.agentTicketLists });
       onClose();
-      await navigate(ticketPath(ticket.id));
+      await navigate(ticketHref(ticket.id));
     },
     onError: (error) => applyServerErrors(form, error),
   });

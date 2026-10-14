@@ -11,7 +11,7 @@ import { LoginPage } from '../features/auth/LoginPage';
 import { ResetPasswordPage } from '../features/auth/ResetPasswordPage';
 import { TwoFactorPage } from '../features/auth/TwoFactorPage';
 import { TwoFactorSetupPage } from '../features/auth/TwoFactorSetupPage';
-import { PATHS } from './paths';
+import { MOBILE_PATHS, PATHS } from './paths';
 
 export const routes: RouteObject[] = [
   { path: PATHS.login, element: <LoginPage /> },
@@ -30,6 +30,53 @@ export const routes: RouteObject[] = [
           {
             path: `${PATHS.remote}/:agentId`,
             lazy: () => import('../features/remote/RemoteViewerPage').then((m) => ({ Component: m.RemoteViewerPage })),
+          },
+        ],
+      },
+      {
+        // App do tecnico para celular (PWA): rotas proprias, sem o menu lateral do console.
+        path: MOBILE_PATHS.root,
+        lazy: () => import('../features/mobile/MobileLayout').then((m) => ({ Component: m.MobileLayout })),
+        children: [
+          { index: true, lazy: () => import('../features/mobile/MobileLayout').then((m) => ({ Component: m.MobileHome })) },
+          { path: 'mais', lazy: () => import('../features/mobile/MobileMorePage').then((m) => ({ Component: m.MobileMorePage })) },
+          {
+            element: <RequirePermission permission={PERMISSIONS.ticketsView} />,
+            children: [
+              { path: 'chamados', lazy: () => import('../features/mobile/tickets/MobileTicketsPage').then((m) => ({ Component: m.MobileTicketsPage })) },
+              {
+                element: <RequirePermission permission={PERMISSIONS.ticketsManage} />,
+                children: [
+                  { path: 'chamados/novo', lazy: () => import('../features/mobile/tickets/MobileNewTicketPage').then((m) => ({ Component: m.MobileNewTicketPage })) },
+                ],
+              },
+              { path: 'chamados/:id', lazy: () => import('../features/mobile/tickets/MobileTicketDetailPage').then((m) => ({ Component: m.MobileTicketDetailPage })) },
+            ],
+          },
+          {
+            element: <RequirePermission permission={PERMISSIONS.agentsView} />,
+            children: [
+              { path: 'agentes', lazy: () => import('../features/mobile/agents/MobileAgentsPage').then((m) => ({ Component: m.MobileAgentsPage })) },
+              { path: 'agentes/:id', lazy: () => import('../features/mobile/agents/MobileAgentDetailPage').then((m) => ({ Component: m.MobileAgentDetailPage })) },
+              {
+                element: <RequirePermission permission={PERMISSIONS.agentsRun} />,
+                children: [
+                  { path: 'agentes/:id/comando', lazy: () => import('../features/mobile/agents/MobileCommandPage').then((m) => ({ Component: m.MobileCommandPage })) },
+                ],
+              },
+              { path: 'agentes/:id/care', lazy: () => import('../features/mobile/care/MobileCarePage').then((m) => ({ Component: m.MobileCarePage })) },
+              {
+                path: 'agentes/:id/care/execucoes/:runId',
+                lazy: () => import('../features/mobile/care/MobileCareRunPage').then((m) => ({ Component: m.MobileCareRunPage })),
+              },
+            ],
+          },
+          {
+            element: <RequirePermission permission={PERMISSIONS.appsView} />,
+            children: [
+              { path: 'aplicacoes', lazy: () => import('../features/mobile/webapps/MobileWebAppsPage').then((m) => ({ Component: m.MobileWebAppsPage })) },
+              { path: 'aplicacoes/:id', lazy: () => import('../features/mobile/webapps/MobileWebAppDetailPage').then((m) => ({ Component: m.MobileWebAppDetailPage })) },
+            ],
           },
         ],
       },

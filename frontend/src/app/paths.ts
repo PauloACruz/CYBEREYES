@@ -31,6 +31,42 @@ export const PATHS = {
   webApps: '/aplicacoes',
 } as const;
 
+/** App do tecnico para celular (PWA), com rotas proprias e sem o menu lateral do console. */
+export const MOBILE_PATHS = {
+  root: '/app',
+  tickets: '/app/chamados',
+  newTicket: '/app/chamados/novo',
+  agents: '/app/agentes',
+  webApps: '/app/aplicacoes',
+  more: '/app/mais',
+} as const;
+
+export function mobileTicketPath(id: number): string {
+  return `${MOBILE_PATHS.tickets}/${id}`;
+}
+
+export function mobileAgentPath(id: number): string {
+  return `${MOBILE_PATHS.agents}/${id}`;
+}
+
+export function mobileCommandPath(agentId: number): string {
+  return `${mobileAgentPath(agentId)}/comando`;
+}
+
+export type MobileCareTab = 'saude' | 'manutencao' | 'historico';
+
+export function mobileCarePath(agentId: number, tab: MobileCareTab = 'saude'): string {
+  return `${mobileAgentPath(agentId)}/care${tab === 'saude' ? '' : `?aba=${tab}`}`;
+}
+
+export function mobileCareRunPath(agentId: number, runId: string): string {
+  return `${mobileAgentPath(agentId)}/care/execucoes/${encodeURIComponent(runId)}`;
+}
+
+export function mobileWebAppPath(id: number): string {
+  return `${MOBILE_PATHS.webApps}/${id}`;
+}
+
 /** Janela do visualizador de acesso remoto (RFC-001). */
 export function remotePath(agentId: number, options: { viewOnly?: boolean; ticketId?: number } = {}): string {
   const query = new URLSearchParams();
