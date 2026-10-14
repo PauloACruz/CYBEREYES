@@ -141,6 +141,15 @@ export const routes: RouteObject[] = [
             ],
           },
           {
+            element: <RequirePermission permission={PERMISSIONS.agentsView} />,
+            children: [
+              {
+                path: PATHS.procedures,
+                lazy: () => import('../features/procedures/ProceduresPage').then((m) => ({ Component: m.ProceduresPage })),
+              },
+            ],
+          },
+          {
             element: <RequirePermission permission={PERMISSIONS.appsView} />,
             children: [
               {

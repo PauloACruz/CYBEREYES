@@ -29,6 +29,7 @@ export const PATHS = {
   reports: '/relatorios',
   remote: '/acesso-remoto',
   webApps: '/aplicacoes',
+  procedures: '/procedimentos',
 } as const;
 
 /** App do tecnico para celular (PWA), com rotas proprias e sem o menu lateral do console. */

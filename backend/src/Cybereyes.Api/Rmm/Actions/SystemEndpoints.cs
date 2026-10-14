@@ -3,8 +3,10 @@ using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Mvc;
 using Cybereyes.Api.Infrastructure;
 using Cybereyes.Api.Rmm.Nats;
+using Cybereyes.Api.Rmm.Procedures;
 using Cybereyes.Core.Audit;
 using Cybereyes.Core.Persistence;
+using Cybereyes.Core.Rmm;
 using Cybereyes.Core.Security;
 
 namespace Cybereyes.Api.Rmm.Actions;
@@ -71,11 +73,12 @@ public static partial class SystemEndpoints
     }
 
     /// <summary>Dependencias comuns das rotas, injetadas de uma vez.</summary>
-    public sealed class Deps(CybereyesDbContext db, IAgentRpc rpc, IAuditService audit)
+    public sealed class Deps(CybereyesDbContext db, IAgentRpc rpc, IAuditService audit, ProcedureLog procedures)
     {
         public CybereyesDbContext Db { get; } = db;
         public IAgentRpc Rpc { get; } = rpc;
         public IAuditService Audit { get; } = audit;
+        public ProcedureLog Procedures { get; } = procedures;
     }
 
     private static async Task<IResult> WithAgentAsync(int id, Deps d, bool windowsOnly, Func<AgentRef, Task<IResult>> action, CancellationToken ct)
@@ -129,12 +132,13 @@ public static partial class SystemEndpoints
         }).ToList());
     }, ct);
 
-    private static Task<IResult> KillProcessAsync(int id, int pid, Deps d, CancellationToken ct) => WithAgentAsync(id, d, false, async agent =>
-    {
-        var reply = await d.Rpc.RequestAsync(agent.AgentId, Message("killproc", extra: new() { ["procpid"] = pid }), Short, ct) as string;
-        await d.Audit.LogAsync("agent.process-killed", "agent", Id(id), $"{agent.Hostname}: encerrou o processo {pid}", cancellationToken: ct);
-        return reply == "ok" ? TypedResults.NoContent() : Problems.BadRequest(reply ?? "Falha ao encerrar o processo");
-    }, ct);
+    private static Task<IResult> KillProcessAsync(int id, int pid, Deps d, CancellationToken ct) => WithAgentAsync(id, d, false, agent =>
+        d.Procedures.TrackAsync(id, ProcedureKind.Process, $"PID {pid}", null, async () =>
+        {
+            var reply = await d.Rpc.RequestAsync(agent.AgentId, Message("killproc", extra: new() { ["procpid"] = pid }), Short, ct) as string;
+            await d.Audit.LogAsync("agent.process-killed", "agent", Id(id), $"{agent.Hostname}: encerrou o processo {pid}", cancellationToken: ct);
+            return reply == "ok" ? TypedResults.NoContent() : Problems.BadRequest(reply ?? "Falha ao encerrar o processo");
+        }, ProcedureLog.StatusOf, ct), ct);
 
     private static object ServiceDto(IReadOnlyDictionary<string, object?> s) => new
     {
@@ -171,16 +175,21 @@ public static partial class SystemEndpoints
             }
 
             var steps = request.Action == "restart" ? RestartSteps : [request.Action];
-            (bool Success, string Message) result = (true, "ok");
-            foreach (var step in steps)
+            var verb = request.Action switch { "start" => "iniciado", "stop" => "parado", _ => "reiniciado" };
+            var result = await d.Procedures.TrackAsync(id, ProcedureKind.Service, $"{name} {verb}", null, async () =>
             {
-                var reply = await d.Rpc.RequestAsync(agent.AgentId, Message("winsvcaction", new() { ["name"] = name, ["action"] = step }), Long, ct);
-                result = SvcResult(reply);
-                if (!result.Success)
+                (bool Success, string Message) outcome = (true, "ok");
+                foreach (var step in steps)
                 {
-                    break;
+                    var reply = await d.Rpc.RequestAsync(agent.AgentId, Message("winsvcaction", new() { ["name"] = name, ["action"] = step }), Long, ct);
+                    outcome = SvcResult(reply);
+                    if (!outcome.Success)
+                    {
+                        break;
+                    }
                 }
-            }
+                return outcome;
+            }, r => r.Success ? ProcedureStatus.Ok : ProcedureStatus.Error, ct);
             await d.Audit.LogAsync("agent.service-action", "agent", Id(id), $"{agent.Hostname}: {request.Action} no servico {name}", cancellationToken: ct);
             return TypedResults.Ok(new { success = result.Success, message = result.Message });
         }, ct);
@@ -192,8 +201,10 @@ public static partial class SystemEndpoints
             {
                 return Problems.BadRequest("Servico ou tipo de inicializacao invalido");
             }
-            var reply = await d.Rpc.RequestAsync(agent.AgentId, Message("editwinsvc", new() { ["name"] = name, ["startType"] = request.StartType }), Short, ct);
-            var (success, message) = SvcResult(reply);
+            var (success, message) = await d.Procedures.TrackAsync(id, ProcedureKind.Service, $"{name}: inicialização {StartTypeName(request.StartType)}", null,
+                async () => SvcResult(await d.Rpc.RequestAsync(agent.AgentId, Message("editwinsvc", new() { ["name"] = name, ["startType"] = request.StartType }),
+                    Short, ct)),
+                r => r.Success ? ProcedureStatus.Ok : ProcedureStatus.Error, ct);
             await d.Audit.LogAsync("agent.service-start-type", "agent", Id(id), $"{agent.Hostname}: servico {name} para {request.StartType}", cancellationToken: ct);
             return TypedResults.Ok(new { success, message });
         }, ct);
@@ -267,21 +278,33 @@ public static partial class SystemEndpoints
             {
                 return Problems.BadRequest("Informe todos os campos");
             }
-            var reply = await d.Rpc.RequestAsync(agent.AgentId, Message(func, payload), Short, ct);
-            if (reply is IReadOnlyDictionary<string, object?> map && map.GetString("error") is { } error)
+            return await d.Procedures.TrackAsync(id, ProcedureKind.Registry, description, null, async () =>
             {
-                return Problems.BadRequest(error);
-            }
-            await d.Audit.LogAsync("agent.registry", "agent", Id(id), $"{agent.Hostname}: {description}", cancellationToken: ct);
-            return TypedResults.Ok(new { success = true });
+                var reply = await d.Rpc.RequestAsync(agent.AgentId, Message(func, payload), Short, ct);
+                if (reply is IReadOnlyDictionary<string, object?> map && map.GetString("error") is { } error)
+                {
+                    return Problems.BadRequest(error);
+                }
+                await d.Audit.LogAsync("agent.registry", "agent", Id(id), $"{agent.Hostname}: {description}", cancellationToken: ct);
+                return TypedResults.Ok(new { success = true });
+            }, ProcedureLog.StatusOf, ct);
         }, ct);
 
-    private static Task<IResult> PowerAsync(int id, Deps d, string func, string verb, CancellationToken ct) => WithAgentAsync(id, d, false, async agent =>
+    private static Task<IResult> PowerAsync(int id, Deps d, string func, string verb, CancellationToken ct) => WithAgentAsync(id, d, false, agent =>
+        d.Procedures.TrackAsync(id, func == "shutdown" ? ProcedureKind.Shutdown : ProcedureKind.Reboot, string.Empty, null, async () =>
+        {
+            await d.Rpc.RequestAsync(agent.AgentId, Message(func), Short, ct);
+            await d.Audit.LogAsync($"agent.{func}", "agent", Id(id), $"{verb} {agent.Hostname}", cancellationToken: ct);
+            return (IResult)TypedResults.Accepted((string?)null);
+        }, ProcedureLog.StatusOf, ct), ct);
+
+    private static string StartTypeName(string startType) => startType switch
     {
-        await d.Rpc.RequestAsync(agent.AgentId, Message(func), Short, ct);
-        await d.Audit.LogAsync($"agent.{func}", "agent", Id(id), $"{verb} {agent.Hostname}", cancellationToken: ct);
-        return TypedResults.Accepted((string?)null);
-    }, ct);
+        "auto" => "automática",
+        "autodelay" => "automática (atraso)",
+        "manual" => "manual",
+        _ => "desativada",
+    };
 
     private static Task<IResult> RefreshAsync(int id, Deps d, CancellationToken ct) => WithAgentAsync(id, d, false, async agent =>
     {

@@ -83,6 +83,12 @@ public sealed partial class AgentTests
         Assert.Equal(100, run.GetProperty("progress").GetInt32());
         Assert.True(run.GetProperty("rebootRequired").GetBoolean());
 
+        // A execucao vira um procedimento do agente; o pedido recusado por "ocupado" nao conta.
+        var procedure = (await ProceduresAsync(admin, $"agentId={pk}&kind=care")).Single();
+        Assert.Equal("ok", procedure.GetProperty("status").GetString());
+        Assert.Equal("Manutenção do sistema (1 tarefa)", procedure.GetProperty("title").GetString());
+        Assert.Equal("clean_tmp", procedure.GetProperty("detail").GetString());
+
         var bad = await admin.PostAsJsonAsync($"/api/agents/{pk}/care/runs", new { module = "maintenance", tasks = new[] { "nao_existe" } });
         Assert.Equal(HttpStatusCode.BadRequest, bad.StatusCode);
     }

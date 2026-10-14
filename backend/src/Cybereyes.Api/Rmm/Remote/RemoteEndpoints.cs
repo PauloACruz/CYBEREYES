@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Cybereyes.Api.Infrastructure;
 using Cybereyes.Api.Rmm.Nats;
+using Cybereyes.Api.Rmm.Procedures;
 using Cybereyes.Core.Audit;
 using Cybereyes.Core.Persistence;
 using Cybereyes.Core.Rmm;
@@ -87,9 +88,18 @@ public static class RemoteEndpoints
 
     private static IResult Error(int status, string title, string code) => Problems.Create(status, title, code);
 
+    /// <summary>Titulo do procedimento: os canais abertos (tela, RDP, arquivos) e se foi so visualizacao.</summary>
+    private static string ChannelsTitle(string[] channels, bool viewOnly)
+    {
+        var names = channels.Select(ch => ch switch { RemoteFrames.Desktop => "tela", RemoteFrames.Rdp => "RDP", _ => "arquivos" }).ToList();
+        var title = string.Join(" e ", names);
+        title = char.ToUpperInvariant(title[0]) + title[1..];
+        return viewOnly ? $"{title} (somente visualização)" : title;
+    }
+
     private static async Task<IResult> CreateAsync(int id, CreateRemoteSessionRequest request, ClaimsPrincipal principal, HttpContext ctx,
-        IConfiguration config, CybereyesDbContext db, RemoteSessionManager manager, IAgentRpc rpc, IAuditService audit, TimeProvider time,
-        CancellationToken ct)
+        IConfiguration config, CybereyesDbContext db, RemoteSessionManager manager, IAgentRpc rpc, IAuditService audit, ProcedureLog procedures,
+        TimeProvider time, CancellationToken ct)
     {
         var settings = manager.Settings;
         if (!settings.Enabled)
@@ -192,6 +202,9 @@ public static class RemoteEndpoints
             ViewerIp = ctx.Connection.RemoteIpAddress?.ToString(),
         });
         await db.SaveChangesAsync(ct);
+        // Concluido pelo RemoteSessionManager.EndAsync; aberto pelo chamado, entra no tempo dele ao terminar.
+        await procedures.StartAsync(agent.Id, channels.All(ch => ch == RemoteFrames.Files) ? ProcedureKind.Files : ProcedureKind.Remote,
+            ChannelsTitle(channels, request.ViewOnly), ticketId: request.TicketId, refType: ProcedureRef.RemoteSession, refId: handle.SessionId, ct: ct);
         await manager.RegisterAsync(handle);
         await audit.LogAsync("remote.session-start", "agent", agent.Id.ToString(CultureInfo.InvariantCulture),
             $"Acesso remoto a {agent.Hostname} ({string.Join(", ", channels)}{(request.ViewOnly ? ", somente visualizacao" : string.Empty)})", cancellationToken: ct);

@@ -59,4 +59,34 @@ describe('painel', () => {
     expect(await screen.findByText('últimos 7 dias')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Filtros (1 ativos)' })).toBeInTheDocument();
   });
+
+  it('mostra os procedimentos nos agentes com os sem chamado em destaque', async () => {
+    const data = overview(7);
+    data.procedures = {
+      total: 42,
+      seconds: 5400,
+      inTickets: 30,
+      unlinked: 12,
+      days: data.tickets!.days.map((d) => ({ date: d.date, count: 6, seconds: 600 })),
+      byKind: [
+        { kind: 'remote', count: 20, seconds: 4200 },
+        { kind: 'care', count: 12, seconds: 900 },
+      ],
+      byUser: [{ userId: 'u-1', userName: 'Maria Souza', count: 42, seconds: 5400 }],
+    };
+    mockFetch({
+      'GET /api/auth/me': () => json(makeMe({ permissions: ['agents.view', 'tickets.view'] })),
+      'GET /api/tickets/assignees': () => json([{ id: 'u-1', name: 'Maria Souza' }]),
+      'GET /api/dashboard/overview': () => json(data),
+    });
+    renderApp('/');
+
+    const card = await screen.findByRole('region', { name: 'Procedimentos nos agentes' });
+    expect(within(card).getByText('1 h 30 min')).toBeInTheDocument();
+    expect(within(card).getByRole('link', { name: 'Sem chamado: 12' })).toHaveAttribute('href', '/procedimentos?chamado=sem-chamado');
+    const byKind = within(card).getByRole('region', { name: 'Procedimentos por tipo' });
+    expect(within(byKind).getByText('Acesso remoto')).toBeInTheDocument();
+    expect(within(byKind).getByText('20 · 1 h 10 min')).toBeInTheDocument();
+    expect(within(within(card).getByRole('region', { name: 'Procedimentos por técnico' })).getByText('Maria Souza')).toBeInTheDocument();
+  });
 });

@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Cybereyes.Api.Endpoints;
 using Cybereyes.Api.Infrastructure;
 using Cybereyes.Api.Rmm.Nats;
+using Cybereyes.Api.Rmm.Procedures;
 using Cybereyes.Core.Audit;
 using Cybereyes.Core.Persistence;
 using Cybereyes.Core.Rmm;
@@ -50,7 +51,7 @@ public static class CommandEndpoints
     }
 
     private static async Task<IResult> CommandAsync(int id, CommandRequest request, ClaimsPrincipal principal, CybereyesDbContext db,
-        IAgentRpc rpc, IAuditService audit, CancellationToken ct)
+        IAgentRpc rpc, IAuditService audit, ProcedureLog procedures, CancellationToken ct)
     {
         var agent = await AgentRef.FindAsync(db, id, ct);
         if (agent is null)
@@ -73,6 +74,8 @@ public static class CommandEndpoints
         db.AgentHistory.Add(history);
         await db.SaveChangesAsync(ct);
         await audit.LogAsync("agent.command", "agent", Id(id), $"{agent.Hostname} ({request.Shell}): {Truncate(request.Command, 500)}", cancellationToken: ct);
+        var procedure = await procedures.StartAsync(id, ProcedureKind.Command, ProcedureLog.OneLine(request.Command), request.Shell,
+            refType: ProcedureRef.History, refId: Id(history.Id), ct: ct);
 
         try
         {
@@ -88,16 +91,23 @@ public static class CommandEndpoints
             var output = reply as string ?? string.Empty;
             history.Results = output;
             await db.SaveChangesAsync(ct);
+            await procedures.FinishAsync(procedure, ProcedureStatus.Ok, ct: CancellationToken.None);
             return TypedResults.Ok(new { historyId = history.Id, output });
         }
         catch (AgentRpcTimeoutException)
         {
+            await procedures.FinishAsync(procedure, ProcedureStatus.Timeout, ct: CancellationToken.None);
             return Problems.AgentTimeout();
+        }
+        catch
+        {
+            await procedures.FinishAsync(procedure, ProcedureStatus.Error, ct: CancellationToken.None);
+            throw;
         }
     }
 
     private static async Task<IResult> RunScriptAsync(int id, RunScriptRequest request, ClaimsPrincipal principal, CybereyesDbContext db,
-        IAgentRpc rpc, IAuditService audit, CancellationToken ct)
+        IAgentRpc rpc, IAuditService audit, ProcedureLog procedures, CancellationToken ct)
     {
         var agent = await AgentRef.FindAsync(db, id, ct);
         if (agent is null)
@@ -132,6 +142,8 @@ public static class CommandEndpoints
         db.AgentHistory.Add(history);
         await db.SaveChangesAsync(ct);
         await audit.LogAsync("agent.script", "agent", Id(id), $"{agent.Hostname}: script {script.Name}", cancellationToken: ct);
+        var procedure = await procedures.StartAsync(id, ProcedureKind.Script, script.Name, args.Count > 0 ? string.Join(' ', args) : null,
+            refType: ProcedureRef.History, refId: Id(history.Id), ct: ct);
 
         try
         {
@@ -151,11 +163,18 @@ public static class CommandEndpoints
             var result = ParseScriptResult(reply);
             history.ScriptResults = JsonSerializer.Serialize(result);
             await db.SaveChangesAsync(ct);
+            await procedures.FinishAsync(procedure, result.Retcode == 0 ? ProcedureStatus.Ok : ProcedureStatus.Error, ct: CancellationToken.None);
             return TypedResults.Ok(new { historyId = history.Id, result.Stdout, result.Stderr, result.Retcode, result.ExecutionTime });
         }
         catch (AgentRpcTimeoutException)
         {
+            await procedures.FinishAsync(procedure, ProcedureStatus.Timeout, ct: CancellationToken.None);
             return Problems.AgentTimeout();
+        }
+        catch
+        {
+            await procedures.FinishAsync(procedure, ProcedureStatus.Error, ct: CancellationToken.None);
+            throw;
         }
     }
 
@@ -173,6 +192,8 @@ public static class CommandEndpoints
         h.Results, h.ScriptResults is null ? null : JsonSerializer.Deserialize<ScriptResultDto>(h.ScriptResults));
 
     private static string Id(int id) => id.ToString(CultureInfo.InvariantCulture);
+
+    private static string Id(long id) => id.ToString(CultureInfo.InvariantCulture);
 
     private static string Truncate(string value, int max) => value.Length <= max ? value : value[..max] + "...";
 }

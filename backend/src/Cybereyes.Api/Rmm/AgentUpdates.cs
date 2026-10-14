@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Cybereyes.Api.Infrastructure;
 using Cybereyes.Api.Rmm.Nats;
+using Cybereyes.Api.Rmm.Procedures;
 using Cybereyes.Core.Audit;
 using Cybereyes.Core.Persistence;
 using Cybereyes.Core.Rmm;
@@ -76,7 +77,8 @@ public static partial class AgentUpdates
         return hash;
     }
 
-    private static async Task<IResult> UpdateOneAsync(int id, CybereyesDbContext db, IAgentRpc rpc, IOptions<AgentSettings> options, IAuditService audit, CancellationToken ct)
+    private static async Task<IResult> UpdateOneAsync(int id, CybereyesDbContext db, IAgentRpc rpc, IOptions<AgentSettings> options, IAuditService audit,
+        ProcedureLog procedures, CancellationToken ct)
     {
         var agent = await db.Agents.AsNoTracking().Where(a => a.Id == id).Select(a => new { a.AgentId, a.Hostname, a.Plat, a.GoArch, a.Version }).FirstOrDefaultAsync(ct);
         if (agent is null)
@@ -107,11 +109,12 @@ public static partial class AgentUpdates
         }
         await audit.LogAsync("agent.update", "agent", id.ToString(CultureInfo.InvariantCulture),
             $"Atualizacao do EYES de {agent.Version} para {settings.Version} em {agent.Hostname}", cancellationToken: ct);
+        await procedures.RecordAsync(id, ProcedureKind.AgentUpdate, $"{agent.Version} para {settings.Version}", ProcedureStatus.Ok, ct: ct);
         return TypedResults.Accepted((string?)null, new { version = settings.Version });
     }
 
     private static async Task<IResult> UpdateManyAsync(AgentUpdateRequest request, CybereyesDbContext db, IAgentRpc rpc, IOptions<AgentSettings> options,
-        IAuditService audit, CancellationToken ct)
+        IAuditService audit, ProcedureLog procedures, CancellationToken ct)
     {
         var settings = options.Value;
         var query = db.Agents.AsNoTracking().Where(a => a.Status == AgentStatus.Online);
@@ -121,11 +124,14 @@ public static partial class AgentUpdates
         }
         var agents = await query.Select(a => new { a.Id, a.AgentId, a.Plat, a.GoArch, a.Version }).ToListAsync(ct);
         var sent = 0;
+        var actor = await procedures.CurrentActorAsync(ct);
         foreach (var a in agents.Where(a => IsOutdated(a.Version, settings.Version)))
         {
             if (Message(settings, a.Plat, a.GoArch) is { } message)
             {
                 await rpc.PublishAsync(a.AgentId, message, ct);
+                await procedures.RecordAsync(a.Id, ProcedureKind.AgentUpdate, $"{a.Version} para {settings.Version}", ProcedureStatus.Ok, actor: actor,
+                    ct: ct);
                 sent++;
             }
         }

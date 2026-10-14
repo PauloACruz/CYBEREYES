@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Cybereyes.Api.Rmm.Actions;
 using Cybereyes.Api.Rmm.Nats;
+using Cybereyes.Api.Rmm.Procedures;
 using Cybereyes.Api.Tickets;
 using Cybereyes.Core.Persistence;
 using Cybereyes.Core.Rmm;
@@ -21,7 +22,8 @@ public enum StartOutcome { Started, Busy, Rejected, Timeout }
 public sealed record StartResult(StartOutcome Outcome, CareRun? Run, string? Message);
 
 /// <summary>Inicia, acompanha e encerra execucoes de modulos do Cybereyes Care nos agentes.</summary>
-public sealed class CareService(CybereyesDbContext db, IAgentRpc rpc, IHubContext<ConsoleHub> console, IHubContext<TrayHub> tray, TimeProvider time)
+public sealed class CareService(CybereyesDbContext db, IAgentRpc rpc, IHubContext<ConsoleHub> console, IHubContext<TrayHub> tray, ProcedureLog procedures,
+    TimeProvider time)
 {
     public const int MaxEventsPerRun = 5000;
     public static readonly TimeSpan CatalogTimeout = TimeSpan.FromSeconds(20);
@@ -72,6 +74,12 @@ public sealed class CareService(CybereyesDbContext db, IAgentRpc rpc, IHubContex
         };
         db.CareRuns.Add(run);
         await db.SaveChangesAsync(ct);
+        // Pela bandeja quem pede e o usuario da maquina (sem conta no console); pelo console, o tecnico logado.
+        var actor = source == ProcedureSource.Tray
+            ? new ProcedureActor(null, requestedBy.StartsWith("tray:", StringComparison.Ordinal) ? requestedBy[5..] : requestedBy, ProcedureSource.Tray)
+            : null;
+        var procedure = await procedures.StartAsync(agent.Id, ProcedureKind.Care, ModuleTitle(module, tasks.Count), string.Join(", ", tasks),
+            refType: ProcedureRef.CareRun, refId: run.RunId, actor: actor, ct: ct);
 
         string? reply;
         try
@@ -100,6 +108,10 @@ public sealed class CareService(CybereyesDbContext db, IAgentRpc rpc, IHubContex
         if (message == "busy")
         {
             db.CareRuns.Remove(run);
+            if (procedure is not null)
+            {
+                db.AgentProcedures.Remove(procedure);
+            }
             await db.SaveChangesAsync(ct);
             return new StartResult(StartOutcome.Busy, null, "Ja existe uma execucao em andamento nesta maquina");
         }
@@ -190,7 +202,33 @@ public sealed class CareService(CybereyesDbContext db, IAgentRpc rpc, IHubContex
         run.Error = error is { Length: > 2000 } ? error[..2000] : error;
         run.FinishedAt = time.GetUtcNow();
         await db.SaveChangesAsync(ct);
+        await procedures.FinishByRefAsync(ProcedureRef.CareRun, run.RunId, status switch
+        {
+            CareRunStatus.Ok => ProcedureStatus.Ok,
+            CareRunStatus.Warning => ProcedureStatus.Warning,
+            CareRunStatus.Cancelled => ProcedureStatus.Cancelled,
+            CareRunStatus.Timeout => ProcedureStatus.Timeout,
+            _ => ProcedureStatus.Error,
+        }, run.Error, ct);
         await NotifyRunAsync(run, ct);
+    }
+
+    /// <summary>Titulo do procedimento: o modulo (com o nome do catalogo do EYES) e quantas tarefas rodaram.</summary>
+    public static string ModuleTitle(string module, int tasks)
+    {
+        var label = module switch
+        {
+            "maintenance" => "Manutenção do sistema",
+            "windows_update" => "Windows Update",
+            "bug_fixer" => "Correção de bugs",
+            "office" => "Office, Teams, OneDrive e SharePoint",
+            "registry" => "Registro do Windows",
+            "app_remover" => "Desinstalador de aplicativos",
+            "component_test" => "Testes de componentes",
+            "winget" => "Winget",
+            _ => module,
+        };
+        return tasks == 1 ? $"{label} (1 tarefa)" : $"{label} ({tasks} tarefas)";
     }
 
     /// <summary>Execucoes que passaram do tempo limite do modulo (mais 10 minutos de folga) viram "timeout".</summary>

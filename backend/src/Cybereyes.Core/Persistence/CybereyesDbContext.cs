@@ -75,6 +75,7 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
     public DbSet<RemoteSession> RemoteSessions => Set<RemoteSession>();
     public DbSet<RemoteTransfer> RemoteTransfers => Set<RemoteTransfer>();
     public DbSet<RemotePolicy> RemotePolicies => Set<RemotePolicy>();
+    public DbSet<AgentProcedure> AgentProcedures => Set<AgentProcedure>();
     public DbSet<UserClient> UserClients => Set<UserClient>();
     public DbSet<AppServer> AppServers => Set<AppServer>();
     public DbSet<WebApp> WebApps => Set<WebApp>();
@@ -264,6 +265,7 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
         builder.Entity<CareRun>().HasQueryFilter(x => scopeClientIds == null || Agents.Any(a => a.Id == x.AgentId));
         builder.Entity<RemoteSession>().HasQueryFilter(x => scopeClientIds == null || Agents.Any(a => a.Id == x.AgentId));
         builder.Entity<RemoteTransfer>().HasQueryFilter(x => scopeClientIds == null || Agents.Any(a => a.Id == x.AgentId));
+        builder.Entity<AgentProcedure>().HasQueryFilter(x => scopeClientIds == null || scopeClientIds.Contains(x.ClientId));
 
         // Checks, tarefas e politicas de patch sem agente pertencem a politicas, que sao globais.
         builder.Entity<Check>().HasQueryFilter(x => scopeClientIds == null || x.AgentId == null || Agents.Any(a => a.Id == x.AgentId));
@@ -876,6 +878,32 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
             e.HasIndex(x => new { x.UserId, x.StartedAt });
             e.HasIndex(x => x.State);
             e.HasOne<Agent>().WithMany().HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<AgentProcedure>(e =>
+        {
+            e.ToTable("agent_procedures");
+            e.Property(x => x.Hostname).HasMaxLength(255);
+            e.Property(x => x.Kind).HasMaxLength(32);
+            e.Property(x => x.Title).HasMaxLength(500);
+            e.Property(x => x.Detail).HasMaxLength(2000);
+            e.Property(x => x.Status).HasMaxLength(16);
+            e.Property(x => x.Source).HasMaxLength(16);
+            e.Property(x => x.UserName).HasMaxLength(256);
+            e.Property(x => x.RefType).HasMaxLength(32);
+            e.Property(x => x.RefId).HasMaxLength(64);
+            e.HasIndex(x => new { x.ClientId, x.StartedAt });
+            e.HasIndex(x => new { x.AgentId, x.StartedAt });
+            e.HasIndex(x => new { x.UserId, x.StartedAt });
+            e.HasIndex(x => x.TicketId);
+            e.HasIndex(x => x.TimeEntryId);
+            e.HasIndex(x => new { x.RefType, x.RefId });
+            // O procedimento sobrevive ao agente, ao chamado, ao apontamento e ao usuario: o indicador nao pode sumir junto.
+            e.HasOne<Agent>().WithMany().HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne<Client>().WithMany().HasForeignKey(x => x.ClientId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<Ticket>().WithMany().HasForeignKey(x => x.TicketId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne<TimeEntry>().WithMany().HasForeignKey(x => x.TimeEntryId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.SetNull);
         });
 
         builder.Entity<RemoteTransfer>(e =>

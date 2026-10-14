@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Cybereyes.Api.Infrastructure;
 using Cybereyes.Api.Rmm.Actions;
 using Cybereyes.Api.Rmm.Nats;
+using Cybereyes.Api.Rmm.Procedures;
 using Cybereyes.Core.Audit;
 using Cybereyes.Core.Persistence;
 using Cybereyes.Core.Rmm;
@@ -90,13 +91,17 @@ public static class ChecksTasksEndpoints
         }).WithTags("Monitoramento").RequireAuthorization(manage);
 
         app.MapGet("/api/agents/{id:int}/tasks", AgentTasksAsync).WithTags("Monitoramento").RequireAuthorization(view);
-        app.MapPost("/api/agents/{id:int}/tasks/{taskId:int}/run", async (int id, int taskId, CybereyesDbContext db, IAgentRpc rpc, IAuditService audit, CancellationToken ct) =>
+        app.MapPost("/api/agents/{id:int}/tasks/{taskId:int}/run", async (int id, int taskId, CybereyesDbContext db, IAgentRpc rpc, IAuditService audit,
+            ProcedureLog procedures, CancellationToken ct) =>
         {
             var agent = await AgentRef.FindAsync(db, id, ct);
-            if (agent is null || !(await PolicyResolver.TasksForAgentAsync(db, id, ct)).Any(t => t.Id == taskId))
+            var task = agent is null ? null : (await PolicyResolver.TasksForAgentAsync(db, id, ct)).FirstOrDefault(t => t.Id == taskId);
+            if (agent is null || task is null)
             {
                 return Problems.NotFound(agent is null ? "Agente" : "Tarefa");
             }
+            // Concluido quando o agente devolve o resultado da tarefa (MonitoringProtocol.TaskResultAsync).
+            await procedures.StartAsync(id, ProcedureKind.Task, task.Name, refType: ProcedureRef.Task, refId: TaskRef(id, taskId), ct: ct);
             await rpc.PublishAsync(agent.AgentId, new Dictionary<string, object?> { ["func"] = "runtask", ["taskpk"] = taskId }, ct);
             await audit.LogAsync("task.run", "agent", Id(id), $"Tarefa {taskId} executada em {agent.Hostname}", cancellationToken: ct);
             return TypedResults.Accepted((string?)null);
@@ -479,4 +484,7 @@ public static class ChecksTasksEndpoints
     }
 
     private static string Id(int id) => id.ToString(CultureInfo.InvariantCulture);
+
+    /// <summary>Referencia do procedimento de uma tarefa rodada a mao: agente e tarefa.</summary>
+    public static string TaskRef(int agentPk, int taskId) => string.Create(CultureInfo.InvariantCulture, $"{agentPk}:{taskId}");
 }

@@ -9,7 +9,7 @@ import { useMe } from '../../auth/useMe';
 import { PageTitle } from '../../components/PageTitle';
 import { LoadError } from '../../components/TableStates';
 import { AlertStats } from './AlertStats';
-import { AgentsOnlineCard, ChecksCard, TicketsCard } from './DashboardCharts';
+import { AgentsOnlineCard, ChecksCard, ProceduresCard, TicketsCard } from './DashboardCharts';
 import { DashboardFilters } from './DashboardFilters';
 import { DEFAULT_PERIOD, PERIODS, type DashboardFilterValues } from './filterValues';
 
@@ -86,6 +86,11 @@ export function DashboardPage() {
           {data.checks && (
             <Box mb="xl">
               <ChecksCard checks={data.checks} days={filters.days} />
+            </Box>
+          )}
+          {data.procedures && (
+            <Box mb="xl">
+              <ProceduresCard procedures={data.procedures} technicianFiltered={Boolean(filters.technicianId)} />
             </Box>
           )}
         </Box>

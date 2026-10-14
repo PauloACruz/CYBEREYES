@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using Cybereyes.Api.Infrastructure;
 using Cybereyes.Api.Rmm.Nats;
+using Cybereyes.Api.Rmm.Procedures;
 using Cybereyes.Core.Audit;
 using Cybereyes.Core.Persistence;
 using Cybereyes.Core.Rmm;
@@ -45,7 +46,7 @@ public static partial class RenameComputerEndpoints
             .RequireAuthorization(Policies.Permission(Permissions.AgentsControl));
 
     private static async Task<IResult> RenameAsync(int id, RenameComputerRequest request, ClaimsPrincipal principal, CybereyesDbContext db,
-        IAgentRpc rpc, IAuditService audit, CancellationToken ct)
+        IAgentRpc rpc, IAuditService audit, ProcedureLog procedures, CancellationToken ct)
     {
         var agent = await AgentRef.FindAsync(db, id, ct);
         if (agent is null)
@@ -88,6 +89,8 @@ public static partial class RenameComputerEndpoints
         await db.SaveChangesAsync(ct);
         await audit.LogAsync("agent.rename", "agent", id.ToString(CultureInfo.InvariantCulture),
             $"{agent.Hostname}: renomear para {name}{(request.Restart ? " e reiniciar" : string.Empty)}", cancellationToken: ct);
+        var procedure = await procedures.StartAsync(id, ProcedureKind.Rename, $"{agent.Hostname} para {name}", request.Restart ? "Com reinício" : null,
+            refType: ProcedureRef.History, refId: history.Id.ToString(CultureInfo.InvariantCulture), ct: ct);
 
         try
         {
@@ -107,11 +110,18 @@ public static partial class RenameComputerEndpoints
             var result = CommandEndpoints.ParseScriptResult(reply);
             history.ScriptResults = JsonSerializer.Serialize(result);
             await db.SaveChangesAsync(ct);
+            await procedures.FinishAsync(procedure, result.Retcode == 0 ? ProcedureStatus.Ok : ProcedureStatus.Error, ct: CancellationToken.None);
             return TypedResults.Ok(new RenameComputerResponse(history.Id, result.Retcode, ResultLine(result), result.Stdout, result.Stderr));
         }
         catch (AgentRpcTimeoutException)
         {
+            await procedures.FinishAsync(procedure, ProcedureStatus.Timeout, ct: CancellationToken.None);
             return Problems.AgentTimeout();
+        }
+        catch
+        {
+            await procedures.FinishAsync(procedure, ProcedureStatus.Error, ct: CancellationToken.None);
+            throw;
         }
     }
 

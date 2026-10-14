@@ -170,6 +170,9 @@ public sealed partial class AgentTests
         Assert.Contains("remote.session-start", audits);
         Assert.Contains("remote.session-end", audits);
         Assert.DoesNotContain(db.AuditLogs.AsNoTracking().Select(a => a.Message), m => m != null && m.Contains("segredo", StringComparison.Ordinal));
+        var procedure = await db.AgentProcedures.AsNoTracking().SingleAsync(p => p.AgentId == agent.Pk);
+        Assert.Equal((ProcedureKind.Remote, "Tela", ProcedureStatus.Ok), (procedure.Kind, procedure.Title, procedure.Status));
+        Assert.NotNull(procedure.DurationSeconds);
     }
 
     /// <summary>Pedido RDCleanPath do navegador (vetor do IronRDP com o token do visualizador no proxy_auth).</summary>

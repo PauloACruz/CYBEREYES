@@ -9,7 +9,7 @@
 Parametros:
 
 - `clientId` (opcional): limita estacoes, checks e chamados a um cliente.
-- `technicianId` (opcional): id do usuario responsavel pelo chamado (`Ticket.AssignedToId`). Vale so para os chamados: estacoes e checks nao tem tecnico.
+- `technicianId` (opcional): nos chamados, o usuario responsavel (`Ticket.AssignedToId`); nos procedimentos, quem os fez. Estacoes e checks nao tem tecnico.
 - `days`: `7`, `14` ou `30` (padrao `30`); outro valor responde 400.
 
 Resposta:
@@ -23,13 +23,18 @@ Resposta:
   "tickets": { "open": 8, "unassigned": 2, "breached": 1, "openedInPeriod": 96, "resolvedInPeriod": 90,
                "days": [{ "date": "2026-10-13", "opened": 3, "resolved": 4 }] },
   "checks": { "total": 66465, "passing": 65826, "failing": 639, "historyDays": 30,
-              "days": [{ "date": "2026-10-13", "passing": 2200, "failing": 18 }] }
+              "days": [{ "date": "2026-10-13", "passing": 2200, "failing": 18 }] },
+  "procedures": { "total": 128, "seconds": 46380, "inTickets": 81, "unlinked": 47,
+                  "days": [{ "date": "2026-10-13", "count": 6, "seconds": 900 }],
+                  "byKind": [{ "kind": "remote", "count": 46, "seconds": 30120 }],
+                  "byUser": [{ "userId": "3f7c...", "userName": "Maria Silva", "count": 71, "seconds": 26000 }] }
 }
 ```
 
 Regras:
 
-- `agents` e `checks` vem nulos sem `agents.view`; `tickets` vem nulo sem `tickets.view`.
+- `agents`, `checks` e `procedures` vem nulos sem `agents.view`; `tickets` vem nulo sem `tickets.view`.
+- `procedures` sao os procedimentos feitos nos agentes no periodo (ver `docs/api/procedimentos.md`); ali o filtro `technicianId` vale para quem fez o procedimento.
 - O escopo de clientes do usuario vale como em toda a API (filtros globais do EF).
 - Os dias seguem o fuso configurado no console (`CoreSettings.TimeZone`).
 - `agents` e o estado atual: o sistema nao guarda historico de online por dia.
