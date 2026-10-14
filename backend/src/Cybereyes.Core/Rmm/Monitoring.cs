@@ -294,4 +294,10 @@ public sealed class CoreSettings
     public int LogMaxPerCycle { get; set; } = 500;
     public int LogRetentionDays { get; set; } = 30;
     public bool DisablePasswordLogin { get; set; }
+
+    /// <summary>Chave publica VAPID do Web Push (base64url); gerada no primeiro uso.</summary>
+    public string? PushPublicKey { get; set; }
+
+    /// <summary>Chave privada VAPID protegida pelo Data Protection (purpose WinCare.Settings.PushVapid).</summary>
+    public string? PushPrivateKeyProtected { get; set; }
 }

@@ -5,7 +5,9 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Cybereyes.Api.Infrastructure;
+using Cybereyes.Api.Notifications;
 using Cybereyes.Api.Rmm.Monitoring;
+using Cybereyes.Core.Notifications;
 using Cybereyes.Core.Rmm;
 using OtpNet;
 using DotNet.Testcontainers.Builders;
@@ -20,6 +22,8 @@ public sealed class ApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
     public const string AdminPassword = "senha-admin-de-teste";
 
     public RecordingSender Notifications { get; } = new();
+
+    public RecordingPush Pushes { get; } = new();
 
     public const string NatsApiUser = "cybereyes-api";
     public const string NatsApiPassword = "senha-nats-teste";
@@ -98,6 +102,8 @@ public sealed class ApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
         {
             services.RemoveAll<INotificationSender>();
             services.AddSingleton<INotificationSender>(Notifications);
+            services.RemoveAll<IPushTransport>();
+            services.AddSingleton<IPushTransport>(Pushes);
             services.AddHttpClient(Cybereyes.Api.Rmm.Software.PackageCatalog.HttpClientName)
                 .ConfigurePrimaryHttpMessageHandler(() => new PackageFeeds.Handler());
         });
@@ -209,5 +215,54 @@ public sealed class RecordingSender : INotificationSender
             Webhooks.Add((url, System.Text.Json.JsonSerializer.Serialize(payload)));
         }
         return Task.CompletedTask;
+    }
+}
+
+/// <summary>Servico de push falso: guarda o que seria enviado e responde 410 para os enderecos marcados como descartados.</summary>
+public sealed class RecordingPush : IPushTransport
+{
+    private readonly List<(string Endpoint, PushMessage Message)> sent = [];
+    private readonly HashSet<string> gone = [];
+
+    public Task<PushResult> SendAsync(PushSubscription subscription,
+        PushMessage message, CancellationToken ct)
+    {
+        lock (sent)
+        {
+            sent.Add((subscription.Endpoint, message));
+            return Task.FromResult(gone.Contains(subscription.Endpoint)
+                ? new PushResult(false, true, 410, "expirada")
+                : new PushResult(true, false, 201, null));
+        }
+    }
+
+    public void MarkGone(string endpoint)
+    {
+        lock (sent)
+        {
+            gone.Add(endpoint);
+        }
+    }
+
+    public List<PushMessage> For(string endpoint)
+    {
+        lock (sent)
+        {
+            return sent.Where(x => x.Endpoint == endpoint).Select(x => x.Message).ToList();
+        }
+    }
+
+    /// <summary>Espera o aviso chegar (o envio roda em segundo plano, fora da requisicao).</summary>
+    public async Task<PushMessage> WaitAsync(string endpoint, Func<PushMessage, bool> match)
+    {
+        for (var i = 0; i < 100; i++)
+        {
+            if (For(endpoint).FirstOrDefault(match) is { } found)
+            {
+                return found;
+            }
+            await Task.Delay(100);
+        }
+        throw new TimeoutException($"Nenhum push esperado para {endpoint}: {string.Join(" | ", For(endpoint).Select(m => m.Title))}");
     }
 }

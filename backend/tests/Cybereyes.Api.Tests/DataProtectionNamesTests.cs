@@ -15,5 +15,6 @@ public sealed class DataProtectionNamesTests
         Assert.Equal("WinCare.Settings.Smtp", DataProtectionNames.SmtpPasswordPurpose);
         Assert.Equal("WinCare.Deployments.Token", DataProtectionNames.DeploymentTokenPurpose);
         Assert.Equal("WinCare.Sso.State", DataProtectionNames.SsoStatePurpose);
+        Assert.Equal("WinCare.Settings.PushVapid", DataProtectionNames.PushVapidPurpose);
     }
 }

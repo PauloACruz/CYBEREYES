@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using Cybereyes.Api.Notifications;
 using Cybereyes.Api.Rmm;
 using Cybereyes.Core.Persistence;
 using Cybereyes.Core.Tickets;
@@ -22,7 +23,7 @@ public sealed record TrayTicketDto(int Id, string Title, string Status, string P
     string? AssignedToName, bool ChatEnabled, DateTimeOffset? LastMessageAt);
 
 /// <summary>Regras de negocio dos chamados: SLA, status, atribuicao, mensagens e avisos em tempo real.</summary>
-public sealed class TicketService(CybereyesDbContext db, IHubContext<ConsoleHub> console, IHubContext<TrayHub> tray, TimeProvider time)
+public sealed class TicketService(CybereyesDbContext db, IHubContext<ConsoleHub> console, IHubContext<TrayHub> tray, PushOutbox push, TimeProvider time)
 {
     public static string ConsoleGroup(int ticketId) => $"ticket:{ticketId}";
 
@@ -62,6 +63,7 @@ public sealed class TicketService(CybereyesDbContext db, IHubContext<ConsoleHub>
         db.Tickets.Add(ticket);
         await db.SaveChangesAsync(ct);
         await TicketsChangedAsync(ticket.Id, ct);
+        push.Ticket(TicketPushKind.Opened, ticket.Id);
         return ticket;
     }
 
@@ -116,6 +118,10 @@ public sealed class TicketService(CybereyesDbContext db, IHubContext<ConsoleHub>
         {
             await NotifyTrayTicketAsync(ticket, ct);
         }
+        if (authorType != MessageAuthor.System)
+        {
+            push.Ticket(TicketPushKind.Message, ticket.Id, authorType, authorName, body, isInternal);
+        }
         return dto;
     }
 
@@ -131,6 +137,7 @@ public sealed class TicketService(CybereyesDbContext db, IHubContext<ConsoleHub>
         SetStatus(ticket, status, time.GetUtcNow());
         await SystemMessageAsync(ticket, $"{actor} alterou o status para {StatusName(status)}", ct);
         await NotifyTrayTicketAsync(ticket, ct);
+        push.Ticket(TicketPushKind.Status, ticket.Id);
     }
 
     public async Task AssignAsync(Ticket ticket, Guid? userId, string? userName, string actor, CancellationToken ct)
@@ -146,6 +153,10 @@ public sealed class TicketService(CybereyesDbContext db, IHubContext<ConsoleHub>
         }
         await SystemMessageAsync(ticket, userId is null ? $"{actor} removeu o tecnico do chamado" : $"{actor} atribuiu o chamado a {userName}", ct);
         await NotifyTrayTicketAsync(ticket, ct);
+        if (userId is not null)
+        {
+            push.Ticket(TicketPushKind.Assigned, ticket.Id);
+        }
     }
 
     public async Task ChangePriorityAsync(Ticket ticket, string priority, string actor, CancellationToken ct)
@@ -158,6 +169,7 @@ public sealed class TicketService(CybereyesDbContext db, IHubContext<ConsoleHub>
         await ApplySlaAsync(ticket, ct);
         await SystemMessageAsync(ticket, $"{actor} alterou a prioridade para {PriorityName(priority)}", ct);
         await NotifyTrayTicketAsync(ticket, ct);
+        push.Ticket(TicketPushKind.Priority, ticket.Id);
     }
 
     public async Task<TrayTicketDto> TrayTicketAsync(Ticket ticket, CancellationToken ct)

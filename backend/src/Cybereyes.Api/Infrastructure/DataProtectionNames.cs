@@ -17,4 +17,7 @@ public static class DataProtectionNames
 
     /// <summary>Purpose do cookie de estado do login OIDC.</summary>
     public const string SsoStatePurpose = "WinCare.Sso.State";
+
+    /// <summary>Purpose da chave privada VAPID do Web Push gravada em core_settings.PushPrivateKeyProtected.</summary>
+    public const string PushVapidPurpose = "WinCare.Settings.PushVapid";
 }

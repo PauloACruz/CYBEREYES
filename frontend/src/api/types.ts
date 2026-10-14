@@ -2817,3 +2817,36 @@ export interface ProceduresTicketRequest {
   priority?: TicketPriority;
   resolve: boolean;
 }
+
+/** Notificacoes no aparelho (Web Push): o que avisar. */
+export interface PushPreferences {
+  /** Chamado novo (sem responsavel, ou ja atribuido a mim). */
+  newTickets: boolean;
+  /** Chamado atribuido a mim e mudancas de status ou prioridade nos meus chamados. */
+  updates: boolean;
+  /** Mensagens nos meus chamados (e nos sem responsavel, quando vem do solicitante). */
+  messages: boolean;
+}
+
+export interface PushConfig {
+  publicKey: string;
+}
+
+export interface PushSubscriptionRequest extends PushPreferences {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  device: string | null;
+}
+
+export interface PushSubscriptionDto extends PushPreferences {
+  endpoint: string;
+  device: string | null;
+  createdAt: string;
+  lastSentAt: string | null;
+}
+
+export interface PushTestResult {
+  delivered: boolean;
+  error: string | null;
+}

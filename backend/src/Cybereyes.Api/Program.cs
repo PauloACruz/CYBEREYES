@@ -101,6 +101,11 @@ builder.Services.AddHostedService<Cybereyes.Api.Rmm.Remote.RemoteSessionReaper>(
 builder.Services.AddHttpClient(Cybereyes.Api.Rmm.Remote.RemoteForwarder.HttpClientName, c => c.Timeout = Timeout.InfiniteTimeSpan);
 builder.Services.AddSingleton<Cybereyes.Api.Rmm.Monitoring.INotificationSender, Cybereyes.Api.Rmm.Monitoring.NotificationSender>();
 builder.Services.AddScoped<Cybereyes.Api.Rmm.Monitoring.AlertService>();
+builder.Services.AddSingleton<Cybereyes.Api.Notifications.PushKeyStore>();
+builder.Services.AddSingleton<Cybereyes.Api.Notifications.PushOutbox>();
+builder.Services.AddSingleton<Cybereyes.Api.Notifications.IPushTransport, Cybereyes.Api.Notifications.WebPushTransport>();
+builder.Services.AddHttpClient(Cybereyes.Api.Notifications.WebPushTransport.HttpClientName, c => c.Timeout = TimeSpan.FromSeconds(15));
+builder.Services.AddHostedService<Cybereyes.Api.Notifications.PushDispatcher>();
 builder.Services.AddScoped<Cybereyes.Api.Tickets.TicketService>();
 builder.Services.AddScoped<Cybereyes.Api.Tickets.IncidentService>();
 builder.Services.Configure<Cybereyes.Api.Inventory.VaultSettings>(builder.Configuration.GetSection(Cybereyes.Api.Inventory.VaultSettings.Section));
@@ -232,6 +237,7 @@ Cybereyes.Api.Rmm.Monitoring.AlertsPatchesEndpoints.MapAlertsPatchesEndpoints(ap
 Cybereyes.Api.Rmm.Remote.RemoteEndpoints.MapRemoteEndpoints(app);
 Cybereyes.Api.Tickets.TicketEndpoints.MapTicketEndpoints(app);
 Cybereyes.Api.Tickets.Tray.MapTrayEndpoints(app);
+Cybereyes.Api.Notifications.PushEndpoints.MapPushEndpoints(app);
 Cybereyes.Api.Inventory.AssetEndpoints.MapAssetEndpoints(app);
 Cybereyes.Api.Inventory.DocsEndpoints.MapDocsEndpoints(app);
 Cybereyes.Api.Rmm.Maintenance.CareEndpoints.MapCareEndpoints(app);
