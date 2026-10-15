@@ -48,7 +48,8 @@ function Find-Item($lista, [string]$escopo, [string]$local, [string]$nome) {
 
 function Get-PrimeiroByte([Microsoft.Win32.RegistryKey]$raiz, [string]$local, [string]$nome) {
     $chave = $raiz.OpenSubKey("$aprovado\$local")
-    $bytes = if ($chave) { $chave.GetValue($nome) } else { $null }
+    $bytes = $null
+    if ($chave) { $bytes = $chave.GetValue($nome) }
     if ($bytes -isnot [byte[]]) { return $null }
     return $bytes[0]
 }

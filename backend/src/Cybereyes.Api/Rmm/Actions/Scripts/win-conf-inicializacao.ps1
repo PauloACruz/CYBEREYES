@@ -93,7 +93,9 @@ function Get-InfoArquivo([string]$caminho) {
 # Valor em StartupApproved: ausente = habilitado; primeiro byte ímpar (03, 07) = desabilitado, com a data em FILETIME.
 function Get-Estado($raiz, [string]$local, [string]$nome) {
     $chave = $raiz.OpenSubKey("$aprovadoBase\$local")
-    $bytes = if ($null -ne $chave) { $chave.GetValue($nome) } else { $null }
+    # Atribuicao direta: o resultado de um "if" passa pelo pipeline e o byte[] vira object[].
+    $bytes = $null
+    if ($null -ne $chave) { $bytes = $chave.GetValue($nome) }
     if ($bytes -isnot [byte[]] -or $bytes.Length -eq 0 -or ($bytes[0] -band 1) -eq 0) {
         return @{ habilitado = $true; desde = $null }
     }

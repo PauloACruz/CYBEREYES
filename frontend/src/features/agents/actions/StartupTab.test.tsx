@@ -119,8 +119,10 @@ describe('programas da inicialização do Windows', () => {
     const { router } = renderApp('/agentes/1');
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole('button', { name: 'Ações' }));
-    await user.click(await screen.findByRole('menuitem', { name: 'Programas da inicialização' }));
+    // Pagina do agente inteira carregada (a rota e o menu sao carregados sob demanda) antes de abrir o menu.
+    expect(await screen.findByRole('tab', { name: /Inicialização/ }, { timeout: 5000 })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Ações' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Programas da inicialização' }, { timeout: 5000 }));
     await waitFor(() => expect(router.state.location.search).toBe('?aba=inicializacao'));
     expect(await screen.findByRole('switch', { name: 'Discord: habilitado na inicialização' })).toBeInTheDocument();
 
@@ -128,5 +130,5 @@ describe('programas da inicialização do Windows', () => {
     expect((await screen.findAllByText('srv-linux')).length).toBeGreaterThan(0);
     expect(screen.getByRole('tab', { name: /Resumo/ })).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: /Inicialização/ })).not.toBeInTheDocument();
-  });
+  }, 20_000);
 });
