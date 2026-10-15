@@ -107,6 +107,7 @@ Mesmo padrao da fase 0 (cookie, 2FA, ProblemDetails com `code`).
 | GET | `/api/agents/{id}` | `AgentDetail` |
 | POST | `/api/agents/{id}/ping` | `{ status: "online" \| "offline" }` |
 | DELETE | `/api/agents/{id}` | 204 (`agents.manage`) |
+| PUT | `/api/agents/{id}/site` | `{ siteId }` -> `{ clientId, clientName, siteId, siteName, movedTickets, clientChanged }` (`agents.manage`). Muda o agente de site (e de cliente, se o site for de outro); vale no proximo check-in, com as politicas do novo lugar. Vao junto os chamados abertos da maquina e o ativo do inventario; os chamados encerrados ficam com o cliente antigo. Trocando de cliente, o responsavel do ativo e desvinculado e 409 se o agente for coletor SNMP de dispositivos do cliente antigo. 400 para site inexistente ou fora do escopo do usuario |
 
 `AgentListItem`: `{ id, agentId, hostname, clientId, clientName, siteId, siteName, monitoringType, plat, operatingSystem, status, lastSeen, version, loggedInUsername, lastLoggedInUser, publicIp, needsReboot, description, responsible }`. `responsible` (`{ id, name }` ou `null`) e a pessoa responsavel pelo ativo do inventario ligado ao agente; so na lista.
 `AgentDetail`: campos acima (menos `responsible`) mais `goArch, totalRam (GB), bootTime, meshNodeId (substituido na fase 12.8, ver ADR-023), disks (array JSON), services (array JSON), wmi (JSON), checkInterval, offlineTime, overdueTime, createdAt`.

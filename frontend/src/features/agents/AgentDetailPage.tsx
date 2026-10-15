@@ -72,6 +72,7 @@ import { HistoryTab } from './actions/HistoryTab';
 import { LiveServicesTab } from './actions/LiveServicesTab';
 import { StartupTab } from './actions/StartupTab';
 import { ProcessesTab } from './actions/ProcessesTab';
+import { MoveAgentModal } from './actions/MoveAgentModal';
 import { RenameComputerModal } from './actions/RenameComputerModal';
 import { RemoteAccessMenu } from './actions/RemoteAccessMenu';
 import { ScriptRunTab } from './actions/ScriptRunTab';
@@ -146,11 +147,12 @@ function AgentDetailView({ agent }: { agent: AgentDetail }) {
   const windows = isWindows(agent.plat);
   const [deleteOpened, deleteModal] = useDisclosure(false);
   const [renameOpened, renameModal] = useDisclosure(false);
+  const [moveOpened, moveModal] = useDisclosure(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const [terminalVisited, setTerminalVisited] = useState(() => searchParams.get('aba') === 'terminal');
 
   const tabs: TabDef[] = [
-    { value: 'resumo', label: 'Resumo', icon: IconInfoCircle, render: () => <SummaryTab agent={agent} /> },
+    { value: 'resumo', label: 'Resumo', icon: IconInfoCircle, render: () => <SummaryTab agent={agent} onMove={canManage ? moveModal.open : undefined} /> },
     { value: 'discos', label: 'Discos', icon: IconDatabase, render: () => <DisksTab disks={parseDisks(agent.disks)} /> },
     { value: 'checks', label: 'Checks', icon: IconChecklist, render: () => <ChecksTab agent={agent} /> },
     { value: 'tarefas', label: 'Tarefas', icon: IconCalendarTime, render: () => <TasksTab agent={agent} /> },
@@ -276,7 +278,7 @@ function AgentDetailView({ agent }: { agent: AgentDetail }) {
           </Button>
           {canRemote && <RemoteAccessMenu agent={agent} />}
           {canViewInventory && <AgentAssetButton agentId={agent.id} />}
-          <AgentActionsMenu agent={agent} canControl={canControl} />
+          <AgentActionsMenu agent={agent} canControl={canControl} onMove={canManage ? moveModal.open : undefined} />
           {canManage && (
             <Button color="red" variant="light" leftSection={<IconTrash size={16} />} onClick={deleteModal.open}>
               Excluir
@@ -302,6 +304,7 @@ function AgentDetailView({ agent }: { agent: AgentDetail }) {
 
       {canManage && <DeleteAgentModal agent={agent} opened={deleteOpened} onClose={deleteModal.close} />}
       {canRename && <RenameComputerModal agent={agent} opened={renameOpened} onClose={renameModal.close} />}
+      {canManage && moveOpened && <MoveAgentModal agent={agent} opened onClose={moveModal.close} />}
     </>
   );
 }
@@ -323,12 +326,26 @@ function orDash(value: string | null | undefined): string {
   return value || 'Não informado';
 }
 
-function SummaryTab({ agent }: { agent: AgentDetail }) {
+function SummaryTab({ agent, onMove }: { agent: AgentDetail; onMove?: () => void }) {
   const arch = agent.goArch ?? agent.goarch;
   return (
     <>
       <Paper withBorder p="lg">
         <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg">
+          <Field label="Cliente / site">
+            <Group gap={4} wrap="nowrap">
+              <Text size="sm">
+                {agent.clientName} / {agent.siteName}
+              </Text>
+              {onMove && (
+                <Tooltip label="Mudar cliente ou site">
+                  <ActionIcon variant="subtle" color="gray" size={24} aria-label="Mudar cliente ou site" onClick={onMove}>
+                    <IconPencil size={15} stroke={1.75} />
+                  </ActionIcon>
+                </Tooltip>
+              )}
+            </Group>
+          </Field>
           <Field label="Sistema operacional">
             <OperatingSystem plat={agent.plat} operatingSystem={agent.operatingSystem} />
           </Field>
