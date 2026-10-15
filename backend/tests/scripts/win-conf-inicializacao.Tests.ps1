@@ -116,3 +116,7 @@ try {
     $chave = $raizUsuario.OpenSubKey("$aprovado\Run", $true)
     if ($chave) { $chave.DeleteValue($nomeUsuario, $false) }
 }
+
+# Os casos de recusa deixam o ultimo codigo de saida em 3, e o shell do CI usaria ele: chegou aqui, passou.
+Write-Output 'Todos os testes do win-conf-inicializacao.ps1 passaram.'
+exit 0
