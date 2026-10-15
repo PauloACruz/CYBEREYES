@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import { Box, Menu, Text } from '@mantine/core';
-import { IconCode, IconDeviceDesktopShare, IconFolders, IconPencil, IconPower, IconPrompt, IconRefresh, IconRocket } from '@tabler/icons-react';
+import { IconArrowsExchange, IconCode, IconDeviceDesktopShare, IconFolders, IconPencil, IconPower, IconPrompt, IconRefresh, IconRocket } from '@tabler/icons-react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 import { agentActionsApi } from '../../../api/agentActions';
@@ -13,10 +13,11 @@ import { useMe } from '../../../auth/useMe';
 import { confirmAction, notifySuccess } from '../../../lib/feedback';
 import { ShutdownModal } from './AgentActionsMenu';
 import { openRemoteWindow } from './openRemoteWindow';
+import { MoveAgentModal } from './MoveAgentModal';
 import { RenameComputerModal } from './RenameComputerModal';
 import { isWindows } from './shells';
 
-export type AgentMenuDialog = 'rename' | 'shutdown' | null;
+export type AgentMenuDialog = 'rename' | 'shutdown' | 'move' | null;
 
 interface AgentContextMenuProps {
   agent: AgentListItem;
@@ -40,6 +41,7 @@ export function AgentContextMenu({ agent, x, y, onClose, dialog, onDialog }: Age
   const canRun = hasPermission(me, PERMISSIONS.agentsRun);
   const canScripts = canRun && hasPermission(me, PERMISSIONS.scriptsView);
   const canRename = canControl && isWindows(agent.plat);
+  const canManage = hasPermission(me, PERMISSIONS.agentsManage);
   // O modal de renomear precisa do WMI (dominio ou grupo de trabalho), que so vem no detalhe.
   const detail = useQuery({ queryKey: queryKeys.agentDetail(agent.id), queryFn: () => agentsApi.get(agent.id), enabled: dialog === 'rename' });
 
@@ -86,6 +88,11 @@ export function AgentContextMenu({ agent, x, y, onClose, dialog, onDialog }: Age
           {canRename && (
             <Menu.Item leftSection={<IconPencil size={16} />} disabled={!online} onClick={() => openDialog('rename')}>
               Alterar hostname
+            </Menu.Item>
+          )}
+          {canManage && (
+            <Menu.Item leftSection={<IconArrowsExchange size={16} />} onClick={() => openDialog('move')}>
+              Mudar cliente ou site
             </Menu.Item>
           )}
           {canRemote && (
@@ -137,13 +144,14 @@ export function AgentContextMenu({ agent, x, y, onClose, dialog, onDialog }: Age
               </Menu.Item>
             </>
           )}
-          {!canControl && !canRemote && !canFiles && !canRun && (
+          {!canControl && !canRemote && !canFiles && !canRun && !canManage && (
             <Menu.Item disabled>Seu papel não tem ações para este agente.</Menu.Item>
           )}
         </Menu.Dropdown>
       </Menu>
       {dialog === 'rename' && detail.data && <RenameComputerModal agent={detail.data} opened onClose={onClose} />}
       <ShutdownModal agent={agent} opened={dialog === 'shutdown'} onClose={onClose} />
+      {dialog === 'move' && <MoveAgentModal agent={agent} opened onClose={onClose} />}
     </>
   );
 }

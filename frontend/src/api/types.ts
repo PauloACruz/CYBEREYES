@@ -2882,3 +2882,14 @@ export interface StartupChangeRequest {
   name: string;
   enabled: boolean;
 }
+
+/** Resultado de mudar o agente de site: onde ficou e o que foi junto. */
+export interface MoveAgentResult {
+  clientId: number;
+  clientName: string;
+  siteId: number;
+  siteName: string;
+  /** Chamados abertos da maquina que foram para o novo cliente / site (os encerrados ficam). */
+  movedTickets: number;
+  clientChanged: boolean;
+}

@@ -9,6 +9,7 @@ using Cybereyes.Core.Audit;
 using Cybereyes.Core.Persistence;
 using Cybereyes.Core.Rmm;
 using Cybereyes.Core.Security;
+using Cybereyes.Core.Tickets;
 
 namespace Cybereyes.Api.Rmm;
 
@@ -16,6 +17,11 @@ public sealed record AgentListItem(int Id, string AgentId, string Hostname, int 
     string MonitoringType, string Plat, string? OperatingSystem, string Status, DateTimeOffset? LastSeen, string Version,
     string? LoggedInUsername, string? LastLoggedInUser, string? PublicIp, bool NeedsReboot, string? Description, ResponsibleRef? Responsible,
     int? HealthScore, string? HealthGrade);
+
+public sealed record MoveAgentRequest([property: System.ComponentModel.DataAnnotations.Range(1, int.MaxValue)] int SiteId);
+
+/// <summary>Onde o agente ficou e o que foi junto: chamados abertos e ativo do inventario (com o responsavel desvinculado ao trocar de cliente).</summary>
+public sealed record MoveAgentResult(int ClientId, string ClientName, int SiteId, string SiteName, int MovedTickets, bool ClientChanged);
 
 public sealed record AgentDetail(int Id, string AgentId, string Hostname, int ClientId, string ClientName, int SiteId, string SiteName,
     string MonitoringType, string Plat, string? GoArch, string? OperatingSystem, string Status, DateTimeOffset? LastSeen, string Version,
@@ -33,6 +39,7 @@ public static class AgentEndpoints
         group.MapGet("/{id:int}", GetAsync).RequireAuthorization(view);
         group.MapPost("/{id:int}/ping", PingAsync).RequireAuthorization(view);
         group.MapDelete("/{id:int}", DeleteAsync).RequireAuthorization(Policies.Permission(Permissions.AgentsManage));
+        group.MapPut("/{id:int}/site", MoveAsync).RequireAuthorization(Policies.Permission(Permissions.AgentsManage));
         app.MapHub<ConsoleHub>("/hubs/console");
     }
 
@@ -180,6 +187,63 @@ public static class AgentEndpoints
         await audit.LogAsync("agent.deleted", "agent", id.ToString(CultureInfo.InvariantCulture), $"Agente {agent.Hostname} excluido", cancellationToken: ct);
         await notifier.AgentsChangedAsync(ct);
         return TypedResults.NoContent();
+    }
+
+    /// <summary>
+    /// Muda o agente de site (e de cliente, se o site for de outro). O agente nao guarda o site: so o informa no cadastro, entao
+    /// a mudanca vale ja no proximo check-in, e as politicas do novo site e cliente passam a valer sozinhas.
+    /// </summary>
+    private static async Task<IResult> MoveAsync(int id, MoveAgentRequest r, CybereyesDbContext db, IAgentNotifier notifier, IAuditService audit,
+        TimeProvider time, CancellationToken ct)
+    {
+        var agent = await db.Agents.Include(a => a.Site!).ThenInclude(s => s.Client).FirstOrDefaultAsync(a => a.Id == id, ct);
+        if (agent is null)
+        {
+            return Problems.NotFound("Agente");
+        }
+        // Com escopo de clientes, um site de cliente que o usuario nao ve nem aparece aqui.
+        var site = await db.Sites.Include(s => s.Client).FirstOrDefaultAsync(s => s.Id == r.SiteId, ct);
+        if (site is null)
+        {
+            return Problems.Validation("siteId", "Site inexistente");
+        }
+        var from = agent.Site!;
+        var clientChanged = site.ClientId != from.ClientId;
+        if (site.Id == from.Id)
+        {
+            return TypedResults.Ok(new MoveAgentResult(site.ClientId, site.Client!.Name, site.Id, site.Name, 0, false));
+        }
+        if (clientChanged)
+        {
+            var devices = await db.SnmpDevices.CountAsync(d => d.CollectorAgentId == id, ct);
+            if (devices > 0)
+            {
+                return Problems.Conflict(
+                    $"O agente coleta {devices} dispositivo(s) SNMP do cliente {from.Client!.Name}: escolha outro coletor para eles antes de mudar de cliente");
+            }
+        }
+
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        agent.SiteId = site.Id;
+        await db.SaveChangesAsync(ct);
+        // Chamados abertos da maquina vao junto; os encerrados ficam com o cliente de quando foram atendidos (relatorios e horas).
+        var movedTickets = await db.Tickets.Where(t => t.AgentId == id && TicketStatus.Open.Contains(t.Status))
+            .ExecuteUpdateAsync(u => u.SetProperty(t => t.ClientId, site.ClientId).SetProperty(t => t.SiteId, site.Id), ct);
+        var now = time.GetUtcNow();
+        await db.Assets.Where(a => a.AgentId == id)
+            .ExecuteUpdateAsync(u => u.SetProperty(a => a.ClientId, site.ClientId).SetProperty(a => a.SiteId, site.Id).SetProperty(a => a.UpdatedAt, now), ct);
+        if (clientChanged)
+        {
+            // O responsavel e uma pessoa do cliente antigo: o ativo fica sem responsavel no cliente novo.
+            await db.AssetAssignments.Where(x => x.UnassignedAt == null && db.Assets.Any(a => a.Id == x.AssetId && a.AgentId == id))
+                .ExecuteUpdateAsync(u => u.SetProperty(x => x.UnassignedAt, now), ct);
+        }
+        await tx.CommitAsync(ct);
+
+        await audit.LogAsync("agent.moved", "agent", id.ToString(CultureInfo.InvariantCulture),
+            $"{agent.Hostname}: de {from.Client!.Name} / {from.Name} para {site.Client!.Name} / {site.Name}", cancellationToken: ct);
+        await notifier.AgentsChangedAsync(ct);
+        return TypedResults.Ok(new MoveAgentResult(site.ClientId, site.Client.Name, site.Id, site.Name, movedTickets, clientChanged));
     }
 
     private static JsonElement? Json(string? raw) => raw is null ? null : JsonDocument.Parse(raw).RootElement.Clone();

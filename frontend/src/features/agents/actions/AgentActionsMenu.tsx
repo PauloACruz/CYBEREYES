@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button, Group, Loader, Menu, Modal, Stack, Text, TextInput } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { IconChevronDown, IconCloudDownload, IconExternalLink, IconPlugConnected, IconPower, IconRefresh, IconRocket, IconRotateClockwise } from '@tabler/icons-react';
+import { IconArrowsExchange, IconChevronDown, IconCloudDownload, IconExternalLink, IconPlugConnected, IconPower, IconRefresh, IconRocket, IconRotateClockwise } from '@tabler/icons-react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 import { agentActionsApi } from '../../../api/agentActions';
@@ -18,9 +18,11 @@ const BLOCKED_SCHEMES = /^\s*(javascript|data|vbscript):/i;
 interface AgentActionsMenuProps {
   agent: AgentDetail;
   canControl: boolean;
+  /** Abre "Mudar cliente ou site" (so com agents.manage). */
+  onMove?: () => void;
 }
 
-export function AgentActionsMenu({ agent, canControl }: AgentActionsMenuProps) {
+export function AgentActionsMenu({ agent, canControl, onMove }: AgentActionsMenuProps) {
   const [opened, setOpened] = useState(false);
   const navigate = useNavigate();
   const [shutdownOpen, setShutdownOpen] = useState(false);
@@ -99,6 +101,11 @@ export function AgentActionsMenu({ agent, canControl }: AgentActionsMenuProps) {
           <Menu.Item leftSection={<IconRefresh size={16} />} onClick={() => refresh.mutate()}>
             Atualizar inventário
           </Menu.Item>
+          {onMove && (
+            <Menu.Item leftSection={<IconArrowsExchange size={16} />} onClick={onMove}>
+              Mudar cliente ou site
+            </Menu.Item>
+          )}
           {canControl && (
             <>
               <Menu.Divider />
