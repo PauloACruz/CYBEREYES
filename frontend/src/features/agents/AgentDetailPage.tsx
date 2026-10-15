@@ -36,6 +36,7 @@ import {
   IconPackage,
   IconPrompt,
   IconRefreshAlert,
+  IconRocket,
   IconServer,
   IconTerminal2,
   IconTicket,
@@ -69,6 +70,7 @@ import { CommandTab } from './actions/CommandTab';
 import { EventLogTab } from './actions/EventLogTab';
 import { HistoryTab } from './actions/HistoryTab';
 import { LiveServicesTab } from './actions/LiveServicesTab';
+import { StartupTab } from './actions/StartupTab';
 import { ProcessesTab } from './actions/ProcessesTab';
 import { RenameComputerModal } from './actions/RenameComputerModal';
 import { RemoteAccessMenu } from './actions/RemoteAccessMenu';
@@ -177,6 +179,7 @@ function AgentDetailView({ agent }: { agent: AgentDetail }) {
   if (windows) {
     tabs.push(
       { value: 'servicos', label: 'Serviços', icon: IconServer, render: () => <LiveServicesTab agent={agent} canControl={canControl} /> },
+      { value: 'inicializacao', label: 'Inicialização', icon: IconRocket, render: () => <StartupTab agent={agent} canControl={canControl} /> },
       { value: 'eventlog', label: 'Event Log', icon: IconFileText, render: () => <EventLogTab agent={agent} /> },
       {
         value: 'registro',

@@ -2749,7 +2749,8 @@ export type ProcedureKind =
   | 'updates'
   | 'task'
   | 'wake'
-  | 'agent_update';
+  | 'agent_update'
+  | 'startup';
 
 export type ProcedureStatus = 'running' | 'ok' | 'warning' | 'error' | 'cancelled' | 'timeout';
 
@@ -2849,4 +2850,35 @@ export interface PushSubscriptionDto extends PushPreferences {
 export interface PushTestResult {
   delivered: boolean;
   error: string | null;
+}
+
+/** Onde o Windows guarda o programa da inicializacao: chave Run (64 ou 32 bits) ou pasta Inicializar. */
+export type StartupLocation = 'Run' | 'Run32' | 'StartupFolder';
+
+export interface StartupItemDto {
+  /** "HKLM" (todos os usuarios) ou o SID do usuario. */
+  scope: string;
+  location: StartupLocation;
+  /** Nome do valor (Run) ou do arquivo (pasta). */
+  name: string;
+  user: string | null;
+  command: string | null;
+  file: string | null;
+  description: string | null;
+  publisher: string | null;
+  enabled: boolean;
+  disabledAt: string | null;
+}
+
+export interface StartupListDto {
+  items: StartupItemDto[];
+  /** Usuarios com sessao aberta (os sem sessao nao aparecem). */
+  users: string[];
+}
+
+export interface StartupChangeRequest {
+  scope: string;
+  location: StartupLocation;
+  name: string;
+  enabled: boolean;
 }
