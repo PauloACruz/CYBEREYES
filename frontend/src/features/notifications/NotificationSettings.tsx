@@ -15,6 +15,7 @@ const OPTIONS: { key: keyof PushPreferences; label: string; description: string 
   { key: 'newTickets', label: 'Chamados novos', description: 'Chamado aberto sem responsável, ou já atribuído a você.' },
   { key: 'updates', label: 'Atualizações dos meus chamados', description: 'Chamado atribuído a você e mudanças de status ou prioridade.' },
   { key: 'messages', label: 'Mensagens', description: 'Respostas do solicitante e notas de outros técnicos nos seus chamados.' },
+  { key: 'insights', label: 'Análises de logs', description: 'Erros recorrentes nas máquinas analisados pelo assistente de IA.' },
 ];
 
 function Notice({ children }: { children: string }) {

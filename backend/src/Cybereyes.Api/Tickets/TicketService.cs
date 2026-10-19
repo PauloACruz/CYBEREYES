@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Cybereyes.Api.Notifications;
+using Cybereyes.Core.Assistant;
 using Cybereyes.Api.Rmm;
 using Cybereyes.Core.Persistence;
 using Cybereyes.Core.Tickets;
@@ -100,6 +101,10 @@ public sealed class TicketService(CybereyesDbContext db, IHubContext<ConsoleHub>
         {
             ticket.FirstResponseAt = now;
         }
+        if (authorType == MessageAuthor.Technician && !isInternal && ticket.AssistantState == AssistantStates.Active)
+        {
+            ticket.AssistantState = AssistantStates.Handoff;
+        }
         if (authorType == MessageAuthor.Requester && ticket.Status is TicketStatus.WaitingUser or TicketStatus.Resolved)
         {
             SetStatus(ticket, TicketStatus.InProgress, now);
@@ -164,6 +169,10 @@ public sealed class TicketService(CybereyesDbContext db, IHubContext<ConsoleHub>
         {
             SetStatus(ticket, TicketStatus.InProgress, time.GetUtcNow());
         }
+        if (userId is not null && ticket.AssistantState == AssistantStates.Active)
+        {
+            ticket.AssistantState = AssistantStates.Handoff;
+        }
         await SystemMessageAsync(ticket, userId is null ? $"{actor} removeu o tecnico do chamado" : $"{actor} atribuiu o chamado a {userName}", ct);
         await NotifyTrayTicketAsync(ticket, ct);
         if (userId is not null)
@@ -194,8 +203,10 @@ public sealed class TicketService(CybereyesDbContext db, IHubContext<ConsoleHub>
     }
 
     public static TrayTicketDto ToTray(Ticket t, string? assignedToName) =>
-        new(t.Id, t.Title, t.Status, t.Priority, t.CreatedAt, t.UpdatedAt, assignedToName,
-            t.AssignedToId is not null && t.Status != TicketStatus.Closed, t.LastMessageAt);
+        new(t.Id, t.Title, t.Status, t.Priority, t.CreatedAt, t.UpdatedAt, assignedToName, ChatOpen(t), t.LastMessageAt);
+
+    /// <summary>O solicitante escreve no chat depois que um tecnico assume ou desde a abertura, quando o assistente atende.</summary>
+    public static bool ChatOpen(Ticket t) => (t.AssignedToId is not null || t.AssistantState is not null) && t.Status != TicketStatus.Closed;
 
     public Task TicketsChangedAsync(int ticketId, CancellationToken ct) =>
         console.Clients.All.SendAsync("ticketsChanged", new { ticketId }, ct);

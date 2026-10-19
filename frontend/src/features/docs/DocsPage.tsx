@@ -1,5 +1,5 @@
 import { Group, Select, Tabs } from '@mantine/core';
-import { IconFileText, IconKey, IconNetwork, IconSitemap, type Icon } from '@tabler/icons-react';
+import { IconFileText, IconHelpCircle, IconKey, IconNetwork, IconSitemap, type Icon } from '@tabler/icons-react';
 import type { ReactNode } from 'react';
 import { useSearchParams } from 'react-router';
 import { PERMISSIONS } from '../../api/types';
@@ -10,6 +10,7 @@ import { useClients } from '../clients/useClients';
 import { toId } from '../inventory/inventoryFormat';
 import { CredentialsTab } from './credentials/CredentialsTab';
 import { DiagramsTab } from './diagrams/DiagramsTab';
+import { FaqTab } from './faq/FaqTab';
 import { NetworksTab } from './networks/NetworksTab';
 import { DocPagesTab } from './pages/DocPagesTab';
 
@@ -39,6 +40,7 @@ export function DocsPage() {
       render: () => <CredentialsTab clientId={clientId} canManage={canManageCredentials} canReveal={canReveal} />,
     },
     { value: 'paginas', label: 'Páginas', icon: IconFileText, render: () => <DocPagesTab clientId={clientId} canManage={canManage} /> },
+    { value: 'faq', label: 'FAQ', icon: IconHelpCircle, render: () => <FaqTab clientId={clientId} canManage={canManage} /> },
   ];
 
   const requested = searchParams.get('aba');
@@ -60,7 +62,7 @@ export function DocsPage() {
     <>
       <PageHeader
         title="Documentação"
-        description="Redes, diagramas, credenciais e páginas de documentação dos clientes."
+        description="Redes, diagramas, credenciais, páginas de documentação e o FAQ de problemas conhecidos."
         actions={
           <Select
             aria-label="Filtrar por cliente"

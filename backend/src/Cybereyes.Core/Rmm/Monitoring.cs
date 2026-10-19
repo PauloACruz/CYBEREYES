@@ -300,4 +300,30 @@ public sealed class CoreSettings
 
     /// <summary>Chave privada VAPID protegida pelo Data Protection (purpose WinCare.Settings.PushVapid).</summary>
     public string? PushPrivateKeyProtected { get; set; }
+
+    /// <summary>Chave da API da Anthropic protegida pelo Data Protection (purpose WinCare.Settings.Anthropic).</summary>
+    public string? AnthropicKeyProtected { get; set; }
+
+    /// <summary>Final da chave, para a tela mostrar qual esta gravada sem expor o resto.</summary>
+    public string? AnthropicKeyHint { get; set; }
+
+    /// <summary>Modelo do Claude, ou <see cref="Assistant.AssistantModels.FromAgent"/> para usar o do agente vinculado.</summary>
+    public string AssistantModel { get; set; } = Assistant.AssistantModels.Default;
+    public string AssistantName { get; set; } = "Assistente Cybereyes";
+
+    /// <summary>Agente da conta da Anthropic (Managed Agents) cujas instrucoes e modelo o assistente usa; nulo usa so as do Cybereyes.</summary>
+    public string? AssistantAgentId { get; set; }
+
+    public string AssistantChatEffort { get; set; } = "low";
+    public string AssistantLogEffort { get; set; } = "medium";
+
+    /// <summary>O assistente atende primeiro os chamados abertos pelo app de bandeja.</summary>
+    public bool AssistantChatEnabled { get; set; }
+
+    public bool LogInsightsEnabled { get; set; }
+    public int LogInsightsIntervalHours { get; set; } = 24;
+    public string LogInsightsMinLevel { get; set; } = LogLevels.Error;
+    public bool LogInsightsPush { get; set; } = true;
+    public bool LogInsightsEmail { get; set; }
+    public DateTimeOffset? LogInsightsLastRunAt { get; set; }
 }

@@ -4,6 +4,7 @@ import { hasUnread } from './lib/seen';
 import { suggestedTicket, type TicketDraft } from './lib/selfService';
 import type { SelfServiceOptions, SelfServiceTask, SessionInfo, Ticket } from './lib/types';
 import { useSelfServiceRun } from './lib/useSelfServiceRun';
+import { AssistantStart } from './components/AssistantStart';
 import { Header } from './components/Header';
 import { RemoteAccess } from './components/RemoteAccess';
 import { NewTicketForm } from './components/NewTicketForm';
@@ -156,6 +157,15 @@ export function App() {
     body = <p className="muted center">Conectando ao EYES...</p>;
   } else if (!connected) {
     body = <Unavailable message={session.error ?? ''} onRetry={retry} retrying={checking} />;
+  } else if (view.kind === 'new' && session.assistantEnabled && !view.draft) {
+    body = (
+      <AssistantStart
+        assistantName={session.assistantName ?? 'assistente'}
+        username={session.username}
+        onSubmit={create}
+        onCancel={() => { setView({ kind: 'list' }); }}
+      />
+    );
   } else if (view.kind === 'new') {
     body = (
       <NewTicketForm

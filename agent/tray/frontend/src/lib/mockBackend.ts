@@ -150,7 +150,10 @@ const PIXEL =
 export const mockBackend: Backend = {
   async session() {
     await delay(150);
-    return { hostname: 'PC-FINANCEIRO-01', username: 'maria', clientName: 'Contoso', siteName: 'Matriz', connected: true, realtime: true };
+    return {
+      hostname: 'PC-FINANCEIRO-01', username: 'maria', clientName: 'Contoso', siteName: 'Matriz', connected: true, realtime: true,
+      assistantEnabled: true, assistantName: 'Assistente Cybereyes',
+    };
   },
   async listTickets() {
     await delay(150);
@@ -172,13 +175,20 @@ export const mockBackend: Backend = {
       createdAt: now(),
       updatedAt: now(),
       assignedToName: null,
-      chatEnabled: false,
+      // Com o assistente, o chat abre junto com o chamado.
+      chatEnabled: true,
       lastMessageAt: null,
       messages: [],
       attachments: includeScreenshot ? [{ id: 900, fileName: 'captura.png', contentType: 'image/png', size: 68 }] : [],
     };
     tickets.push(t);
-    // Simula um tecnico assumindo e respondendo.
+    // Simula o assistente respondendo com o passo a passo do FAQ e, depois, um tecnico assumindo.
+    setTimeout(() => {
+      push(t, {
+        id: nextMessageId++, authorType: 'assistant', authorName: 'Assistente Cybereyes', createdAt: now(), attachments: [],
+        body: 'Olá, maria! Esse problema costuma ter solução rápida.\n\n1. Desligue a impressora\n2. Ligue de novo\n3. Imprima uma página de teste\n\nDepois de seguir os passos, me conte aqui se o problema foi resolvido.',
+      });
+    }, 1200);
     setTimeout(() => {
       t.assignedToName = 'Ana Souza';
       t.status = 'in_progress';
@@ -186,7 +196,7 @@ export const mockBackend: Backend = {
       push(t, { id: nextMessageId++, authorType: 'system', authorName: 'Sistema', body: 'Admin atribuiu o chamado a Ana Souza', createdAt: now(), attachments: [] });
       changeListeners.forEach((l) => { l(summary(t)); });
       push(t, { id: nextMessageId++, authorType: 'technician', authorName: 'Ana Souza', body: 'Olá! Já estou olhando o seu chamado.', createdAt: now(), attachments: [] });
-    }, 3000);
+    }, 8000);
     return { ticket: summary(t), screenshotAttached: includeScreenshot };
   },
   async sendMessage(ticketId, body) {

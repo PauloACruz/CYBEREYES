@@ -1,5 +1,5 @@
 export type TicketStatus = 'new' | 'in_progress' | 'waiting_user' | 'resolved' | 'closed';
-export type AuthorType = 'technician' | 'requester' | 'system';
+export type AuthorType = 'technician' | 'requester' | 'system' | 'assistant';
 
 export interface Attachment {
   id: number;
@@ -42,6 +42,9 @@ export interface SessionInfo {
   siteName: string;
   connected: boolean;
   realtime: boolean;
+  /** O assistente de IA faz o primeiro atendimento dos chamados abertos pelo app. */
+  assistantEnabled?: boolean;
+  assistantName?: string;
   error?: string;
 }
 

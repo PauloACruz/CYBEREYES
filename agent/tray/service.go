@@ -49,13 +49,15 @@ var statusNames = map[string]string{
 
 // SessionInfo e o que o cabecalho da interface precisa saber.
 type SessionInfo struct {
-	Hostname   string `json:"hostname"`
-	Username   string `json:"username"`
-	ClientName string `json:"clientName"`
-	SiteName   string `json:"siteName"`
-	Connected  bool   `json:"connected"`
-	Realtime   bool   `json:"realtime"`
-	Error      string `json:"error,omitempty"`
+	Hostname         string `json:"hostname"`
+	Username         string `json:"username"`
+	ClientName       string `json:"clientName"`
+	SiteName         string `json:"siteName"`
+	Connected        bool   `json:"connected"`
+	Realtime         bool   `json:"realtime"`
+	AssistantEnabled bool   `json:"assistantEnabled"`
+	AssistantName    string `json:"assistantName,omitempty"`
+	Error            string `json:"error,omitempty"`
 }
 
 // CreateResult traz o chamado criado e o resultado da captura de tela.
@@ -162,6 +164,7 @@ func (s *TrayService) Session(ctx context.Context) SessionInfo {
 		return info
 	}
 	info.Hostname, info.Username, info.ClientName, info.SiteName = me.Hostname, me.Username, me.ClientName, me.SiteName
+	info.AssistantEnabled, info.AssistantName = me.AssistantEnabled, me.AssistantName
 	if creds.Username != "" {
 		info.Username = creds.Username
 	}
@@ -311,7 +314,7 @@ func encodeScreenshot(img image.Image) (*api.Upload, error) {
 func (s *TrayService) TicketMessage(ticketID int, msg api.Message) {
 	log.Printf("realtime: mensagem %d no chamado #%d (%s)", msg.ID, ticketID, msg.AuthorType)
 	s.emit(eventTicketMessage, TicketMessageEvent{TicketID: ticketID, Message: msg})
-	if msg.AuthorType == "technician" && !s.windowFocused() {
+	if (msg.AuthorType == "technician" || msg.AuthorType == "assistant") && !s.windowFocused() {
 		body := fmt.Sprintf("Nova mensagem no chamado #%d", ticketID)
 		if msg.AuthorName != "" {
 			body = fmt.Sprintf("%s respondeu o chamado #%d", msg.AuthorName, ticketID)

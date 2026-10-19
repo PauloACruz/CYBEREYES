@@ -20,4 +20,7 @@ public static class DataProtectionNames
 
     /// <summary>Purpose da chave privada VAPID do Web Push gravada em core_settings.PushPrivateKeyProtected.</summary>
     public const string PushVapidPurpose = "WinCare.Settings.PushVapid";
+
+    /// <summary>Purpose da chave da API da Anthropic gravada em core_settings.AnthropicKeyProtected.</summary>
+    public const string AnthropicKeyPurpose = "WinCare.Settings.Anthropic";
 }

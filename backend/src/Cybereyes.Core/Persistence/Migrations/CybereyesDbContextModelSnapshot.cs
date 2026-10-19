@@ -419,6 +419,117 @@ namespace Cybereyes.Core.Persistence.Migrations
                     b.ToTable("web_app_checks", (string)null);
                 });
 
+            modelBuilder.Entity("Cybereyes.Core.Assistant.FaqEntry", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Answer")
+                        .IsRequired()
+                        .HasMaxLength(20000)
+                        .HasColumnType("character varying(20000)");
+
+                    b.Property<int?>("ClientId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Question")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.PrimitiveCollection<List<string>>("Tags")
+                        .IsRequired()
+                        .HasColumnType("text[]");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClientId");
+
+                    b.ToTable("faq_entries", (string)null);
+                });
+
+            modelBuilder.Entity("Cybereyes.Core.Assistant.LogInsightReport", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("AgentCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Error")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int>("EventCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("GroupCount")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("InputTokens")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("Manual")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Model")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<long>("OutputTokens")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("Summary")
+                        .IsRequired()
+                        .HasMaxLength(8000)
+                        .HasColumnType("character varying(8000)");
+
+                    b.Property<DateTimeOffset>("WindowEnd")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("WindowStart")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.ToTable("log_insight_reports", (string)null);
+                });
+
             modelBuilder.Entity("Cybereyes.Core.Audit.AuditLog", b =>
                 {
                     b.Property<long>("Id")
@@ -1227,6 +1338,9 @@ namespace Cybereyes.Core.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
+
+                    b.Property<bool>("Insights")
+                        .HasColumnType("boolean");
 
                     b.Property<DateTimeOffset?>("LastSentAt")
                         .HasColumnType("timestamp with time zone");
@@ -2354,6 +2468,41 @@ namespace Cybereyes.Core.Persistence.Migrations
                     b.Property<int>("AgentHistoryDays")
                         .HasColumnType("integer");
 
+                    b.Property<string>("AnthropicKeyHint")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("AnthropicKeyProtected")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("AssistantAgentId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("AssistantChatEffort")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<bool>("AssistantChatEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("AssistantLogEffort")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("AssistantModel")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("AssistantName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<int>("CheckHistoryDays")
                         .HasColumnType("integer");
 
@@ -2388,6 +2537,26 @@ namespace Cybereyes.Core.Persistence.Migrations
                         .HasColumnType("text[]");
 
                     b.Property<bool>("IncidentsEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("LogInsightsEmail")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("LogInsightsEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("LogInsightsIntervalHours")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("LogInsightsLastRunAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LogInsightsMinLevel")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<bool>("LogInsightsPush")
                         .HasColumnType("boolean");
 
                     b.Property<int>("LogMaxPerCycle")
@@ -3702,6 +3871,13 @@ namespace Cybereyes.Core.Persistence.Migrations
                     b.Property<Guid?>("AssignedToId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("AssistantState")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<int>("AssistantTurns")
+                        .HasColumnType("integer");
+
                     b.Property<int?>("ClientId")
                         .HasColumnType("integer");
 
@@ -4225,6 +4401,14 @@ namespace Cybereyes.Core.Persistence.Migrations
                         .HasForeignKey("WebAppId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Cybereyes.Core.Assistant.FaqEntry", b =>
+                {
+                    b.HasOne("Cybereyes.Core.Rmm.Client", null)
+                        .WithMany()
+                        .HasForeignKey("ClientId")
+                        .OnDelete(DeleteBehavior.Cascade);
                 });
 
             modelBuilder.Entity("Cybereyes.Core.Identity.ApiKey", b =>

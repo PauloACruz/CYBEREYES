@@ -9,6 +9,9 @@ type Me struct {
 	Username   string `json:"username"`
 	ClientName string `json:"clientName"`
 	SiteName   string `json:"siteName"`
+	// AssistantEnabled diz se o assistente de IA faz o primeiro atendimento dos chamados abertos pelo app.
+	AssistantEnabled bool   `json:"assistantEnabled"`
+	AssistantName    string `json:"assistantName"`
 }
 
 // Attachment descreve um anexo de chamado ou de mensagem.

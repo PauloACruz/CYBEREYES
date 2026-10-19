@@ -22,6 +22,9 @@ public sealed class PushSubscription
     /// <summary>Mensagens nos chamados do usuario (e nos sem responsavel, quando vem do solicitante).</summary>
     public bool Messages { get; set; } = true;
 
+    /// <summary>Analises de erros recorrentes nos logs feitas pelo assistente de IA.</summary>
+    public bool Insights { get; set; } = true;
+
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? LastSentAt { get; set; }
 }
