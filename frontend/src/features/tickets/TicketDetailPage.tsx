@@ -16,7 +16,7 @@ import {
   Title,
   Tooltip,
 } from '@mantine/core';
-import { IconPencil } from '@tabler/icons-react';
+import { IconCircleCheck, IconPencil } from '@tabler/icons-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router';
 import { ApiError } from '../../api/client';
@@ -33,8 +33,9 @@ import { notifySuccess } from '../../lib/feedback';
 import { AttachmentList } from './TicketAttachments';
 import { SlaBreachedIcon, TicketPriorityBadge, TicketStatusBadge, TicketTypeBadge } from './TicketBadges';
 import { TicketConversation } from './TicketConversation';
-import { isTicketPriority, isTicketType, PRIORITY_OPTIONS, TICKET_SOURCE_LABEL, TYPE_OPTIONS } from './ticketFormat';
+import { canResolve, isTicketPriority, isTicketType, PRIORITY_OPTIONS, TICKET_SOURCE_LABEL, TYPE_OPTIONS } from './ticketFormat';
 import { storeTicket } from './ticketActions';
+import { ResolutionCard, ResolveTicketModal } from './TicketResolution';
 import { TicketSidebar } from './TicketSidebar';
 
 export function TicketDetailPage() {
@@ -85,6 +86,7 @@ function TicketDetailView({ ticket }: { ticket: TicketDetail }) {
                 </Text>
               )}
             </Paper>
+            <ResolutionCard ticket={ticket} canManage={canManage} />
             <TicketConversation ticketId={ticket.id} canManage={canManage} />
             <AttachmentsSection ticketId={ticket.id} />
           </Stack>
@@ -101,6 +103,7 @@ function TicketHeader({ ticket, canManage }: { ticket: TicketDetail; canManage: 
   const queryClient = useQueryClient();
   const [editingTitle, setEditingTitle] = useState(false);
   const [title, setTitle] = useState(ticket.title);
+  const [resolving, setResolving] = useState(false);
   const queues = useQuery({ queryKey: queryKeys.ticketQueues, queryFn: ticketQueuesApi.list, enabled: canManage });
 
   const update = useMutation({
@@ -179,7 +182,13 @@ function TicketHeader({ ticket, canManage }: { ticket: TicketDetail; canManage: 
             )}
           </Group>
         )}
+        {canManage && !editingTitle && canResolve(ticket.status) && (
+          <Button color="teal" leftSection={<IconCircleCheck size={16} />} onClick={() => setResolving(true)} style={{ flexShrink: 0 }}>
+            Resolver
+          </Button>
+        )}
       </Group>
+      <ResolveTicketModal ticket={ticket} opened={resolving} onClose={() => setResolving(false)} />
 
       <Group gap="xs" mt="sm">
         <TicketStatusBadge status={ticket.status} />

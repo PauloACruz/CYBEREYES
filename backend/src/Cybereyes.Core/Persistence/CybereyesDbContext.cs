@@ -642,6 +642,8 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
             e.Property(x => x.RequesterEmail).HasMaxLength(256);
             e.Property(x => x.Source).HasMaxLength(16);
             e.Property(x => x.LastMessageAuthor).HasMaxLength(16);
+            e.Property(x => x.ResolutionKind).HasMaxLength(16);
+            e.Property(x => x.Resolution).HasMaxLength(20000);
             e.HasIndex(x => new { x.Status, x.UpdatedAt });
             e.HasIndex(x => new { x.AssignedToId, x.Status });
             e.HasIndex(x => new { x.AgentId, x.RequesterUsername });
@@ -652,6 +654,7 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
             e.HasOne<Site>().WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne<AppUser>().WithMany().HasForeignKey(x => x.AssignedToId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne<AppUser>().WithMany().HasForeignKey(x => x.CreatedById).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne<AppUser>().WithMany().HasForeignKey(x => x.ResolvedById).OnDelete(DeleteBehavior.SetNull);
             e.HasOne<Alert>().WithMany().HasForeignKey(x => x.AlertId).OnDelete(DeleteBehavior.SetNull);
         });
 

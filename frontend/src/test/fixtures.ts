@@ -97,6 +97,9 @@ export function makeTicketDetail(overrides: Partial<TicketDetail> = {}): TicketD
     resolvedAt: null,
     closedAt: null,
     totalMinutes: 0,
+    resolutionKind: null,
+    resolution: null,
+    resolvedByName: null,
     agent: {
       id: 1,
       hostname: 'PC-RECEPCAO',

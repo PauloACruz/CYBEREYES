@@ -3753,11 +3753,22 @@ namespace Cybereyes.Core.Persistence.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
+                    b.Property<string>("Resolution")
+                        .HasMaxLength(20000)
+                        .HasColumnType("character varying(20000)");
+
                     b.Property<DateTimeOffset?>("ResolutionDueAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("ResolutionKind")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
                     b.Property<DateTimeOffset?>("ResolvedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ResolvedById")
+                        .HasColumnType("uuid");
 
                     b.Property<int?>("SiteId")
                         .HasColumnType("integer");
@@ -3794,6 +3805,8 @@ namespace Cybereyes.Core.Persistence.Migrations
                     b.HasIndex("CreatedById");
 
                     b.HasIndex("QueueId");
+
+                    b.HasIndex("ResolvedById");
 
                     b.HasIndex("SiteId");
 
@@ -4795,6 +4808,11 @@ namespace Cybereyes.Core.Persistence.Migrations
                         .HasForeignKey("QueueId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("Cybereyes.Core.Identity.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("ResolvedById")
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("Cybereyes.Core.Rmm.Site", null)
                         .WithMany()

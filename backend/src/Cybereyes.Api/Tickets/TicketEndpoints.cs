@@ -29,7 +29,7 @@ public sealed record TicketDetail(
     DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, DateTimeOffset? FirstResponseDueAt, DateTimeOffset? ResolutionDueAt,
     bool SlaBreached, bool UnreadForTechnician, string Description, string? RequesterUsername, string? RequesterEmail, long? AlertId,
     string? CreatedByName, DateTimeOffset? FirstResponseAt, DateTimeOffset? ResolvedAt, DateTimeOffset? ClosedAt, int TotalMinutes,
-    TicketAgentDto? Agent);
+    TicketAgentDto? Agent, string? ResolutionKind, string? Resolution, string? ResolvedByName);
 
 public sealed record CreateTicketRequest(
     [property: Required, StringLength(200, MinimumLength = 3)] string Title,
@@ -45,6 +45,9 @@ public sealed record UpdateTicketRequest(
     string? Type, string? Priority, int? QueueId);
 
 public sealed record StatusRequest([property: Required] string Status, [property: StringLength(20000)] string? Message);
+
+public sealed record ResolveRequest([property: Required] string Kind, [property: Required, StringLength(20000, MinimumLength = 1)] string Resolution,
+    bool Internal);
 
 public sealed record AssignRequest(Guid? UserId);
 
@@ -91,6 +94,7 @@ public static class TicketEndpoints
         tickets.MapPost("/", CreateAsync).RequireAuthorization(manage);
         tickets.MapPatch("/{id:int}", UpdateAsync).RequireAuthorization(manage);
         tickets.MapPut("/{id:int}/status", StatusAsync).RequireAuthorization(manage);
+        tickets.MapPost("/{id:int}/resolve", ResolveAsync).RequireAuthorization(manage);
         tickets.MapPut("/{id:int}/assign", AssignAsync).RequireAuthorization(manage);
         tickets.MapGet("/{id:int}/messages", async (int id, CybereyesDbContext db, TicketService svc, CancellationToken ct) =>
             await db.Tickets.AnyAsync(t => t.Id == id, ct) ? Results.Ok(await svc.MessagesAsync(id, true, ct)) : Problems.NotFound("Chamado"))
@@ -267,11 +271,15 @@ public static class TicketEndpoints
                 .Select(a => new TicketAgentDto(a.Id, a.Hostname, a.Status, a.Plat, a.OperatingSystem, a.LoggedInUsername, a.PublicIp))
                 .FirstOrDefaultAsync(ct)
             : null;
+        var resolvedBy = t.ResolvedById is { } resolvedById
+            ? await db.Users.AsNoTracking().Where(u => u.Id == resolvedById).Select(u => u.FullName != "" ? u.FullName : u.UserName).FirstOrDefaultAsync(ct)
+            : null;
         var item = ToItem(row, time.GetUtcNow());
         return new TicketDetail(item.Id, item.Type, item.Title, item.Status, item.Priority, item.QueueId, item.QueueName, item.AgentId, item.Hostname,
             item.ClientName, item.SiteName, item.RequesterName, item.AssignedToId, item.AssignedToName, item.Source, item.CreatedAt, item.UpdatedAt,
             item.FirstResponseDueAt, item.ResolutionDueAt, item.SlaBreached, item.UnreadForTechnician, t.Description, t.RequesterUsername,
-            t.RequesterEmail, t.AlertId, row.CreatedByName, t.FirstResponseAt, t.ResolvedAt, t.ClosedAt, minutes, agent);
+            t.RequesterEmail, t.AlertId, row.CreatedByName, t.FirstResponseAt, t.ResolvedAt, t.ClosedAt, minutes, agent, t.ResolutionKind, t.Resolution,
+            resolvedBy);
     }
 
     public static async Task<string> ActorNameAsync(ClaimsPrincipal principal, CybereyesDbContext db, CancellationToken ct)
@@ -393,6 +401,32 @@ public static class TicketEndpoints
         }
         await svc.ChangeStatusAsync(ticket, r.Status, actor, ct);
         await audit.LogAsync("ticket.status", "ticket", Id(id), $"Chamado #{id}: status {r.Status}", cancellationToken: ct);
+        return TypedResults.Ok(await DetailAsync(id, db, time, ct));
+    }
+
+    private static async Task<IResult> ResolveAsync(int id, ResolveRequest r, ClaimsPrincipal principal, CybereyesDbContext db, TicketService svc,
+        IAuditService audit, TimeProvider time, CancellationToken ct)
+    {
+        if (!TicketResolutionKind.All.Contains(r.Kind))
+        {
+            return Problems.Validation("kind", "Tipo de solucao invalido");
+        }
+        var resolution = r.Resolution.Trim();
+        if (resolution.Length == 0)
+        {
+            return Problems.Validation("resolution", "Descreva a solucao");
+        }
+        var ticket = await db.Tickets.FirstOrDefaultAsync(t => t.Id == id, ct);
+        if (ticket is null)
+        {
+            return Problems.NotFound("Chamado");
+        }
+        if (ticket.Status == TicketStatus.Closed)
+        {
+            return Problems.Conflict("Chamado fechado: reabra antes de registrar a solucao");
+        }
+        await svc.ResolveAsync(ticket, r.Kind, resolution, r.Internal, principal.UserId(), await ActorNameAsync(principal, db, ct), ct);
+        await audit.LogAsync("ticket.resolve", "ticket", Id(id), $"Chamado #{id} resolvido ({TicketService.ResolutionKindName(r.Kind)})", cancellationToken: ct);
         return TypedResults.Ok(await DetailAsync(id, db, time, ct));
     }
 

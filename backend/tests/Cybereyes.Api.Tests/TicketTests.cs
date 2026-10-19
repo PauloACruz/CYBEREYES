@@ -112,6 +112,48 @@ public sealed partial class AgentTests
     }
 
     [Fact]
+    public async Task Resolve_SavesWorkaroundForRequester_ReopenClearsIt_AndClosedIsRejected()
+    {
+        var (admin, _, _, agent, _, _) = await RegisteredAgentAsync("Cliente solucao", monitoringType: "workstation");
+        using var tray = await TrayClientAsync(agent, "carla");
+        var ticketId = (await (await tray.PostAsync("/api/tray/tickets", TrayForm("Impressora travando", null))).Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("id").GetInt32();
+        var url = $"/api/tickets/{ticketId}/resolve";
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsJsonAsync(url, new { kind = "talvez", resolution = "Reiniciei" })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsJsonAsync(url, new { kind = "solution", resolution = "   " })).StatusCode);
+
+        var resolved = await (await admin.PostAsJsonAsync(url, new { kind = "workaround", resolution = " Usar a impressora do 2o andar ", @internal = false }))
+            .Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("resolved", resolved.GetProperty("status").GetString());
+        Assert.Equal("workaround", resolved.GetProperty("resolutionKind").GetString());
+        Assert.Equal("Usar a impressora do 2o andar", resolved.GetProperty("resolution").GetString());
+        Assert.False(string.IsNullOrEmpty(resolved.GetProperty("resolvedByName").GetString()));
+        Assert.Equal(JsonValueKind.String, resolved.GetProperty("resolvedAt").ValueKind);
+        Assert.Equal(JsonValueKind.String, resolved.GetProperty("firstResponseAt").ValueKind);
+
+        var seen = await tray.GetFromJsonAsync<JsonElement>($"/api/tray/tickets/{ticketId}");
+        Assert.Equal("resolved", seen.GetProperty("status").GetString());
+        Assert.Contains(seen.GetProperty("messages").EnumerateArray(),
+            m => m.GetProperty("body").GetString() == "Solução de contorno:\nUsar a impressora do 2o andar");
+
+        var reopened = await (await admin.PutAsJsonAsync($"/api/tickets/{ticketId}/status", new { status = "in_progress" })).Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(JsonValueKind.Null, reopened.GetProperty("resolution").ValueKind);
+        Assert.Equal(JsonValueKind.Null, reopened.GetProperty("resolutionKind").ValueKind);
+
+        // Solucao como nota interna: grava no chamado, mas o usuario nao ve o texto.
+        var internalFix = await (await admin.PostAsJsonAsync(url, new { kind = "solution", resolution = "Fusor trocado", @internal = true }))
+            .Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("solution", internalFix.GetProperty("resolutionKind").GetString());
+        var bodies = (await tray.GetFromJsonAsync<JsonElement>($"/api/tray/tickets/{ticketId}")).GetProperty("messages").EnumerateArray()
+            .Select(m => m.GetProperty("body").GetString()).ToList();
+        Assert.DoesNotContain("Solução:\nFusor trocado", bodies);
+
+        await admin.PutAsJsonAsync($"/api/tickets/{ticketId}/status", new { status = "closed" });
+        Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsJsonAsync(url, new { kind = "solution", resolution = "Outra" })).StatusCode);
+    }
+
+    [Fact]
     public async Task ErrorAlert_OpensIncident_AndResolvingAlertResolvesIt()
     {
         var (admin, pk, agentId, agent, _, _) = await RegisteredAgentAsync("Cliente incidente");
