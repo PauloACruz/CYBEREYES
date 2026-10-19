@@ -19,7 +19,7 @@ erDiagram
 | Entidade | Campos principais |
 |---|---|
 | `TicketQueue` | `id, name, description, isDefault` (sempre existe uma fila padrao "Geral") |
-| `Ticket` | `id` (numero exibido como #id), `type` (`request` ou `incident`), `title`, `description`, `status`, `priority`, `queueId`, `agentId?`, `clientId?`, `siteId?`, `requesterName`, `requesterUsername?` (usuario do sistema operacional), `requesterEmail?`, `assignedToId?`, `alertId?`, `source` (`console`, `tray`, `alert`), `createdById?`, `createdAt`, `updatedAt`, `firstResponseAt?`, `resolvedAt?`, `closedAt?`, `firstResponseDueAt?`, `resolutionDueAt?` |
+| `Ticket` | `id` (numero exibido como #id), `type` (`request` ou `incident`), `title`, `description`, `status`, `priority`, `queueId`, `agentId?`, `clientId?`, `siteId?`, `requesterName`, `requesterUsername?` (usuario do sistema operacional), `requesterEmail?`, `assignedToId?`, `alertId?`, `source` (`console`, `tray`, `alert`), `createdById?`, `createdAt`, `updatedAt`, `firstResponseAt?`, `resolvedAt?`, `closedAt?`, `firstResponseDueAt?`, `resolutionDueAt?`, `resolutionKind?` (`solution` ou `workaround`), `resolution?`, `resolvedById?` |
 | `TicketMessage` | `id, ticketId, authorType` (`technician`, `requester`, `system`), `authorUserId?, authorName, body, internal, createdAt` |
 | `TicketAttachment` | `id, ticketId, messageId?, fileName, contentType, size, createdAt, uploadedBy` (conteudo em tabela separada `bytea`, ate 10 MB por arquivo) |
 | `TimeEntry` | `id, ticketId, userId, minutes, description, workDate, createdAt` |
@@ -33,7 +33,8 @@ Regras:
 - Ao criar, `clientId` e `siteId` vem do agente quando houver `agentId`.
 - Prazos de SLA calculados na criacao e ao mudar a prioridade, a partir de `createdAt` (24x7, sem calendario de expediente nesta fase). Padrao: critica 30 min / 4 h; alta 1 h / 8 h; media 4 h / 24 h; baixa 8 h / 72 h.
 - `firstResponseAt` e gravado na primeira mensagem publica de um tecnico.
-- Atribuir um tecnico a um chamado `new` muda o status para `in_progress`. Mudar para `resolved` grava `resolvedAt`; para `closed` grava `closedAt`; reabrir (`new`, `in_progress`, `waiting_user`) limpa os dois.
+- Atribuir um tecnico a um chamado `new` muda o status para `in_progress`. Mudar para `resolved` grava `resolvedAt`; para `closed` grava `closedAt`; reabrir (`new`, `in_progress`, `waiting_user`) limpa os dois e tambem a solucao (`resolutionKind`, `resolution`, `resolvedById`), que continua no historico da conversa.
+- Resolver pelo botao Resolver (`POST /api/tickets/{id}/resolve`) grava a solucao ou a solucao de contorno, publica o texto na conversa ("Solucao:" ou "Solucao de contorno:" seguido do texto; nota interna se `internal`) e muda o status para `resolved`. Num chamado ja resolvido so troca o texto.
 - Mensagem do usuario em chamado `waiting_user` ou `resolved` volta o status para `in_progress`.
 - Toda mudanca de status, prioridade ou atribuicao gera mensagem `system` publica.
 - `internal: true` so aparece no console (nota interna); o app de bandeja nunca recebe.
@@ -58,7 +59,7 @@ O papel padrao "Tecnico" recebe as duas em instalacoes novas.
 `slaBreached`: prazo de primeira resposta vencido sem resposta, ou prazo de solucao vencido sem resolucao.
 `unreadForTechnician`: a ultima mensagem publica e do usuario.
 
-`TicketDetail` = `TicketListItem` mais `{ description, requesterUsername, requesterEmail, alertId, createdByName, firstResponseAt, resolvedAt, closedAt, totalMinutes, agent: { id, hostname, status, plat, operatingSystem, loggedInUsername, publicIp, meshNodeId } | null }`. O campo `meshNodeId` foi retirado (substituido na fase 12.8, ver ADR-023).
+`TicketDetail` = `TicketListItem` mais `{ description, requesterUsername, requesterEmail, alertId, createdByName, firstResponseAt, resolvedAt, closedAt, totalMinutes, agent: { id, hostname, status, plat, operatingSystem, loggedInUsername, publicIp, meshNodeId } | null, resolutionKind, resolution, resolvedByName }`. O campo `meshNodeId` foi retirado (substituido na fase 12.8, ver ADR-023).
 
 | Metodo | Rota | Permissao | Corpo / resposta |
 |---|---|---|---|
@@ -68,6 +69,7 @@ O papel padrao "Tecnico" recebe as duas em instalacoes novas.
 | POST | `/api/tickets` | `tickets.manage` | `{ title (3 a 200), description (ate 20000), type, priority, queueId?, agentId?, requesterName?, requesterEmail?, assignedToId? }` -> 201 `TicketDetail` |
 | PATCH | `/api/tickets/{id}` | `tickets.manage` | `{ title?, description?, type?, priority?, queueId? }` -> `TicketDetail` |
 | PUT | `/api/tickets/{id}/status` | `tickets.manage` | `{ status, message? }` -> `TicketDetail` (`message` vira mensagem publica) |
+| POST | `/api/tickets/{id}/resolve` | `tickets.manage` | `{ kind: solution\|workaround, resolution (1 a 20000), internal }` -> `TicketDetail`; 409 se o chamado estiver `closed` |
 | PUT | `/api/tickets/{id}/assign` | `tickets.manage` | `{ userId: guid \| null }` -> `TicketDetail`; 400 se o usuario nao tiver `tickets.manage` |
 | GET | `/api/tickets/assignees` | `tickets.view` | `[{ id, name }]` usuarios ativos com `tickets.manage` |
 | GET | `/api/agents/{id}/tickets` | `tickets.view` | `TicketListItem[]` (ultimos 50 da maquina) |

@@ -30,6 +30,15 @@ public static class TicketType
     public static readonly string[] All = [Request, Incident];
 }
 
+/// <summary>Como o chamado foi resolvido: solucao definitiva ou solucao de contorno (workaround).</summary>
+public static class TicketResolutionKind
+{
+    public const string Solution = "solution";
+    public const string Workaround = "workaround";
+
+    public static readonly string[] All = [Solution, Workaround];
+}
+
 public static class TicketSource
 {
     public const string Console = "console";
@@ -77,6 +86,9 @@ public sealed class Ticket
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? FirstResponseAt { get; set; }
     public DateTimeOffset? ResolvedAt { get; set; }
+    public string? ResolutionKind { get; set; }
+    public string? Resolution { get; set; }
+    public Guid? ResolvedById { get; set; }
     public DateTimeOffset? ClosedAt { get; set; }
     public DateTimeOffset? FirstResponseDueAt { get; set; }
     public DateTimeOffset? ResolutionDueAt { get; set; }

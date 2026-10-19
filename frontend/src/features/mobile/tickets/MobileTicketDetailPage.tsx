@@ -1,6 +1,15 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ActionIcon, Badge, Box, Button, Center, FileButton, Group, Loader, SegmentedControl, Stack, Text, Textarea } from '@mantine/core';
-import { IconDeviceDesktop, IconDeviceDesktopShare, IconPaperclip, IconSend, IconUserCheck, IconX } from '@tabler/icons-react';
+import {
+  IconCircleCheck,
+  IconDeviceDesktop,
+  IconDeviceDesktopShare,
+  IconPaperclip,
+  IconPencil,
+  IconSend,
+  IconUserCheck,
+  IconX,
+} from '@tabler/icons-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router';
 import { ApiError } from '../../../api/client';
@@ -21,8 +30,9 @@ import { TicketPriorityBadge, TicketStatusBadge, TicketTypeBadge } from '../../t
 import { MessageItem } from '../../tickets/TicketConversation';
 import { AssigneeCard, StatusCard } from '../../tickets/TicketSidebar';
 import { storeTicket } from '../../tickets/ticketActions';
+import { ResolutionByline, ResolveTicketModal } from '../../tickets/TicketResolution';
 import { REPLY_OPTIONS, useTicketRealtime, useTicketReply } from '../../tickets/ticketReply';
-import { formatMinutes } from '../../tickets/ticketFormat';
+import { canResolve, formatMinutes, RESOLUTION_KIND_LABEL } from '../../tickets/ticketFormat';
 import { procedureDuration } from '../../procedures/procedureFormat';
 import { ProcedureKindBadge } from '../../procedures/ProceduresTable';
 import { InfoRows, MobileHeader, MobilePage, MobileSection } from '../MobilePage';
@@ -70,6 +80,7 @@ function TicketView({ ticket, header }: { ticket: TicketDetail; header: ReactNod
   const canAgents = hasPermission(me, PERMISSIONS.agentsView);
   const messages = useQuery({ queryKey: queryKeys.ticketMessages(ticket.id), queryFn: () => ticketsApi.messages(ticket.id) });
   const isMine = me !== undefined && ticket.assignedToId === me.id;
+  const [resolving, setResolving] = useState(false);
   const assume = useMutation({
     mutationFn: (userId: string) => ticketsApi.assign(ticket.id, userId),
     onSuccess: (updated) => {
@@ -107,6 +118,11 @@ function TicketView({ ticket, header }: { ticket: TicketDetail; header: ReactNod
             Assumir
           </Button>
         )}
+        {canManage && canResolve(ticket.status) && (
+          <Button color="teal" leftSection={<IconCircleCheck size={18} />} onClick={() => setResolving(true)} style={{ flexShrink: 0 }}>
+            Resolver
+          </Button>
+        )}
         {agent && canRemote && (
           <Button
             variant="default"
@@ -124,6 +140,7 @@ function TicketView({ ticket, header }: { ticket: TicketDetail; header: ReactNod
           </Button>
         )}
       </Group>
+      <ResolveTicketModal ticket={ticket} opened={resolving} onClose={() => setResolving(false)} />
 
       <InfoRows
         rows={[
@@ -174,6 +191,25 @@ function TicketView({ ticket, header }: { ticket: TicketDetail; header: ReactNod
           {ticket.description || 'Sem descrição.'}
         </Text>
       </MobileSection>
+
+      {ticket.resolutionKind && ticket.resolution !== null && (
+        <MobileSection
+          title={RESOLUTION_KIND_LABEL[ticket.resolutionKind]}
+          action={
+            canManage &&
+            ticket.status === 'resolved' && (
+              <ActionIcon variant="subtle" color="gray" size={36} aria-label="Editar solução" onClick={() => setResolving(true)}>
+                <IconPencil size={18} />
+              </ActionIcon>
+            )
+          }
+        >
+          <Text size="md" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+            {ticket.resolution}
+          </Text>
+          <ResolutionByline ticket={ticket} />
+        </MobileSection>
+      )}
 
       <MobileSection title="Conversa">
         {messages.isError && <LoadError error={messages.error} onRetry={() => void messages.refetch()} />}

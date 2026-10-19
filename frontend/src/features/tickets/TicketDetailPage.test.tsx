@@ -2,7 +2,7 @@ import { HubConnectionBuilder } from '@microsoft/signalr';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi, type Mock } from 'vitest';
-import type { CreateTicketMessageRequest, TicketMessageDto } from '../../api/types';
+import type { CreateTicketMessageRequest, ResolveTicketRequest, TicketMessageDto } from '../../api/types';
 import { makeTicketDetail, makeTicketMessage } from '../../test/fixtures';
 import { json, makeMe, mockFetch, renderApp } from '../../test/utils';
 
@@ -56,6 +56,44 @@ describe('detalhe do chamado', () => {
     const newNote = await within(log).findByText('Toner pedido.');
     expect(within(newNote.closest('article') as HTMLElement).getByText('Nota interna')).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'Nota interna' })).toHaveValue('');
+  });
+
+  it('resolve com uma solução de contorno e mostra o texto no chamado', async () => {
+    let sent: ResolveTicketRequest | undefined;
+    mockFetch(
+      ticketHandlers({
+        'POST /api/tickets/101/resolve': (init) => {
+          sent = JSON.parse(typeof init?.body === 'string' ? init.body : '{}') as ResolveTicketRequest;
+          return json(
+            makeTicketDetail({
+              status: 'resolved',
+              resolvedAt: '2026-10-01T11:00:00Z',
+              resolutionKind: sent.kind,
+              resolution: sent.resolution,
+              resolvedByName: 'Maria Silva',
+            }),
+          );
+        },
+      }),
+    );
+    renderApp('/chamados/101');
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Resolver' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Resolver chamado #101' });
+    const submit = within(dialog).getByRole('button', { name: 'Resolver' });
+    expect(submit).toBeDisabled();
+    await user.click(within(dialog).getByRole('radio', { name: 'Solução de contorno' }));
+    await user.type(within(dialog).getByRole('textbox', { name: /Solução de contorno/ }), '  Usar a impressora do 2º andar.  ');
+    await user.click(within(dialog).getByRole('checkbox', { name: 'Enviar ao usuário na conversa' }));
+    await user.click(submit);
+
+    await waitFor(() => expect(sent).toEqual({ kind: 'workaround', resolution: 'Usar a impressora do 2º andar.', internal: true }));
+    const card = await screen.findByRole('region', { name: 'Solução de contorno' });
+    expect(within(card).getByText('Usar a impressora do 2º andar.')).toBeInTheDocument();
+    expect(within(card).getByText(/Por Maria Silva em/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Resolver' })).not.toBeInTheDocument();
+    expect(within(card).getByRole('button', { name: 'Editar solução' })).toBeInTheDocument();
   });
 
   it('acrescenta mensagens recebidas pelo hub sem duplicar', async () => {

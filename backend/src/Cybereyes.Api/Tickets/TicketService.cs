@@ -140,6 +140,19 @@ public sealed class TicketService(CybereyesDbContext db, IHubContext<ConsoleHub>
         push.Ticket(TicketPushKind.Status, ticket.Id);
     }
 
+    /// <summary>
+    /// Grava a solucao (ou a solucao de contorno), registra o texto na conversa e passa o chamado para resolvido.
+    /// Num chamado ja resolvido so substitui o texto.
+    /// </summary>
+    public async Task ResolveAsync(Ticket ticket, string kind, string resolution, bool isInternal, Guid? userId, string actor, CancellationToken ct)
+    {
+        ticket.ResolutionKind = kind;
+        ticket.Resolution = resolution;
+        ticket.ResolvedById = userId;
+        await AddMessageAsync(ticket, MessageAuthor.Technician, userId, actor, $"{ResolutionKindName(kind)}:\n{resolution}", isInternal, ct);
+        await ChangeStatusAsync(ticket, TicketStatus.Resolved, actor, ct);
+    }
+
     public async Task AssignAsync(Ticket ticket, Guid? userId, string? userName, string actor, CancellationToken ct)
     {
         if (ticket.AssignedToId == userId)
@@ -229,8 +242,12 @@ public sealed class TicketService(CybereyesDbContext db, IHubContext<ConsoleHub>
                 ticket.ClosedAt = now;
                 break;
             default:
+                // Reaberto: a solucao anterior fica so no historico da conversa.
                 ticket.ResolvedAt = null;
                 ticket.ClosedAt = null;
+                ticket.ResolutionKind = null;
+                ticket.Resolution = null;
+                ticket.ResolvedById = null;
                 break;
         }
     }
@@ -244,6 +261,8 @@ public sealed class TicketService(CybereyesDbContext db, IHubContext<ConsoleHub>
         TicketStatus.Closed => "Fechado",
         _ => status,
     };
+
+    public static string ResolutionKindName(string kind) => kind == TicketResolutionKind.Workaround ? "Solução de contorno" : "Solução";
 
     public static string PriorityName(string priority) => priority switch
     {

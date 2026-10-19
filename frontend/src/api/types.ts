@@ -1255,6 +1255,8 @@ export type TicketStatus = 'new' | 'in_progress' | 'waiting_user' | 'resolved' |
 export type TicketPriority = 'low' | 'medium' | 'high' | 'critical';
 export type TicketSource = 'console' | 'tray' | 'alert';
 export type TicketAuthorType = 'technician' | 'requester' | 'system';
+/** Solucao definitiva ou solucao de contorno (workaround). */
+export type TicketResolutionKind = 'solution' | 'workaround';
 
 export interface TicketListItem {
   id: number;
@@ -1302,6 +1304,10 @@ export interface TicketDetail extends TicketListItem {
   closedAt: string | null;
   totalMinutes: number;
   agent: TicketAgentDto | null;
+  /** Preenchidos ao resolver pelo botao Resolver; somem quando o chamado e reaberto. */
+  resolutionKind: TicketResolutionKind | null;
+  resolution: string | null;
+  resolvedByName: string | null;
 }
 
 export interface ListTicketsParams {
@@ -1350,6 +1356,13 @@ export interface UpdateTicketRequest {
 export interface ChangeTicketStatusRequest {
   status: TicketStatus;
   message?: string;
+}
+
+export interface ResolveTicketRequest {
+  kind: TicketResolutionKind;
+  resolution: string;
+  /** true: o texto fica como nota interna e o usuario nao ve. */
+  internal: boolean;
 }
 
 export interface TicketAssignee {

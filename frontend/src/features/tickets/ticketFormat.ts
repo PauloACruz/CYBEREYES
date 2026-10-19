@@ -6,7 +6,7 @@ import {
   IconProgress,
   type Icon,
 } from '@tabler/icons-react';
-import type { TicketPriority, TicketSource, TicketStatus, TicketType } from '../../api/types';
+import type { TicketPriority, TicketResolutionKind, TicketSource, TicketStatus, TicketType } from '../../api/types';
 
 export interface TicketDisplayInfo {
   label: string;
@@ -46,12 +46,22 @@ export const TICKET_SOURCE_LABEL: Record<TicketSource, string> = {
   alert: 'Alerta',
 };
 
+export const RESOLUTION_KIND_LABEL: Record<TicketResolutionKind, string> = {
+  solution: 'Solução',
+  workaround: 'Solução de contorno',
+};
+
 export const STATUS_OPTIONS = TICKET_STATUSES.map((value) => ({ value, label: TICKET_STATUS_INFO[value].label }));
 export const PRIORITY_OPTIONS = TICKET_PRIORITIES.map((value) => ({ value, label: TICKET_PRIORITY_INFO[value].label }));
 export const TYPE_OPTIONS = TICKET_TYPES.map((value) => ({ value, label: TICKET_TYPE_LABEL[value] }));
 
 export function isTicketStatus(value: string | null | undefined): value is TicketStatus {
   return value !== null && value !== undefined && (TICKET_STATUSES as readonly string[]).includes(value);
+}
+
+/** O botao Resolver aparece enquanto o chamado esta aberto; resolvido, a solucao pode ser corrigida pelo lapis. */
+export function canResolve(status: TicketStatus): boolean {
+  return OPEN_STATUSES.includes(status);
 }
 
 export function isTicketPriority(value: string | null | undefined): value is TicketPriority {
