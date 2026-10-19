@@ -297,6 +297,8 @@ export interface ApiKeyDto {
 export interface CreateApiKeyRequest {
   name: string;
   expiresAt?: string;
+  /** Dono da chave quando não é quem cria (só superusuários), por exemplo o usuário de um agente de IA. */
+  userId?: string;
 }
 
 export type CreatedApiKeyDto = ApiKeyDto & { key: string };

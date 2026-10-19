@@ -1,12 +1,14 @@
 import { useState } from 'react';
-import { Alert, Button, Group, Modal, Stack, Text, TextInput } from '@mantine/core';
+import { Alert, Button, Group, Modal, Select, Stack, Text, TextInput } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
 import { useForm } from '@mantine/form';
 import { IconAlertTriangle } from '@tabler/icons-react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { apiKeysApi } from '../../api/apikeys';
+import { usersApi } from '../../api/users';
 import type { CreatedApiKeyDto } from '../../api/types';
+import { useMe } from '../../auth/useMe';
 import { CopyField } from '../../components/CopyField';
 import { formatDate } from '../../lib/format';
 import { applyServerErrors } from '../../lib/forms';
@@ -36,10 +38,20 @@ export function CreateApiKeyModal({ opened, onClose }: CreateApiKeyModalProps) {
   );
 }
 
+const OWNER_ME = 'eu';
+
 function CreateForm({ onCreated, onCancel }: { onCreated: (key: CreatedApiKeyDto) => void; onCancel: () => void }) {
   const queryClient = useQueryClient();
-  const form = useForm<{ name: string; expiresAt: string | null }>({
-    initialValues: { name: '', expiresAt: null },
+  const { data: me } = useMe();
+  // A chave age com as permissões do dono; só superusuários criam chave para outra pessoa (ex.: o usuário de um agente de IA).
+  const canPickOwner = me?.isSuperuser === true;
+  const users = useQuery({ queryKey: ['users', 'key-owners'], queryFn: () => usersApi.list({ page: 1, pageSize: 100 }), enabled: canPickOwner });
+  const ownerOptions = [
+    { value: OWNER_ME, label: me ? `Eu (${me.username})` : 'Eu' },
+    ...(users.data?.items ?? []).filter((u) => u.isActive && u.id !== me?.id).map((u) => ({ value: u.id, label: `${u.fullName || u.username} (${u.username})` })),
+  ];
+  const form = useForm<{ name: string; expiresAt: string | null; owner: string }>({
+    initialValues: { name: '', expiresAt: null, owner: OWNER_ME },
     validate: { name: (v) => (v.trim() ? null : 'Informe um nome para identificar a chave') },
   });
   const create = useMutation({
@@ -47,6 +59,7 @@ function CreateForm({ onCreated, onCancel }: { onCreated: (key: CreatedApiKeyDto
       apiKeysApi.create({
         name: values.name.trim(),
         expiresAt: values.expiresAt ? dayjs(values.expiresAt).endOf('day').toISOString() : undefined,
+        userId: values.owner !== OWNER_ME ? values.owner : undefined,
       }),
     onSuccess: async (key) => {
       await queryClient.invalidateQueries({ queryKey: ['apikeys'] });
@@ -65,6 +78,16 @@ function CreateForm({ onCreated, onCancel }: { onCreated: (key: CreatedApiKeyDto
           data-autofocus
           {...form.getInputProps('name')}
         />
+        {canPickOwner && (
+          <Select
+            label="Dono da chave"
+            description="A chave age com as permissões deste usuário. Para um agente de IA, escolha o usuário criado para ele."
+            data={ownerOptions}
+            searchable
+            allowDeselect={false}
+            {...form.getInputProps('owner')}
+          />
+        )}
         <DateInput
           label="Expira em"
           description="Opcional. Sem data, a chave vale até ser revogada."
@@ -91,7 +114,7 @@ function CreatedKey({ apiKey, onDone }: { apiKey: CreatedApiKeyDto; onDone: () =
   return (
     <Stack>
       <Alert color="yellow" icon={<IconAlertTriangle size={18} />} title="Copie a chave agora">
-        Por segurança, ela não será exibida novamente. Envie-a no cabeçalho X-API-KEY das requisições.
+        Por segurança, ela não será exibida novamente. Envie-a no cabeçalho X-API-KEY (ou Authorization: Bearer) das requisições.
       </Alert>
       <Stack gap={4}>
         <Text size="sm" fw={500}>

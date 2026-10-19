@@ -110,6 +110,9 @@ public sealed class ApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
             services.AddSingleton<Cybereyes.Api.Assistant.IAssistantModel>(Assistant);
             services.AddHttpClient(Cybereyes.Api.Rmm.Software.PackageCatalog.HttpClientName)
                 .ConfigurePrimaryHttpMessageHandler(() => new PackageFeeds.Handler());
+            // As ferramentas do MCP chamam a propria API: no teste, pelo servidor em memoria.
+            services.AddHttpClient(Cybereyes.Api.Mcp.PlatformApi.HttpClientName)
+                .ConfigurePrimaryHttpMessageHandler(() => Server.CreateHandler());
         });
     }
 

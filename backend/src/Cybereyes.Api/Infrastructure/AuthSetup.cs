@@ -132,7 +132,7 @@ public static class AuthSetup
                     {
                         return Rmm.Remote.RemoteForwardAuthenticationHandler.SchemeName;
                     }
-                    if (ctx.Request.Headers.ContainsKey(ApiKeyAuthenticationHandler.HeaderName))
+                    if (ApiKeyAuthenticationHandler.Matches(ctx.Request))
                     {
                         return CybereyesClaims.ApiKeyScheme;
                     }
