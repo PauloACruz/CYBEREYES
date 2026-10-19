@@ -17,15 +17,24 @@ public sealed class ApiKeyAuthenticationHandler(
     : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
 {
     public const string HeaderName = "X-API-KEY";
+    public const string BearerPrefix = "Bearer ";
+
+    /// <summary>A chave tambem vale como "Authorization: Bearer", formato que clientes MCP (agentes da Anthropic) enviam.</summary>
+    public static bool Matches(HttpRequest request) =>
+        request.Headers.ContainsKey(HeaderName) || request.Headers.Authorization.ToString().StartsWith(BearerPrefix, StringComparison.OrdinalIgnoreCase);
 
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        if (!Request.Headers.TryGetValue(HeaderName, out var values) || string.IsNullOrWhiteSpace(values.ToString()))
+        var authorization = Request.Headers.Authorization.ToString();
+        var value = Request.Headers.TryGetValue(HeaderName, out var values)
+            ? values.ToString()
+            : authorization.StartsWith(BearerPrefix, StringComparison.OrdinalIgnoreCase) ? authorization[BearerPrefix.Length..] : string.Empty;
+        if (string.IsNullOrWhiteSpace(value))
         {
             return AuthenticateResult.NoResult();
         }
 
-        var hash = ApiKeyGenerator.Hash(values.ToString().Trim());
+        var hash = ApiKeyGenerator.Hash(value.Trim());
         var key = await db.ApiKeys.Include(k => k.User).FirstOrDefaultAsync(k => k.KeyHash == hash, Context.RequestAborted);
         var now = timeProvider.GetUtcNow();
         if (key?.User is null || !key.User.IsActive || (key.ExpiresAt is { } expires && expires <= now))

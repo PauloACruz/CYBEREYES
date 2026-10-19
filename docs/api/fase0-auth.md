@@ -120,10 +120,13 @@ maquina) aparece para quem abriu e para o responsavel.
 | Metodo | Rota | Corpo | Resposta |
 |---|---|---|---|
 | GET | `/api/apikeys` | | 200 `ApiKeyDto[]` |
-| POST | `/api/apikeys` | `{ name, expiresAt? }` | 201 `ApiKeyDto & { key }` (a chave aparece so nesta resposta) |
+| POST | `/api/apikeys` | `{ name, expiresAt?, userId? }` | 201 `ApiKeyDto & { key }` (a chave aparece so nesta resposta). `userId`: dono da chave quando nao e quem cria; so superusuarios (403 para os demais, 400 se o usuario nao existir ou estiver inativo) |
 | DELETE | `/api/apikeys/{id}` | | 204 |
 
 `ApiKeyDto`: `{ id, name, prefix, username, expiresAt, createdAt, lastUsedAt }`
+
+A chave vai no cabecalho `X-API-KEY` ou em `Authorization: Bearer <chave>` (formato dos clientes MCP, ver `mcp.md`) e age com as
+permissoes do usuario dono.
 
 ### Auditoria (permissao `audit.view`)
 | Metodo | Rota | Resposta |

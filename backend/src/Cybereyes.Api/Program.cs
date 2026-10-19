@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Cybereyes.Api.Dashboard;
 using Cybereyes.Api.Endpoints;
 using Cybereyes.Api.Infrastructure;
+using Cybereyes.Api.Mcp;
 using Cybereyes.Api.Rmm;
 using Cybereyes.Api.Rmm.Nats;
 using Cybereyes.Core.Audit;
@@ -47,6 +48,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddCybereyesAuth(builder.Configuration);
+builder.Services.AddCybereyesMcp();
 builder.Services.AddValidation();
 builder.Services.AddProblemDetails(o => o.CustomizeProblemDetails = ctx =>
 {
@@ -247,6 +249,7 @@ Cybereyes.Api.Snmp.SnmpEndpoints.MapSnmpEndpoints(app);
 Cybereyes.Api.Reports.ReportEndpoints.MapReportEndpoints(app);
 Cybereyes.Api.Sso.SsoEndpoints.MapSsoEndpoints(app);
 Cybereyes.Api.Apps.AppEndpoints.MapAppEndpoints(app);
+app.MapCybereyesMcp();
 
 if (args.Contains("--migrate-only"))
 {

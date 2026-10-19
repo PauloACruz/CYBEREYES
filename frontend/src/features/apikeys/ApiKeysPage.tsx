@@ -1,9 +1,10 @@
-import { ActionIcon, Badge, Button, Code, Paper, Table, Tooltip } from '@mantine/core';
+import { ActionIcon, Badge, Button, Code, List, Paper, Stack, Table, Text, Title, Tooltip } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { IconPlus, IconTrash } from '@tabler/icons-react';
+import { IconPlus, IconRobot, IconTrash } from '@tabler/icons-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiKeysApi } from '../../api/apikeys';
 import type { ApiKeyDto } from '../../api/types';
+import { CopyField } from '../../components/CopyField';
 import { PageHeader } from '../../components/PageHeader';
 import { EmptyRow, LoadError, LoadingRows } from '../../components/TableStates';
 import { confirmAction, notifySuccess } from '../../lib/feedback';
@@ -33,7 +34,7 @@ export function ApiKeysPage() {
     <>
       <PageHeader
         title="Chaves de API"
-        description="Chaves para integrações acessarem a API pelo cabeçalho X-API-KEY."
+        description="Chaves para integrações acessarem a API pelo cabeçalho X-API-KEY (ou Authorization: Bearer)."
         actions={
           <Button leftSection={<IconPlus size={16} />} onClick={createModal.open}>
             Nova chave
@@ -104,7 +105,39 @@ export function ApiKeysPage() {
           </Table>
         </Table.ScrollContainer>
       </Paper>
+      <McpCard />
       <CreateApiKeyModal opened={createOpened} onClose={createModal.close} />
     </>
+  );
+}
+
+/** Endereco do servidor MCP para conectar agentes de IA com uma chave desta lista. */
+function McpCard() {
+  const url = `${window.location.origin}/api/mcp`;
+  return (
+    <Paper withBorder p="md" mt="lg" component="section" aria-labelledby="mcp-title">
+      <Stack gap="xs">
+        <Title order={4} id="mcp-title">
+          <IconRobot size={18} style={{ verticalAlign: 'text-bottom', marginRight: 6 }} aria-hidden />
+          Agentes de IA (MCP)
+        </Title>
+        <Text size="sm">
+          Agentes de IA (Claude, agentes da Anthropic, Claude Code) atendem chamados e operam as máquinas pelo servidor MCP do Cybereyes, com as
+          permissões do usuário dono da chave. Crie a chave logado com um usuário só para o agente, num papel com apenas o que ele pode fazer.
+        </Text>
+        <CopyField value={url} label="Copiar endereço do MCP" />
+        <List size="sm" spacing={4}>
+          <List.Item>
+            Transporte Streamable HTTP, autenticação <Code>Authorization: Bearer &lt;chave&gt;</Code>.
+          </List.Item>
+          <List.Item>
+            Agentes da Anthropic: credencial <Code>static_bearer</Code> no vault, com o endereço acima.
+          </List.Item>
+          <List.Item>
+            Claude Code: <Code>{`claude mcp add --transport http cybereyes ${url} --header "Authorization: Bearer <chave>"`}</Code>
+          </List.Item>
+        </List>
+      </Stack>
+    </Paper>
   );
 }

@@ -106,7 +106,9 @@ public sealed record ApiKeyDto(Guid Id, string Name, string Prefix, string Usern
 public sealed record CreatedApiKeyDto(Guid Id, string Name, string Prefix, string Username, DateTimeOffset? ExpiresAt,
     DateTimeOffset CreatedAt, DateTimeOffset? LastUsedAt, string Key);
 
-public sealed record CreateApiKeyRequest([property: Required, StringLength(100, MinimumLength = 2)] string Name, DateTimeOffset? ExpiresAt);
+/// <summary><c>UserId</c>: dono da chave quando nao e quem cria (somente superusuarios; ex.: o usuario de um agente de IA).</summary>
+public sealed record CreateApiKeyRequest([property: Required, StringLength(100, MinimumLength = 2)] string Name, DateTimeOffset? ExpiresAt,
+    Guid? UserId = null);
 
 public sealed record AuditDto(long Id, DateTimeOffset Timestamp, string Username, string Action, string? ObjectType,
     string? ObjectId, string? Message, string? IpAddress);
