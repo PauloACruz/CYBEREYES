@@ -18,11 +18,15 @@ namespace Cybereyes.Api.Assistant;
 public sealed record LogGroupRow(string Level, string Source, long? EventId, string Pattern, long Count, long PreviousCount, long Agents, long Days,
     DateTimeOffset FirstSeen, DateTimeOffset LastSeen, string Sample, int[] AgentIds);
 
+/// <summary>Maquina com o erro. <see cref="AgentId"/> e nulo quando ela nao existe mais ou nao foi achada pelo nome.</summary>
+public sealed record InsightMachine(int? AgentId, string Hostname, string? Client, string? Site);
+
+/// <summary><see cref="Machines"/> e nulo nas analises gravadas antes de guardar as maquinas, que so tinham <see cref="Hosts"/>.</summary>
 public sealed record InsightItem(
     string Group, string Level, string Source, long? EventId, string Sample, long Count, long PreviousCount, long Agents, long Days,
     DateTimeOffset FirstSeen, DateTimeOffset LastSeen, IReadOnlyList<string> Hosts,
     string Title, string Severity, string OfficialDescription, string Reference, string ProbableCause, IReadOnlyList<string> Resolution,
-    IReadOnlyList<string> PlatformActions);
+    IReadOnlyList<string> PlatformActions, IReadOnlyList<InsightMachine>? Machines = null);
 
 public sealed record InsightSuggestion(string Title, string Detail);
 
@@ -94,13 +98,16 @@ public sealed partial class LogInsightRunner(
     INotificationSender sender, IConfiguration config, TimeProvider time, ILogger<LogInsightRunner> logger)
 {
     public const int MaxGroups = 20;
+
+    /// <summary>Maquinas listadas por grupo; as demais aparecem so na contagem.</summary>
+    private const int MaxMachines = 5;
     private const int SampleLength = 400;
 
     /// <summary>Roda se estiver ligado e vencido (ou se for manual). Devolve o relatorio gravado, ou nulo quando nao rodou.</summary>
     public async Task<LogInsightReport?> RunAsync(bool manual, CancellationToken ct)
     {
         var settings = await SettingsStore.GetAsync(db, ct);
-        if (AssistantKey.Read(settings, protection) is not { } apiKey || (!manual && !settings.LogInsightsEnabled))
+        if (AssistantKey.Read(settings, protection) is not { } apiKey || (!manual && !settings.LogInsightsEnabled) || !AssistantProfiles.AnyAgentEnabled(settings))
         {
             return null;
         }
@@ -122,7 +129,7 @@ public sealed partial class LogInsightRunner(
         report.GroupCount = groups.Count;
         report.EventCount = (int)Math.Min(int.MaxValue, groups.Sum(g => g.Count));
         report.AgentCount = groups.SelectMany(g => g.AgentIds).Distinct().Count();
-        var hosts = await HostsAsync(groups, ct);
+        var machines = await MachinesAsync(db, groups.SelectMany(g => g.AgentIds.Take(MaxMachines)), ct);
 
         if (groups.Count == 0)
         {
@@ -137,7 +144,7 @@ public sealed partial class LogInsightRunner(
                 await PromptAsync(settings, groups, start, now, interval, ct), Schema, AssistantProfiles.Effort(settings.AssistantLogEffort, "medium"), 16000), ct);
             report.InputTokens = answer.InputTokens;
             report.OutputTokens = answer.OutputTokens;
-            var content = Merge(groups, hosts, answer.Output);
+            var content = Merge(groups, machines, answer.Output);
             report.Summary = Clip(answer.Output.TryGetProperty("summary", out var s) && s.ValueKind == JsonValueKind.String ? s.GetString()! : string.Empty, 8000);
             report.Content = JsonSerializer.Serialize(content, JsonSerializerOptions.Web);
         }
@@ -147,7 +154,7 @@ public sealed partial class LogInsightRunner(
             report.Status = LogInsightStatus.Error;
             report.Error = Clip(ex.Message, 2000);
             report.Summary = "A análise não foi concluída.";
-            report.Content = JsonSerializer.Serialize(Merge(groups, hosts, default), JsonSerializerOptions.Web);
+            report.Content = JsonSerializer.Serialize(Merge(groups, machines, default), JsonSerializerOptions.Web);
             return await SaveAsync(report, ct);
         }
 
@@ -197,15 +204,36 @@ public sealed partial class LogInsightRunner(
             """).ToListAsync(ct);
     }
 
-    private async Task<Dictionary<int, string>> HostsAsync(List<LogGroupRow> groups, CancellationToken ct)
+    private static async Task<Dictionary<int, InsightMachine>> MachinesAsync(CybereyesDbContext db, IEnumerable<int> agentIds, CancellationToken ct)
     {
-        var ids = groups.SelectMany(g => g.AgentIds.Take(5)).Distinct().ToList();
-        return await db.Agents.AsNoTracking().Where(a => ids.Contains(a.Id)).ToDictionaryAsync(a => a.Id, a => a.Hostname, ct);
+        var ids = agentIds.Distinct().ToList();
+        return await db.Agents.AsNoTracking().Where(a => ids.Contains(a.Id))
+            .Select(a => new InsightMachine(a.Id, a.Hostname, a.Site!.Client!.Name, a.Site.Name)).ToDictionaryAsync(m => m.AgentId!.Value, ct);
+    }
+
+    /// <summary>
+    /// Cliente e site atuais de cada maquina, porque ela pode ter mudado de lugar depois da analise; maquina excluida fica com os
+    /// nomes gravados. Nas analises antigas, que so guardavam o hostname, a maquina e achada pelo nome quando ele e unico.
+    /// </summary>
+    public static async Task<List<InsightItem>> WithCurrentMachinesAsync(CybereyesDbContext db, IReadOnlyList<InsightItem> items, CancellationToken ct)
+    {
+        var ids = items.SelectMany(i => i.Machines ?? []).Select(m => m.AgentId).OfType<int>().Distinct().ToList();
+        var names = items.Where(i => i.Machines is null).SelectMany(i => i.Hosts).Distinct().ToList();
+        var found = await db.Agents.AsNoTracking().Where(a => ids.Contains(a.Id) || names.Contains(a.Hostname))
+            .Select(a => new InsightMachine(a.Id, a.Hostname, a.Site!.Client!.Name, a.Site.Name)).ToListAsync(ct);
+        var byId = found.ToDictionary(m => m.AgentId!.Value);
+        var byName = found.GroupBy(m => m.Hostname, StringComparer.Ordinal).Where(g => g.Count() == 1).ToDictionary(g => g.Key, g => g.Single(), StringComparer.Ordinal);
+        return items.Select(i => i with
+        {
+            Machines = i.Machines is { } saved
+                ? saved.Select(m => m.AgentId is { } id && byId.TryGetValue(id, out var now) ? now : m with { AgentId = null }).ToList()
+                : i.Hosts.Select(h => byName.GetValueOrDefault(h) ?? new InsightMachine(null, h, null, null)).ToList(),
+        }).ToList();
     }
 
     private static string GroupId(int index) => string.Create(CultureInfo.InvariantCulture, $"G{index + 1}");
 
-    public static InsightContent Merge(List<LogGroupRow> groups, Dictionary<int, string> hosts, JsonElement output)
+    public static InsightContent Merge(List<LogGroupRow> groups, Dictionary<int, InsightMachine> machines, JsonElement output)
     {
         var analysis = new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
         if (output.ValueKind == JsonValueKind.Object && output.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array)
@@ -222,12 +250,13 @@ public sealed partial class LogInsightRunner(
         {
             var id = GroupId(i);
             analysis.TryGetValue(id, out var a);
+            var affected = g.AgentIds.Take(MaxMachines).Select(x => machines.GetValueOrDefault(x)).OfType<InsightMachine>().ToList();
             return new InsightItem(id, g.Level, g.Source, g.EventId, g.Sample, g.Count, g.PreviousCount, g.Agents, g.Days, g.FirstSeen, g.LastSeen,
-                g.AgentIds.Take(5).Select(x => hosts.GetValueOrDefault(x)).OfType<string>().ToList(),
+                affected.Select(m => m.Hostname).ToList(),
                 Text(a, "title") ?? (g.EventId is { } e ? string.Create(CultureInfo.InvariantCulture, $"{g.Source} (evento {e})") : g.Source),
                 Text(a, "severity") is { } sev && Severities.Contains(sev) ? sev : "media",
                 Text(a, "officialDescription") ?? string.Empty, Text(a, "reference") ?? string.Empty, Text(a, "probableCause") ?? string.Empty,
-                List(a, "resolution"), List(a, "platformActions"));
+                List(a, "resolution"), List(a, "platformActions"), affected);
         }).ToList();
         var suggestions = new List<InsightSuggestion>();
         if (output.ValueKind == JsonValueKind.Object && output.TryGetProperty("suggestions", out var list) && list.ValueKind == JsonValueKind.Array)

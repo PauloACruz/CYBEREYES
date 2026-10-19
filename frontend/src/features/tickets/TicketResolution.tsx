@@ -7,7 +7,7 @@ import { ticketsApi } from '../../api/tickets';
 import type { ResolveTicketRequest, TicketDetail, TicketResolutionKind } from '../../api/types';
 import { formatDateTime } from '../../lib/format';
 import { notifySuccess } from '../../lib/feedback';
-import { RESOLUTION_KIND_LABEL } from './ticketFormat';
+import { isInternalTicket, RESOLUTION_KIND_LABEL } from './ticketFormat';
 import { storeTicket } from './ticketActions';
 
 const KIND_OPTIONS = (['solution', 'workaround'] as const).map((value) => ({ value, label: RESOLUTION_KIND_LABEL[value] }));
@@ -41,7 +41,8 @@ function ResolveForm({ ticket, editing, onClose }: { ticket: TicketDetail; editi
   const queryClient = useQueryClient();
   const [kind, setKind] = useState<TicketResolutionKind>(ticket.resolutionKind ?? 'solution');
   const [text, setText] = useState(ticket.resolution ?? '');
-  const [notify, setNotify] = useState(true);
+  const internalOnly = isInternalTicket(ticket);
+  const [notify, setNotify] = useState(!internalOnly);
   const resolve = useMutation({
     mutationFn: (body: ResolveTicketRequest) => ticketsApi.resolve(ticket.id, body),
     onSuccess: (updated) => {
@@ -82,12 +83,18 @@ function ResolveForm({ ticket, editing, onClose }: { ticket: TicketDetail; editi
           required
           data-autofocus
         />
-        <Checkbox
-          label="Enviar ao usuário na conversa"
-          description={notify ? 'O usuário vê o texto no app de bandeja.' : 'O texto fica como nota interna, só para os técnicos.'}
-          checked={notify}
-          onChange={(e) => setNotify(e.currentTarget.checked)}
-        />
+        {internalOnly ? (
+          <Text size="sm" c="dimmed">
+            Incidente interno: o texto fica como nota, só para os técnicos.
+          </Text>
+        ) : (
+          <Checkbox
+            label="Enviar ao usuário na conversa"
+            description={notify ? 'O usuário vê o texto no app de bandeja.' : 'O texto fica como nota interna, só para os técnicos.'}
+            checked={notify}
+            onChange={(e) => setNotify(e.currentTarget.checked)}
+          />
+        )}
         <Group justify="flex-end" gap="xs">
           <Button variant="default" onClick={onClose}>
             Cancelar

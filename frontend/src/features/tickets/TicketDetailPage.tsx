@@ -33,7 +33,7 @@ import { notifySuccess } from '../../lib/feedback';
 import { AttachmentList } from './TicketAttachments';
 import { SlaBreachedIcon, TicketPriorityBadge, TicketStatusBadge, TicketTypeBadge } from './TicketBadges';
 import { TicketConversation } from './TicketConversation';
-import { canResolve, isTicketPriority, isTicketType, PRIORITY_OPTIONS, TICKET_SOURCE_LABEL, TYPE_OPTIONS } from './ticketFormat';
+import { canResolve, isInternalTicket, isTicketPriority, isTicketType, PRIORITY_OPTIONS, TICKET_SOURCE_LABEL, TYPE_OPTIONS } from './ticketFormat';
 import { storeTicket } from './ticketActions';
 import { ResolutionCard, ResolveTicketModal } from './TicketResolution';
 import { TicketSidebar } from './TicketSidebar';
@@ -87,7 +87,7 @@ function TicketDetailView({ ticket }: { ticket: TicketDetail }) {
               )}
             </Paper>
             <ResolutionCard ticket={ticket} canManage={canManage} />
-            <TicketConversation ticketId={ticket.id} canManage={canManage} />
+            <TicketConversation ticketId={ticket.id} canManage={canManage} internalOnly={isInternalTicket(ticket)} />
             <AttachmentsSection ticketId={ticket.id} />
           </Stack>
         </Grid.Col>

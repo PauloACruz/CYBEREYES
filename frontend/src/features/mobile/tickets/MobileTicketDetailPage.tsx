@@ -32,7 +32,7 @@ import { AssigneeCard, StatusCard } from '../../tickets/TicketSidebar';
 import { storeTicket } from '../../tickets/ticketActions';
 import { ResolutionByline, ResolveTicketModal } from '../../tickets/TicketResolution';
 import { REPLY_OPTIONS, useTicketRealtime, useTicketReply } from '../../tickets/ticketReply';
-import { canResolve, formatMinutes, RESOLUTION_KIND_LABEL } from '../../tickets/ticketFormat';
+import { canResolve, formatMinutes, isInternalTicket, RESOLUTION_KIND_LABEL } from '../../tickets/ticketFormat';
 import { procedureDuration } from '../../procedures/procedureFormat';
 import { ProcedureKindBadge } from '../../procedures/ProceduresTable';
 import { InfoRows, MobileHeader, MobilePage, MobileSection } from '../MobilePage';
@@ -94,7 +94,7 @@ function TicketView({ ticket, header }: { ticket: TicketDetail; header: ReactNod
   const due = ticket.resolutionDueAt;
 
   return (
-    <MobilePage header={header} bottom={canManage ? <ReplyBar ticketId={ticket.id} /> : 'tabs'}>
+    <MobilePage header={header} bottom={canManage ? <ReplyBar ticketId={ticket.id} internalOnly={isInternalTicket(ticket)} /> : 'tabs'}>
       <Stack gap={8}>
         <Text component="h2" m={0} fz={22} fw={600} lh="28px">
           {ticket.title}
@@ -235,9 +235,9 @@ function TicketView({ ticket, header }: { ticket: TicketDetail; header: ReactNod
   );
 }
 
-/** Resposta fixa no rodape: alterna entre resposta ao usuario e nota interna. */
-function ReplyBar({ ticketId }: { ticketId: number }) {
-  const { mode, setMode, body, setBody, files, addFiles, removeFile, internal, send, tooLong, canSend } = useTicketReply(ticketId);
+/** Resposta fixa no rodape: alterna entre resposta ao usuario e nota interna; incidente interno so tem nota. */
+function ReplyBar({ ticketId, internalOnly }: { ticketId: number; internalOnly: boolean }) {
+  const { mode, setMode, body, setBody, files, addFiles, removeFile, internal, send, tooLong, canSend } = useTicketReply(ticketId, internalOnly);
   const sent = useRef(0);
   // Depois de enviar, a conversa nova fica visivel no fim da pagina.
   useEffect(() => {
@@ -255,14 +255,16 @@ function ReplyBar({ ticketId }: { ticketId: number }) {
       }}
     >
       <Stack gap={8}>
-        <SegmentedControl
-          aria-label="Tipo de resposta"
-          data={REPLY_OPTIONS}
-          value={mode}
-          onChange={(v) => setMode(v === 'internal' ? 'internal' : 'public')}
-          color={internal ? 'yellow' : undefined}
-          fullWidth
-        />
+        {!internalOnly && (
+          <SegmentedControl
+            aria-label="Tipo de resposta"
+            data={REPLY_OPTIONS}
+            value={mode}
+            onChange={(v) => setMode(v === 'internal' ? 'internal' : 'public')}
+            color={internal ? 'yellow' : undefined}
+            fullWidth
+          />
+        )}
         {files.length > 0 && (
           <Group gap="xs" aria-label="Arquivos a enviar">
             {files.map((file, index) => (

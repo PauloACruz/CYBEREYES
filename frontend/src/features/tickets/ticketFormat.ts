@@ -6,7 +6,7 @@ import {
   IconProgress,
   type Icon,
 } from '@tabler/icons-react';
-import type { TicketPriority, TicketResolutionKind, TicketSource, TicketStatus, TicketType } from '../../api/types';
+import type { TicketDetail, TicketPriority, TicketResolutionKind, TicketSource, TicketStatus, TicketType } from '../../api/types';
 
 export interface TicketDisplayInfo {
   label: string;
@@ -57,6 +57,14 @@ export const TYPE_OPTIONS = TICKET_TYPES.map((value) => ({ value, label: TICKET_
 
 export function isTicketStatus(value: string | null | undefined): value is TicketStatus {
   return value !== null && value !== undefined && (TICKET_STATUSES as readonly string[]).includes(value);
+}
+
+/**
+ * Incidente interno: sem usuario da maquina como solicitante, nada chega ao app de bandeja, entao as respostas e a solucao
+ * ficam como notas internas (incidentes de alertas e os abertos pela analise de logs).
+ */
+export function isInternalTicket(ticket: Pick<TicketDetail, 'type' | 'requesterUsername'>): boolean {
+  return ticket.type === 'incident' && !ticket.requesterUsername;
 }
 
 /** O botao Resolver aparece enquanto o chamado esta aberto; resolvido, a solucao pode ser corrigida pelo lapis. */

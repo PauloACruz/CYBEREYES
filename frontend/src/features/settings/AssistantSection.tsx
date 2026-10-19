@@ -16,6 +16,7 @@ import {
   Stack,
   Switch,
   Text,
+  Textarea,
   TextInput,
   Title,
   Tooltip,
@@ -61,12 +62,21 @@ function validAnthropicKey(key: string): boolean {
   return key.startsWith('sk-ant-') && key.length >= 20 && !/\s/.test(key);
 }
 
+const MAX_INSTRUCTIONS = 20000;
+
+const INSTRUCTIONS_PLACEHOLDER = `Ex.: Somos a ACME TI. Atendemos de segunda a sexta, das 8h às 18h.
+Trate o usuário por você e assine como Suporte ACME.
+Problemas de impressora da filial Centro vão para a fila Campo.`;
+
 function AssistantForm({ initial }: { initial: AssistantSettingsDto }) {
   const queryClient = useQueryClient();
   const [apiKey, setApiKey] = useState('');
   const [removeKey, setRemoveKey] = useState(false);
   const [model, setModel] = useState(initial.model);
   const [agentId, setAgentId] = useState<string | null>(initial.agentId);
+  const [agentEnabled, setAgentEnabled] = useState(initial.agentEnabled);
+  const [nativeEnabled, setNativeEnabled] = useState(initial.nativeEnabled);
+  const [instructions, setInstructions] = useState(initial.instructions ?? '');
   const [chatEffort, setChatEffort] = useState<EffortLevel>(initial.chatEffort);
   const [logEffort, setLogEffort] = useState<EffortLevel>(initial.logEffort);
   const [name, setName] = useState(initial.name);
@@ -84,6 +94,9 @@ function AssistantForm({ initial }: { initial: AssistantSettingsDto }) {
   const intervalError = Number.isInteger(hours) && hours >= 1 && hours <= 168 ? undefined : 'Entre 1 e 168 horas';
   const nameError = name.trim().length >= 2 ? undefined : 'Use pelo menos 2 caracteres';
   const needsKey = (chatEnabled || insightsEnabled) && !willHaveKey;
+  const linkedActive = agentEnabled && agentId !== null;
+  const needsAgent = (chatEnabled || insightsEnabled) && !nativeEnabled && !linkedActive;
+  const instructionsError = instructions.length > MAX_INSTRUCTIONS ? `Use no máximo ${MAX_INSTRUCTIONS} caracteres` : undefined;
 
   const agents = useQuery({ queryKey: queryKeys.assistantAgents, queryFn: assistantApi.agents, enabled: initial.keySet, retry: false });
   const linked = agents.data?.find((a) => a.id === agentId);
@@ -92,6 +105,12 @@ function AssistantForm({ initial }: { initial: AssistantSettingsDto }) {
   const chooseAgent = (next: string | null) => {
     setAgentId(next);
     if (!next && model === MODEL_FROM_AGENT) setModel(initial.models[0] ?? 'claude-opus-5-5');
+  };
+
+  // Desligado, o agente da Anthropic nao empresta o modelo: volta para um fixo.
+  const toggleAgent = (on: boolean) => {
+    setAgentEnabled(on);
+    if (!on && model === MODEL_FROM_AGENT) setModel(initial.models[0] ?? 'claude-opus-5-5');
   };
 
   const createAgent = useMutation({
@@ -109,6 +128,9 @@ function AssistantForm({ initial }: { initial: AssistantSettingsDto }) {
         apiKey: typedKey ? typedKey : removeKey ? '' : null,
         model,
         agentId,
+        agentEnabled,
+        nativeEnabled,
+        instructions: instructions.trim() || null,
         chatEffort,
         logEffort,
         name: name.trim(),
@@ -142,7 +164,7 @@ function AssistantForm({ initial }: { initial: AssistantSettingsDto }) {
 
   const keyPlaceholder = initial.keySet ? `Chave gravada terminando em ${initial.keyHint ?? '****'}` : 'sk-ant-...';
   const models = [
-    ...(agentId ? [{ value: MODEL_FROM_AGENT, label: `Modelo do agente${linked ? ` (${linked.model})` : ''}` }] : []),
+    ...(linkedActive ? [{ value: MODEL_FROM_AGENT, label: `Modelo do agente${linked ? ` (${linked.model})` : ''}` }] : []),
     ...initial.models.map((m) => ({ value: m, label: MODEL_LABELS[m] ?? m })),
   ];
   const agentOptions = [
@@ -191,56 +213,103 @@ function AssistantForm({ initial }: { initial: AssistantSettingsDto }) {
             <Checkbox label="Remover a chave gravada" checked={removeKey} onChange={(e) => setRemoveKey(e.currentTarget.checked)} />
           )}
         </Group>
-        <SimpleGrid cols={{ base: 1, sm: 2 }}>
-          <Stack gap={6}>
-            <Group gap="xs" align="flex-end" wrap="nowrap">
-              <Select
-                label="Agente vinculado"
-                description="Agente da sua conta na Anthropic (Console, Managed Agents). As instruções dele entram junto com as regras do Cybereyes."
-                placeholder={initial.keySet ? 'Nenhum: instruções padrão do Cybereyes' : 'Salve a chave para listar os agentes'}
-                data={agentOptions}
-                value={agentId}
-                onChange={chooseAgent}
-                clearable
-                clearButtonProps={{ 'aria-label': 'Desvincular o agente' }}
-                searchable
-                disabled={!initial.keySet}
-                error={agentError}
-                nothingFoundMessage={agents.isFetching ? 'Carregando...' : 'Nenhum agente na conta'}
-                style={{ flex: 1 }}
+        <Divider label="Agentes" labelPosition="left" />
+        <Text size="sm" c="dimmed">
+          As regras de funcionamento do Cybereyes (formato das respostas, ações e FAQ) valem sempre. Os agentes acrescentam o tom e as regras da
+          sua empresa; com os dois ligados, entram as instruções dos dois e, se conflitarem, valem as do agente nativo.
+        </Text>
+        <SimpleGrid cols={{ base: 1, md: 2 }}>
+          <Paper withBorder p="md">
+            <Stack gap="sm">
+              <Switch
+                label="Agente nativo do Cybereyes"
+                description="Usa as instruções escritas aqui, sem depender de um agente na conta da Anthropic."
+                checked={nativeEnabled}
+                onChange={(e) => setNativeEnabled(e.currentTarget.checked)}
               />
-              <Tooltip label="Atualizar a lista de agentes">
-                <ActionIcon
-                  variant="default"
-                  size="lg"
-                  mb={agentError ? 22 : 0}
-                  aria-label="Atualizar a lista de agentes"
-                  disabled={!initial.keySet}
-                  loading={agents.isFetching}
-                  onClick={() => void agents.refetch()}
+              <Textarea
+                label="Instruções do agente nativo"
+                description={
+                  nativeEnabled
+                    ? 'Tom, horário de atendimento, regras e particularidades da empresa. Valem no chat e na análise de logs.'
+                    : 'Agente nativo desligado: as instruções ficam guardadas, sem uso.'
+                }
+                placeholder={INSTRUCTIONS_PLACEHOLDER}
+                autosize
+                minRows={5}
+                maxRows={14}
+                value={instructions}
+                onChange={(e) => setInstructions(e.currentTarget.value)}
+                error={instructionsError}
+                disabled={!nativeEnabled}
+              />
+            </Stack>
+          </Paper>
+          <Paper withBorder p="md">
+            <Stack gap={6}>
+              <Switch
+                label="Agente da Anthropic (integração)"
+                description="Agente da sua conta na Anthropic (Console, Managed Agents): as instruções dele entram no atendimento e o modelo dele pode ser usado."
+                checked={agentEnabled}
+                onChange={(e) => toggleAgent(e.currentTarget.checked)}
+                mb="xs"
+              />
+              <Group gap="xs" align="flex-end" wrap="nowrap">
+                <Select
+                  label="Agente vinculado"
+                  description={agentEnabled ? undefined : 'Desligado: o agente fica vinculado, sem uso.'}
+                  placeholder={initial.keySet ? 'Nenhum agente vinculado' : 'Salve a chave para listar os agentes'}
+                  data={agentOptions}
+                  value={agentId}
+                  onChange={chooseAgent}
+                  clearable
+                  clearButtonProps={{ 'aria-label': 'Desvincular o agente' }}
+                  searchable
+                  disabled={!initial.keySet || !agentEnabled}
+                  error={agentError}
+                  nothingFoundMessage={agents.isFetching ? 'Carregando...' : 'Nenhum agente na conta'}
+                  style={{ flex: 1 }}
+                />
+                <Tooltip label="Atualizar a lista de agentes">
+                  <ActionIcon
+                    variant="default"
+                    size="lg"
+                    mb={agentError ? 22 : 0}
+                    aria-label="Atualizar a lista de agentes"
+                    disabled={!initial.keySet || !agentEnabled}
+                    loading={agents.isFetching}
+                    onClick={() => void agents.refetch()}
+                  >
+                    <IconRefresh size={16} />
+                  </ActionIcon>
+                </Tooltip>
+              </Group>
+              <Group gap="xs">
+                <Button
+                  variant="subtle"
+                  size="xs"
+                  leftSection={<IconPlus size={14} />}
+                  disabled={!initial.keySet || !agentEnabled}
+                  loading={createAgent.isPending}
+                  onClick={() => createAgent.mutate()}
                 >
-                  <IconRefresh size={16} />
-                </ActionIcon>
-              </Tooltip>
-            </Group>
-            <Group gap="xs">
-              <Button
-                variant="subtle"
-                size="xs"
-                leftSection={<IconPlus size={14} />}
-                disabled={!initial.keySet}
-                loading={createAgent.isPending}
-                onClick={() => createAgent.mutate()}
-              >
-                Criar agente na Anthropic
-              </Button>
-              {linked?.description && (
-                <Text size="xs" c="dimmed" lineClamp={2}>
-                  {linked.description}
-                </Text>
-              )}
-            </Group>
-          </Stack>
+                  Criar agente na Anthropic
+                </Button>
+                {linked?.description && (
+                  <Text size="xs" c="dimmed" lineClamp={2}>
+                    {linked.description}
+                  </Text>
+                )}
+              </Group>
+            </Stack>
+          </Paper>
+        </SimpleGrid>
+        {needsAgent && (
+          <Text size="sm" c="red">
+            Ative o agente nativo ou o agente da Anthropic (com um agente vinculado) para ligar o assistente.
+          </Text>
+        )}
+        <SimpleGrid cols={{ base: 1, sm: 2 }}>
           <Select
             label="Modelo"
             description="O Opus dá as análises mais completas; Sonnet e Haiku respondem mais rápido e custam menos."
@@ -248,6 +317,14 @@ function AssistantForm({ initial }: { initial: AssistantSettingsDto }) {
             value={model}
             onChange={(v) => v && setModel(v)}
             allowDeselect={false}
+          />
+          <TextInput
+            label="Nome do assistente"
+            description="Como ele se apresenta aos usuários no chat."
+            value={name}
+            maxLength={100}
+            onChange={(e) => setName(e.currentTarget.value)}
+            error={nameError}
           />
         </SimpleGrid>
         <SimpleGrid cols={{ base: 1, sm: 2 }}>
@@ -268,15 +345,6 @@ function AssistantForm({ initial }: { initial: AssistantSettingsDto }) {
             allowDeselect={false}
           />
         </SimpleGrid>
-        <TextInput
-          label="Nome do assistente"
-          description="Como ele se apresenta aos usuários no chat."
-          value={name}
-          maxLength={100}
-          onChange={(e) => setName(e.currentTarget.value)}
-          error={nameError}
-          maw={420}
-        />
 
         <Divider label="Atendimento no chat do app EYES" labelPosition="left" />
         <Switch
@@ -355,7 +423,7 @@ function AssistantForm({ initial }: { initial: AssistantSettingsDto }) {
           <Button
             leftSection={<IconDeviceFloppy size={16} />}
             loading={save.isPending}
-            disabled={Boolean(keyError ?? intervalError ?? nameError) || needsKey || (model === MODEL_FROM_AGENT && !agentId)}
+            disabled={Boolean(keyError ?? intervalError ?? nameError ?? instructionsError) || needsKey || needsAgent || (model === MODEL_FROM_AGENT && !linkedActive)}
             onClick={() => save.mutate()}
           >
             Salvar

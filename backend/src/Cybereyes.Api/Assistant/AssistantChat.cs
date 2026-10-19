@@ -107,6 +107,9 @@ public sealed partial class AssistantChat(
     private const int MaxFaqEntries = 200;
     private const int FaqExcerpt = 600;
 
+    /// <summary>Chat ligado, com a chave da Anthropic e pelo menos um agente (nativo ou vinculado) ativo.</summary>
+    public static bool ChatOn(CoreSettings s) => s.AssistantChatEnabled && s.AnthropicKeyProtected is not null && AssistantProfiles.AnyAgentEnabled(s);
+
     public static bool Attending(Ticket t) =>
         t.AssistantState == AssistantStates.Active && t.AssignedToId is null && t.Status is not (TicketStatus.Closed or TicketStatus.Resolved);
 
@@ -114,7 +117,7 @@ public sealed partial class AssistantChat(
     public async Task StartAsync(Ticket ticket, CancellationToken ct)
     {
         var settings = await SettingsStore.GetAsync(db, ct);
-        if (!settings.AssistantChatEnabled || settings.AnthropicKeyProtected is null)
+        if (!ChatOn(settings))
         {
             return;
         }
@@ -177,7 +180,7 @@ public sealed partial class AssistantChat(
     {
         var ticket = await db.Tickets.AsNoTracking().FirstOrDefaultAsync(t => t.Id == ticketId, ct);
         var settings = await SettingsStore.GetAsync(db, ct);
-        if (ticket is null || !Attending(ticket) || !settings.AssistantChatEnabled || settings.AnthropicKeyProtected is null)
+        if (ticket is null || !Attending(ticket) || !ChatOn(settings))
         {
             return false;
         }
@@ -192,7 +195,7 @@ public sealed partial class AssistantChat(
     {
         var ticket = await db.Tickets.FirstOrDefaultAsync(t => t.Id == ticketId, ct);
         var settings = await SettingsStore.GetAsync(db, ct);
-        if (ticket is null || !Attending(ticket) || !settings.AssistantChatEnabled || AssistantKey.Read(settings, protection) is not { } apiKey)
+        if (ticket is null || !Attending(ticket) || !ChatOn(settings) || AssistantKey.Read(settings, protection) is not { } apiKey)
         {
             return false;
         }

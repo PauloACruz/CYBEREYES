@@ -2476,6 +2476,9 @@ namespace Cybereyes.Core.Persistence.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
 
+                    b.Property<bool>("AssistantAgentEnabled")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("AssistantAgentId")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
@@ -2487,6 +2490,10 @@ namespace Cybereyes.Core.Persistence.Migrations
 
                     b.Property<bool>("AssistantChatEnabled")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("AssistantInstructions")
+                        .HasMaxLength(20000)
+                        .HasColumnType("character varying(20000)");
 
                     b.Property<string>("AssistantLogEffort")
                         .IsRequired()
@@ -2502,6 +2509,9 @@ namespace Cybereyes.Core.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
+
+                    b.Property<bool>("AssistantNativeEnabled")
+                        .HasColumnType("boolean");
 
                     b.Property<int>("CheckHistoryDays")
                         .HasColumnType("integer");

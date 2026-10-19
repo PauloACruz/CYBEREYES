@@ -8,17 +8,25 @@ atendimento dos chamados abertos pelo app EYES e a análise periódica dos erros
 
 | Rota | Uso |
 |---|---|
-| `GET /api/assistant/settings` | `{ keySet, keyHint, model, name, agentId, chatEffort, logEffort, efforts, chatEnabled, logInsightsEnabled, logInsightsIntervalHours, logInsightsMinLevel, logInsightsPush, logInsightsEmail, logInsightsLastRunAt, smtpConfigured, models }` |
-| `PUT /api/assistant/settings` | Mesmos campos mais `apiKey`: `null` mantém a chave gravada, `""` apaga, `sk-ant-...` troca. Ligar o chat ou a análise sem chave dá 400 |
+| `GET /api/assistant/settings` | `{ keySet, keyHint, model, name, agentId, agentEnabled, nativeEnabled, instructions, chatEffort, logEffort, efforts, chatEnabled, logInsightsEnabled, logInsightsIntervalHours, logInsightsMinLevel, logInsightsPush, logInsightsEmail, logInsightsLastRunAt, smtpConfigured, models }` |
+| `PUT /api/assistant/settings` | Mesmos campos mais `apiKey`: `null` mantém a chave gravada, `""` apaga, `sk-ant-...` troca. Ligar o chat ou a análise sem chave ou sem nenhum agente ativo dá 400 |
 | `POST /api/assistant/test` | `{ apiKey?, model?, agentId? }` → confere a chave digitada (ou a gravada) pela API de modelos, sem gastar tokens; com `model: "agent"`, o modelo do agente |
 | `GET /api/assistant/agents` | Agentes não arquivados da conta da chave gravada (`{ id, name, description, model, version }`) |
 | `POST /api/assistant/agents` | `{ name?, model? }` → cria na conta um agente com as instruções iniciais do Cybereyes (201) |
 
-### Agente vinculado, modelo e esforço
+### Agentes, modelo e esforço
 
-`agentId` aponta para um agente da conta da Anthropic (Console, Managed Agents). O prompt de sistema dele entra no do assistente,
-num bloco `<instrucoes_do_agente>`, antes das regras do Cybereyes, que prevalecem em formato, ações e FAQ; vale no chat e na análise
-de logs. `model` é um dos modelos da lista ou `"agent"` para usar o do agente (exige `agentId`). O agente é lido de novo a cada
+O assistente tem dois agentes, cada um com a sua chave, e as regras do Cybereyes (formato, ações e FAQ) valem sempre, acima dos dois:
+
+- **Agente nativo** (`nativeEnabled`, padrão ligado): `instructions` (até 20000 caracteres) são as instruções da empresa escritas
+  no console; entram num bloco `<instrucoes_da_empresa>`.
+- **Agente da Anthropic** (`agentEnabled`, padrão ligado): `agentId` aponta para um agente da conta da Anthropic (Console, Managed
+  Agents) e o prompt de sistema dele entra num bloco `<instrucoes_do_agente>`. Desligado, o agente continua vinculado, sem uso.
+
+Com os dois ligados entram os dois blocos e, se conflitarem, valem as instruções da empresa. Com os dois desligados (ou só o da
+Anthropic ligado e sem `agentId`), o chat e a análise não rodam: salvar com um deles ligado dá 400 e `POST /insights/run` também.
+Os blocos valem no chat e na análise de logs. `model` é um dos modelos da lista ou `"agent"` para usar o do agente (exige `agentId`
+e `agentEnabled`). O agente é lido de novo a cada
 5 minutos ou quando a configuração é salva; se a Anthropic não responder ou o agente sumir, o assistente segue com as instruções e o
 modelo padrão. O assistente não abre sessões de Managed Agents: só usa a configuração do agente nas chamadas da Messages API.
 `chatEffort` (padrão `low`) e `logEffort` (padrão `medium`) vão em `output_config.effort`: `low`, `medium`, `high`, `xhigh` ou `max`.
@@ -57,7 +65,19 @@ resposta do SLA. `GET /api/tray/me` traz `assistantEnabled` e `assistantName` pa
 |---|---|
 | `GET /api/assistant/insights` | `{ configured, enabled, intervalHours, running, reports[] }` (30 mais recentes) |
 | `GET /api/assistant/insights/{id}` | Relatório com `items[]` (grupo, contagens, máquinas, título, severidade, descrição oficial, fonte, causa, resolução, ações na plataforma) e `suggestions[]` |
-| `POST /api/assistant/insights/run` | `settings.manage`: pede uma análise agora (202; 409 se já houver uma rodando) |
+| `POST /api/assistant/insights/run` | `settings.manage`: pede uma análise agora (202; 400 sem chave ou sem agente ativo; 409 se já houver uma rodando) |
+
+Cada item traz até 5 máquinas em `machines[]` (`{ agentId, hostname, client, site }`); as demais ficam só na contagem `agents`.
+Cliente e site são lidos de novo ao abrir o relatório, porque a máquina pode ter mudado de lugar; máquina excluída fica com
+`agentId: null` e os nomes gravados. Relatórios anteriores, que só guardavam `hosts`, acham a máquina pelo hostname quando ele é único.
+
+### Incidente a partir da análise
+
+No console, cada máquina da análise tem o botão **Abrir incidente** (`tickets.manage`). Ele cria um chamado comum
+(`POST /api/tickets`) com `type: "incident"`, `agentId` da máquina (cliente e site vêm dela), `requesterName: "Análise da IA"`,
+prioridade pela severidade (crítica, alta, média, baixa) e a descrição com o erro, a recorrência, a análise da IA e o link do
+relatório. Sem usuário da máquina como solicitante, o incidente é interno: não aparece no app EYES e o console só oferece nota
+interna na conversa e na solução (vale também para os incidentes abertos por alertas).
 
 A cada `logInsightsIntervalHours` (1 a 168), o servidor agrupa no banco os eventos de `system_logs` a partir do nível mínimo
 (mesmo nível, origem, ID e mensagem com números e GUIDs trocados por marcadores) e mede a recorrência: ocorrências no período,

@@ -1148,6 +1148,7 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
             e.Property(x => x.AssistantModel).HasMaxLength(64);
             e.Property(x => x.AssistantName).HasMaxLength(100);
             e.Property(x => x.AssistantAgentId).HasMaxLength(100);
+            e.Property(x => x.AssistantInstructions).HasMaxLength(20000);
             e.Property(x => x.AssistantChatEffort).HasMaxLength(16);
             e.Property(x => x.AssistantLogEffort).HasMaxLength(16);
             e.Property(x => x.LogInsightsMinLevel).HasMaxLength(16);
