@@ -206,6 +206,9 @@ button { font: inherit; }
 .bubble { max-width: 80%; padding: 8px 12px; border-radius: 8px; display: flex; flex-direction: column; gap: 4px; }
 .msg-requester .bubble { background: var(--accent-soft); border: 1px solid rgba(218, 169, 22, 0.3); border-bottom-right-radius: 2px; }
 .msg-technician .bubble { background: var(--raised); border: 1px solid var(--border); border-bottom-left-radius: 2px; }
+.msg-assistant { justify-content: flex-start; }
+.msg-assistant .bubble { background: var(--raised); border: 1px solid var(--border); border-left: 3px solid #daa916; border-bottom-left-radius: 2px; }
+.assistant-start .chat { margin-bottom: 8px; }
 .msg-author { font-size: 12px; font-weight: 700; color: var(--accent-text); }
 .msg-body { white-space: pre-wrap; word-break: break-word; }
 .msg-time { font-size: 11px; color: var(--tertiary); align-self: flex-end; }

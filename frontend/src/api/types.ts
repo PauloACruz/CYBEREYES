@@ -1254,7 +1254,7 @@ export type TicketType = 'request' | 'incident';
 export type TicketStatus = 'new' | 'in_progress' | 'waiting_user' | 'resolved' | 'closed';
 export type TicketPriority = 'low' | 'medium' | 'high' | 'critical';
 export type TicketSource = 'console' | 'tray' | 'alert';
-export type TicketAuthorType = 'technician' | 'requester' | 'system';
+export type TicketAuthorType = 'technician' | 'requester' | 'system' | 'assistant';
 /** Solucao definitiva ou solucao de contorno (workaround). */
 export type TicketResolutionKind = 'solution' | 'workaround';
 
@@ -2840,6 +2840,8 @@ export interface PushPreferences {
   updates: boolean;
   /** Mensagens nos meus chamados (e nos sem responsavel, quando vem do solicitante). */
   messages: boolean;
+  /** Analises de erros recorrentes nos logs feitas pelo assistente de IA. */
+  insights: boolean;
 }
 
 export interface PushConfig {
@@ -2905,4 +2907,149 @@ export interface MoveAgentResult {
   /** Chamados abertos da maquina que foram para o novo cliente / site (os encerrados ficam). */
   movedTickets: number;
   clientChanged: boolean;
+}
+
+// Assistente de IA (Claude): configuracao, FAQ e analises de logs
+
+export type InsightLevel = 'warning' | 'error' | 'critical';
+
+/** output_config.effort: do mais rapido ao mais profundo. */
+export type EffortLevel = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+
+/** Valor de model que usa o modelo do agente vinculado. */
+export const MODEL_FROM_AGENT = 'agent';
+
+/** Agente da conta da Anthropic (Managed Agents). */
+export interface AssistantAgentDto {
+  id: string;
+  name: string;
+  description: string | null;
+  model: string;
+  version: number;
+}
+
+export interface AssistantSettingsDto {
+  keySet: boolean;
+  /** Ultimos 4 caracteres da chave gravada. */
+  keyHint: string | null;
+  /** Modelo do Claude ou MODEL_FROM_AGENT. */
+  model: string;
+  name: string;
+  agentId: string | null;
+  chatEffort: EffortLevel;
+  logEffort: EffortLevel;
+  efforts: EffortLevel[];
+  chatEnabled: boolean;
+  logInsightsEnabled: boolean;
+  logInsightsIntervalHours: number;
+  logInsightsMinLevel: InsightLevel;
+  logInsightsPush: boolean;
+  logInsightsEmail: boolean;
+  logInsightsLastRunAt: string | null;
+  smtpConfigured: boolean;
+  models: string[];
+}
+
+export interface SaveAssistantSettingsRequest {
+  /** null mantem a chave gravada; '' apaga. */
+  apiKey: string | null;
+  model: string;
+  name: string;
+  agentId: string | null;
+  chatEffort: EffortLevel;
+  logEffort: EffortLevel;
+  chatEnabled: boolean;
+  logInsightsEnabled: boolean;
+  logInsightsIntervalHours: number;
+  logInsightsMinLevel: InsightLevel;
+  logInsightsPush: boolean;
+  logInsightsEmail: boolean;
+}
+
+export interface FaqEntryDto {
+  id: number;
+  clientId: number | null;
+  clientName: string | null;
+  question: string;
+  answer: string;
+  tags: string[];
+  enabled: boolean;
+  /** Tem a tag "orientar": o assistente envia o passo a passo ao cliente. */
+  guides: boolean;
+  updatedAt: string;
+  updatedBy: string;
+}
+
+export interface SaveFaqRequest {
+  clientId: number | null;
+  question: string;
+  answer: string;
+  tags: string[];
+  enabled: boolean;
+}
+
+export interface ListFaqParams {
+  clientId?: number;
+  search?: string;
+  tag?: string;
+}
+
+export type InsightSeverity = 'baixa' | 'media' | 'alta' | 'critica';
+
+export interface LogInsightSummaryDto {
+  id: number;
+  createdAt: string;
+  windowStart: string;
+  windowEnd: string;
+  status: 'ok' | 'error';
+  manual: boolean;
+  model: string;
+  summary: string;
+  eventCount: number;
+  groupCount: number;
+  agentCount: number;
+  error: string | null;
+}
+
+export interface LogInsightListDto {
+  configured: boolean;
+  enabled: boolean;
+  intervalHours: number;
+  running: boolean;
+  reports: LogInsightSummaryDto[];
+}
+
+export interface LogInsightItem {
+  group: string;
+  level: string;
+  source: string;
+  eventId: number | null;
+  sample: string;
+  count: number;
+  previousCount: number;
+  agents: number;
+  /** Dias dos ultimos 7 com o erro. */
+  days: number;
+  firstSeen: string;
+  lastSeen: string;
+  hosts: string[];
+  title: string;
+  severity: InsightSeverity;
+  officialDescription: string;
+  reference: string;
+  probableCause: string;
+  resolution: string[];
+  platformActions: string[];
+}
+
+export interface LogInsightSuggestion {
+  title: string;
+  detail: string;
+}
+
+export interface LogInsightDetailDto extends LogInsightSummaryDto {
+  inputTokens: number;
+  outputTokens: number;
+  items: LogInsightItem[];
+  suggestions: LogInsightSuggestion[];
 }

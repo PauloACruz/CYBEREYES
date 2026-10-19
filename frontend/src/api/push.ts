@@ -10,4 +10,4 @@ export const pushApi = {
   test: (endpoint: string) => api.post<PushTestResult>('/api/push/test', { endpoint }),
 };
 
-export const DEFAULT_PUSH_PREFERENCES: PushPreferences = { newTickets: true, updates: true, messages: true };
+export const DEFAULT_PUSH_PREFERENCES: PushPreferences = { newTickets: true, updates: true, messages: true, insights: true };

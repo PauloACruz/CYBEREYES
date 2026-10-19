@@ -3,6 +3,7 @@ import { PERMISSIONS } from '../../api/types';
 import { hasPermission } from '../../auth/permissions';
 import { useMe } from '../../auth/useMe';
 import { PageHeader } from '../../components/PageHeader';
+import { AssistantSection } from './AssistantSection';
 import { KeystoreSection } from './KeystoreSection';
 import { LogAlertRulesSection } from './LogAlertRulesSection';
 import { LogsSection } from './LogsSection';
@@ -17,9 +18,10 @@ export function SettingsPage() {
   const { data: me } = useMe();
   return (
     <>
-      <PageHeader title="Configurações" description="Notificações, valores globais e atalhos usados nas ações sobre os agentes." />
+      <PageHeader title="Configurações" description="Notificações, assistente de IA, valores globais e atalhos usados nas ações sobre os agentes." />
       <Stack gap="xl">
         <NotificationsSection />
+        <AssistantSection />
         <KeystoreSection />
         <UrlActionsSection />
         <RemotePoliciesSection />

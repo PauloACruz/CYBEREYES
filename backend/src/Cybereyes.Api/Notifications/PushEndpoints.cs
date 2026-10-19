@@ -14,9 +14,9 @@ public sealed record PushSubscriptionRequest(
     [property: Required, StringLength(200)] string P256dh,
     [property: Required, StringLength(100)] string Auth,
     [property: StringLength(100)] string? Device,
-    bool NewTickets, bool Updates, bool Messages);
+    bool NewTickets, bool Updates, bool Messages, bool Insights = true);
 
-public sealed record PushSubscriptionDto(string Endpoint, string? Device, bool NewTickets, bool Updates, bool Messages, DateTimeOffset CreatedAt,
+public sealed record PushSubscriptionDto(string Endpoint, string? Device, bool NewTickets, bool Updates, bool Messages, bool Insights, DateTimeOffset CreatedAt,
     DateTimeOffset? LastSentAt);
 
 public sealed record PushEndpointRequest([property: Required, StringLength(2000)] string Endpoint);
@@ -76,6 +76,7 @@ public static class PushEndpoints
         subscription.NewTickets = r.NewTickets;
         subscription.Updates = r.Updates;
         subscription.Messages = r.Messages;
+        subscription.Insights = r.Insights;
         await db.SaveChangesAsync(ct);
         return TypedResults.Ok(ToDto(subscription));
     }
@@ -109,5 +110,5 @@ public static class PushEndpoints
     }
 
     private static PushSubscriptionDto ToDto(PushSubscription s) =>
-        new(s.Endpoint, s.Device, s.NewTickets, s.Updates, s.Messages, s.CreatedAt, s.LastSentAt);
+        new(s.Endpoint, s.Device, s.NewTickets, s.Updates, s.Messages, s.Insights, s.CreatedAt, s.LastSentAt);
 }

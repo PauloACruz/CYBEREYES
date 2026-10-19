@@ -16,7 +16,7 @@ import {
   Title,
   Tooltip,
 } from '@mantine/core';
-import { IconLock, IconPaperclip, IconSend, IconX } from '@tabler/icons-react';
+import { IconLock, IconPaperclip, IconRobot, IconSend, IconX } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '../../api/queryKeys';
 import { ticketsApi } from '../../api/tickets';
@@ -36,12 +36,16 @@ export function MessageItem({ message }: { message: TicketMessageDto }) {
       </Box>
     );
   }
-  const technician = message.authorType === 'technician';
+  const assistant = message.authorType === 'assistant';
+  // O assistente fala pela equipe: fica do lado dos tecnicos, com outra cor.
+  const technician = message.authorType === 'technician' || assistant;
   const background = message.internal
     ? 'var(--mantine-color-yellow-light)'
-    : technician
-      ? 'var(--mantine-color-blue-light)'
-      : 'var(--mantine-color-default-hover)';
+    : assistant
+      ? 'var(--mantine-color-teal-light)'
+      : technician
+        ? 'var(--mantine-color-blue-light)'
+        : 'var(--mantine-color-default-hover)';
   return (
     <Group justify={technician ? 'flex-end' : 'flex-start'} data-author={message.authorType}>
       <Paper
@@ -61,6 +65,11 @@ export function MessageItem({ message }: { message: TicketMessageDto }) {
           {!technician && (
             <Badge size="xs" variant="light" color="gray">
               Usuário
+            </Badge>
+          )}
+          {assistant && (
+            <Badge size="xs" variant="light" color="teal" leftSection={<IconRobot size={10} aria-hidden />}>
+              Assistente IA
             </Badge>
           )}
           {message.internal && (

@@ -30,7 +30,7 @@ export function ChatThread({ ticketId, messages }: Props) {
             </span>
           ) : (
             <div className="bubble">
-              {m.authorType === 'technician' && <div className="msg-author">{m.authorName}</div>}
+              {(m.authorType === 'technician' || m.authorType === 'assistant') && <div className="msg-author">{m.authorName}</div>}
               <div className="msg-body">{m.body}</div>
               {(m.attachments ?? [])
                 .filter((a) => a.contentType.startsWith('image/'))

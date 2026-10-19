@@ -6,7 +6,7 @@ Todas as rotas exigem login e valem só para as inscrições do próprio usuári
 | Rota | Uso |
 |---|---|
 | `GET /api/push/config` | `{ publicKey }`: chave VAPID do servidor (base64url) para o `pushManager.subscribe` |
-| `PUT /api/push/subscription` | Cria ou atualiza a inscrição deste aparelho: `{ endpoint, p256dh, auth, device, newTickets, updates, messages }` |
+| `PUT /api/push/subscription` | Cria ou atualiza a inscrição deste aparelho: `{ endpoint, p256dh, auth, device, newTickets, updates, messages, insights }` |
 | `POST /api/push/subscription/find` | `{ endpoint }` → a inscrição e as escolhas, ou 404 (não ativada aqui, ou de outro usuário) |
 | `POST /api/push/subscription/delete` | `{ endpoint }` → 204; usado ao desligar e ao sair da conta |
 | `POST /api/push/test` | `{ endpoint }` → `{ delivered, error }`: envia "Notificações ativas" para o aparelho |

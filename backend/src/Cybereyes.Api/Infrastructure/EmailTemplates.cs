@@ -1,6 +1,8 @@
 using System.Globalization;
 using System.Net;
 using System.Text;
+using Cybereyes.Api.Assistant;
+using Cybereyes.Core.Assistant;
 
 namespace Cybereyes.Api.Infrastructure;
 
@@ -122,6 +124,49 @@ public static class EmailTemplates
         return new(SubjectPrefix + $"Relatório {title}", text,
             Layout($"Segue em anexo o relatório {title}.", body, "Envio agendado em Relatórios, aba Agendamentos.", publicUrl));
     }
+
+    /// <summary>Analise de erros recorrentes nos logs: panorama do assistente e os grupos mais graves.</summary>
+    public static EmailContent LogInsights(string title, string period, LogInsightReport report, IReadOnlyList<InsightItem> items, string link,
+        string? publicUrl)
+    {
+        var top = items.OrderByDescending(i => Array.IndexOf(SeverityOrder, i.Severity)).ThenByDescending(i => i.Count).Take(5).ToList();
+        var text = new StringBuilder()
+            .Append(CultureInfo.InvariantCulture, $"{title}\nPeríodo: {period}\n\n{report.Summary}\n\n")
+            .AppendJoin("\n", top.Select(i => string.Create(CultureInfo.InvariantCulture,
+                $"- [{InsightSeverityName(i.Severity)}] {i.Title}: {i.Count} ocorrências em {i.Agents} máquina(s), {i.Days} de 7 dias")))
+            .Append(CultureInfo.InvariantCulture, $"\n\nAnálise completa: {link}")
+            .ToString();
+        var rows = string.Concat(top.Select(i =>
+            "<tr><td style=\"padding: 10px 0; border-bottom: 1px solid #dde0e4; font-size: 14px; line-height: 20px; color: #131418\">" +
+            string.Create(CultureInfo.InvariantCulture,
+                $"<strong>{E(i.Title)}</strong><br><span style=\"font-size: 12px; color: #5f656f\">{E(InsightSeverityName(i.Severity))} · {i.Count} ocorrências · {i.Agents} máquina(s) · {i.Days} de 7 dias</span>") +
+            "</td></tr>"));
+        var body = new StringBuilder()
+            .Append(Heading(E(title)))
+            .Append(Paragraph(E(report.Summary)))
+            .Append(Fields([
+                new("Período", period),
+                new("Eventos", report.EventCount.ToString(CultureInfo.InvariantCulture)),
+                new("Grupos", report.GroupCount.ToString(CultureInfo.InvariantCulture)),
+                new("Máquinas", report.AgentCount.ToString(CultureInfo.InvariantCulture)),
+            ]))
+            .Append(top.Count > 0 ? $"<table role=\"presentation\" style=\"width: 100%; border-collapse: collapse; margin: 0 0 24px\">{rows}</table>" : string.Empty)
+            .Append(Button("Ver a análise completa", link))
+            .Append(Fallback(link))
+            .ToString();
+        return new(SubjectPrefix + title, text,
+            Layout(report.Summary, body, "Análise periódica do assistente de IA, configurada em Configurações, Assistente de IA.", publicUrl));
+    }
+
+    private static readonly string[] SeverityOrder = ["baixa", "media", "alta", "critica"];
+
+    private static string InsightSeverityName(string severity) => severity switch
+    {
+        "critica" => "Crítica",
+        "alta" => "Alta",
+        "baixa" => "Baixa",
+        _ => "Média",
+    };
 
     /// <summary>Estrutura comum: faixa escura com o emblema, conteudo e rodape. <paramref name="body"/> ja vem em HTML seguro.</summary>
     private static string Layout(string preheader, string body, string footerNote, string? publicUrl)

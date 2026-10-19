@@ -110,7 +110,7 @@ export function docPagePath(id: number): string {
 }
 
 /** Aba da tela de documentacao (?aba=). */
-export function docsTabPath(tab: 'redes' | 'diagramas' | 'credenciais' | 'paginas'): string {
+export function docsTabPath(tab: 'redes' | 'diagramas' | 'credenciais' | 'paginas' | 'faq'): string {
   return tab === 'redes' ? PATHS.docs : `${PATHS.docs}?aba=${tab}`;
 }
 

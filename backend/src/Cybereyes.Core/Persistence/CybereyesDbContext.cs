@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Cybereyes.Core.Apps;
+using Cybereyes.Core.Assistant;
 using Cybereyes.Core.Audit;
 using Cybereyes.Core.Identity;
 using Cybereyes.Core.Inventory;
@@ -84,6 +85,8 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
     public DbSet<AppCommand> AppCommands => Set<AppCommand>();
     public DbSet<AppRun> AppRuns => Set<AppRun>();
     public DbSet<PushSubscription> PushSubscriptions => Set<PushSubscription>();
+    public DbSet<FaqEntry> FaqEntries => Set<FaqEntry>();
+    public DbSet<LogInsightReport> LogInsightReports => Set<LogInsightReport>();
 
     // Escopo de clientes do usuario da requisicao. Nulo = sem restricao (agentes, servicos internos e
     // usuarios com acesso a todos os clientes). Os filtros globais de ConfigureClientScope leem estes campos.
@@ -313,6 +316,7 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
 
         builder.Entity<SystemLog>().HasQueryFilter(x => scopeClientIds == null || scopeClientIds.Contains(x.ClientId));
         builder.Entity<LogAlertRule>().HasQueryFilter(x => scopeClientIds == null || x.ClientId == null || scopeClientIds.Contains(x.ClientId.Value));
+        builder.Entity<FaqEntry>().HasQueryFilter(x => scopeClientIds == null || x.ClientId == null || scopeClientIds.Contains(x.ClientId.Value));
         builder.Entity<SnmpDevice>().HasQueryFilter(x => scopeClientIds == null || scopeClientIds.Contains(x.ClientId));
         builder.Entity<SnmpInterface>().HasQueryFilter(x => scopeClientIds == null || SnmpDevices.Any(d => d.Id == x.DeviceId));
         builder.Entity<SnmpSensor>().HasQueryFilter(x => scopeClientIds == null || SnmpDevices.Any(d => d.Id == x.DeviceId));
@@ -608,6 +612,7 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
         ConfigureCare(builder);
         ConfigureLogsSnmp(builder);
         ConfigureReportsSso(builder);
+        ConfigureAssistant(builder);
 
         builder.Entity<Client>().HasOne<Policy>().WithMany().HasForeignKey(c => c.ServerPolicyId).OnDelete(DeleteBehavior.SetNull);
         builder.Entity<Client>().HasOne<Policy>().WithMany().HasForeignKey(c => c.WorkstationPolicyId).OnDelete(DeleteBehavior.SetNull);
@@ -1131,6 +1136,46 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
         {
             e.Property(x => x.PushPublicKey).HasMaxLength(200);
             e.Property(x => x.PushPrivateKeyProtected).HasMaxLength(2000);
+        });
+    }
+
+    private static void ConfigureAssistant(ModelBuilder builder)
+    {
+        builder.Entity<CoreSettings>(e =>
+        {
+            e.Property(x => x.AnthropicKeyProtected).HasMaxLength(2000);
+            e.Property(x => x.AnthropicKeyHint).HasMaxLength(16);
+            e.Property(x => x.AssistantModel).HasMaxLength(64);
+            e.Property(x => x.AssistantName).HasMaxLength(100);
+            e.Property(x => x.AssistantAgentId).HasMaxLength(100);
+            e.Property(x => x.AssistantChatEffort).HasMaxLength(16);
+            e.Property(x => x.AssistantLogEffort).HasMaxLength(16);
+            e.Property(x => x.LogInsightsMinLevel).HasMaxLength(16);
+        });
+
+        builder.Entity<Ticket>(e => e.Property(x => x.AssistantState).HasMaxLength(16));
+
+        builder.Entity<FaqEntry>(e =>
+        {
+            e.ToTable("faq_entries");
+            e.Property(x => x.Question).HasMaxLength(300);
+            e.Property(x => x.Answer).HasMaxLength(20000);
+            e.Property(x => x.Tags).HasColumnType("text[]");
+            e.Property(x => x.UpdatedBy).HasMaxLength(200);
+            e.Ignore(x => x.Guides);
+            e.HasIndex(x => x.ClientId);
+            e.HasOne<Client>().WithMany().HasForeignKey(x => x.ClientId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<LogInsightReport>(e =>
+        {
+            e.ToTable("log_insight_reports");
+            e.Property(x => x.Status).HasMaxLength(16);
+            e.Property(x => x.Model).HasMaxLength(64);
+            e.Property(x => x.Summary).HasMaxLength(8000);
+            e.Property(x => x.Content).HasColumnType("jsonb");
+            e.Property(x => x.Error).HasMaxLength(2000);
+            e.HasIndex(x => x.CreatedAt);
         });
     }
 }

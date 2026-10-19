@@ -9,7 +9,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Cybereyes.Api.Assistant;
 using Cybereyes.Api.Infrastructure;
+using Cybereyes.Api.Rmm.Monitoring;
 using Cybereyes.Core.Persistence;
 using Cybereyes.Core.Rmm;
 using Cybereyes.Core.Security;
@@ -137,9 +139,17 @@ public static class Tray
         var s = Session(principal)!;
         var agent = await db.Agents.AsNoTracking().Where(a => a.Id == s.AgentId)
             .Select(a => new { a.Hostname, ClientName = a.Site!.Client!.Name, SiteName = a.Site.Name }).FirstOrDefaultAsync(ct);
-        return agent is null
-            ? Problems.NotFound("Agente")
-            : TypedResults.Ok(new { agent.Hostname, username = s.Username, agent.ClientName, agent.SiteName });
+        if (agent is null)
+        {
+            return Problems.NotFound("Agente");
+        }
+        var settings = await SettingsStore.GetAsync(db, ct);
+        var assistant = settings.AssistantChatEnabled && settings.AnthropicKeyProtected is not null;
+        return TypedResults.Ok(new
+        {
+            agent.Hostname, username = s.Username, agent.ClientName, agent.SiteName,
+            assistantEnabled = assistant, assistantName = assistant ? settings.AssistantName : null,
+        });
     }
 
     private static async Task<IResult> ListAsync(ClaimsPrincipal principal, CybereyesDbContext db, CancellationToken ct)
@@ -155,7 +165,7 @@ public static class Tray
     }
 
     private static async Task<IResult> CreateAsync([FromForm] string? title, [FromForm] string? description, [FromForm] IFormFile? screenshot,
-        ClaimsPrincipal principal, CybereyesDbContext db, TicketService svc, CancellationToken ct)
+        ClaimsPrincipal principal, CybereyesDbContext db, TicketService svc, AssistantChat assistant, CancellationToken ct)
     {
         var s = Session(principal)!;
         var cleanTitle = title?.Trim() ?? string.Empty;
@@ -192,6 +202,7 @@ public static class Tray
                 return error;
             }
         }
+        await assistant.StartAsync(ticket, ct);
         return TypedResults.Created($"/api/tray/tickets/{ticket.Id}", TicketService.ToTray(ticket, null));
     }
 
@@ -216,7 +227,7 @@ public static class Tray
     }
 
     private static async Task<IResult> MessageAsync(int id, TrayMessageRequest r, ClaimsPrincipal principal, CybereyesDbContext db, TicketService svc,
-        CancellationToken ct)
+        AssistantChat assistant, CancellationToken ct)
     {
         var s = Session(principal)!;
         var ticket = await Mine(db, s).FirstOrDefaultAsync(t => t.Id == id, ct);
@@ -224,11 +235,12 @@ public static class Tray
         {
             return Problems.NotFound("Chamado");
         }
-        if (ticket.AssignedToId is null || ticket.Status == TicketStatus.Closed)
+        if (!TicketService.ChatOpen(ticket))
         {
             return Problems.Create(StatusCodes.Status409Conflict, "O chat e liberado quando um tecnico assume o chamado", ErrorCodes.ChatLocked);
         }
         var message = await svc.AddMessageAsync(ticket, MessageAuthor.Requester, null, s.Username, r.Body.Trim(), false, ct);
+        assistant.Followup(ticket);
         return TypedResults.Created($"/api/tray/tickets/{id}/messages/{message.Id}",
             new TrayMessageDto(message.Id, message.AuthorType, message.AuthorName, message.Body, message.CreatedAt, message.Attachments));
     }

@@ -51,6 +51,7 @@ public static class MessageAuthor
     public const string Technician = "technician";
     public const string Requester = "requester";
     public const string System = "system";
+    public const string Assistant = "assistant";
 }
 
 [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1711", Justification = "Fila de atendimento e o termo do dominio, nao uma colecao")]
@@ -94,6 +95,12 @@ public sealed class Ticket
     public DateTimeOffset? ResolutionDueAt { get; set; }
     public DateTimeOffset? LastMessageAt { get; set; }
     public string? LastMessageAuthor { get; set; }
+
+    /// <summary>Atendimento do assistente (<see cref="Assistant.AssistantStates"/>); nulo quando ele nao participa.</summary>
+    public string? AssistantState { get; set; }
+
+    /// <summary>Respostas que o assistente ja deu, para encaminhar a um tecnico depois de algumas tentativas.</summary>
+    public int AssistantTurns { get; set; }
 }
 
 public sealed class TicketMessage

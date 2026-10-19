@@ -25,6 +25,8 @@ public sealed class ApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
 
     public RecordingPush Pushes { get; } = new();
 
+    public FakeAssistant Assistant { get; } = new();
+
     public const string NatsApiUser = "cybereyes-api";
     public const string NatsApiPassword = "senha-nats-teste";
 
@@ -104,6 +106,8 @@ public sealed class ApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
             services.AddSingleton<INotificationSender>(Notifications);
             services.RemoveAll<IPushTransport>();
             services.AddSingleton<IPushTransport>(Pushes);
+            services.RemoveAll<Cybereyes.Api.Assistant.IAssistantModel>();
+            services.AddSingleton<Cybereyes.Api.Assistant.IAssistantModel>(Assistant);
             services.AddHttpClient(Cybereyes.Api.Rmm.Software.PackageCatalog.HttpClientName)
                 .ConfigurePrimaryHttpMessageHandler(() => new PackageFeeds.Handler());
         });
@@ -264,5 +268,95 @@ public sealed class RecordingPush : IPushTransport
             await Task.Delay(100);
         }
         throw new TimeoutException($"Nenhum push esperado para {endpoint}: {string.Join(" | ", For(endpoint).Select(m => m.Title))}");
+    }
+}
+
+/// <summary>Modelo de IA de mentira: responde com o que o teste enfileirou e guarda os pedidos.</summary>
+public sealed class FakeAssistant : Cybereyes.Api.Assistant.IAssistantModel
+{
+    private readonly Queue<object> replies = new();
+    private readonly List<Cybereyes.Api.Assistant.AssistantCall> calls = [];
+
+    /// <summary>Chave que o teste da conexao recusa.</summary>
+    public const string RejectedKey = "sk-ant-recusada-0000000000";
+
+    public List<Cybereyes.Api.Assistant.AssistantCall> Calls
+    {
+        get
+        {
+            lock (calls)
+            {
+                return [.. calls];
+            }
+        }
+    }
+
+    /// <summary>Proxima resposta (objeto serializado como o JSON do modelo) ou uma excecao para simular falha.</summary>
+    public void Enqueue(object reply)
+    {
+        lock (calls)
+        {
+            replies.Enqueue(reply);
+        }
+    }
+
+    /// <summary>Descarta respostas que o teste enfileirou e nao foram usadas, para nao vazarem para o proximo teste.</summary>
+    public void ClearReplies()
+    {
+        lock (calls)
+        {
+            replies.Clear();
+        }
+    }
+
+    public Task<Cybereyes.Api.Assistant.AssistantAnswer> GenerateAsync(Cybereyes.Api.Assistant.AssistantCall request, CancellationToken ct)
+    {
+        object reply;
+        lock (calls)
+        {
+            calls.Add(request);
+            reply = replies.Count > 0 ? replies.Dequeue() : new Cybereyes.Api.Assistant.AssistantException("sem resposta enfileirada");
+        }
+        if (reply is Exception ex)
+        {
+            throw ex;
+        }
+        var json = System.Text.Json.JsonSerializer.SerializeToElement(reply);
+        return Task.FromResult(new Cybereyes.Api.Assistant.AssistantAnswer(json, 1000, 200));
+    }
+
+    public Task VerifyAsync(string apiKey, string model, CancellationToken ct) =>
+        apiKey == RejectedKey ? throw new Cybereyes.Api.Assistant.AssistantException("A Anthropic recusou a chave da API") : Task.CompletedTask;
+
+    /// <summary>Agentes da "conta da Anthropic" de mentira, compartilhada pelos testes.</summary>
+    public List<Cybereyes.Api.Assistant.AssistantAgent> Agents { get; } = [];
+
+    public Task<IReadOnlyList<Cybereyes.Api.Assistant.AssistantAgent>> ListAgentsAsync(string apiKey, CancellationToken ct)
+    {
+        lock (Agents)
+        {
+            return Task.FromResult<IReadOnlyList<Cybereyes.Api.Assistant.AssistantAgent>>([.. Agents]);
+        }
+    }
+
+    public Task<Cybereyes.Api.Assistant.AssistantAgent> GetAgentAsync(string apiKey, string agentId, CancellationToken ct)
+    {
+        lock (Agents)
+        {
+            return Agents.FirstOrDefault(a => a.Id == agentId) is { } found
+                ? Task.FromResult(found)
+                : throw new Cybereyes.Api.Assistant.AssistantException("Modelo ou agente nao encontrado na conta da Anthropic");
+        }
+    }
+
+    public Task<Cybereyes.Api.Assistant.AssistantAgent> CreateAgentAsync(string apiKey, string name, string description, string model, string system,
+        CancellationToken ct)
+    {
+        lock (Agents)
+        {
+            var agent = new Cybereyes.Api.Assistant.AssistantAgent($"agent_{Agents.Count + 1:D4}", name, description, model, system, 1);
+            Agents.Add(agent);
+            return Task.FromResult(agent);
+        }
     }
 }
