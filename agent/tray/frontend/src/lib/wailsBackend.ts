@@ -2,6 +2,9 @@ import { Call, Events } from '@wailsio/runtime';
 import type {
   Backend,
   CreateResult,
+  FaqEntry,
+  FaqItem,
+  FaqList,
   Message,
   NavigateEvent,
   RemoteEvent,
@@ -56,4 +59,11 @@ export const wailsBackend: Backend = {
   onRemote: (cb) => on('tray:remote', (d) => { cb(d as RemoteEvent); }),
   remoteAnswer: async (session, accept) => { await call('RemoteAnswer', session, accept); },
   remoteEnd: async (session) => { await call('RemoteEnd', session); },
+  listFaq: async (search, category) => {
+    const l = (await call('ListFaq', search, category)) as { categories: string[] | null; entries: FaqItem[] | null };
+    return { categories: l.categories ?? [], entries: l.entries ?? [] } satisfies FaqList;
+  },
+  getFaq: (id) => call('GetFaq', id) as Promise<FaqEntry>,
+  faqFeedback: async (id, helpful) => { await call('FaqFeedback', id, helpful); },
+  suggestFaq: async (question) => { await call('SuggestFaq', question); },
 };

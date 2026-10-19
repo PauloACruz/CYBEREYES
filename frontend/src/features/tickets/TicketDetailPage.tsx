@@ -87,7 +87,7 @@ function TicketDetailView({ ticket }: { ticket: TicketDetail }) {
               )}
             </Paper>
             <ResolutionCard ticket={ticket} canManage={canManage} />
-            <TicketConversation ticketId={ticket.id} canManage={canManage} internalOnly={isInternalTicket(ticket)} />
+            <TicketConversation ticketId={ticket.id} canManage={canManage} internalOnly={isInternalTicket(ticket)} clientId={ticket.clientId} />
             <AttachmentsSection ticketId={ticket.id} />
           </Stack>
         </Grid.Col>

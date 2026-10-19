@@ -57,6 +57,7 @@ type SessionInfo struct {
 	Realtime         bool   `json:"realtime"`
 	AssistantEnabled bool   `json:"assistantEnabled"`
 	AssistantName    string `json:"assistantName,omitempty"`
+	FaqEnabled       bool   `json:"faqEnabled"`
 	Error            string `json:"error,omitempty"`
 }
 
@@ -165,6 +166,7 @@ func (s *TrayService) Session(ctx context.Context) SessionInfo {
 	}
 	info.Hostname, info.Username, info.ClientName, info.SiteName = me.Hostname, me.Username, me.ClientName, me.SiteName
 	info.AssistantEnabled, info.AssistantName = me.AssistantEnabled, me.AssistantName
+	info.FaqEnabled = me.FaqEnabled
 	if creds.Username != "" {
 		info.Username = creds.Username
 	}

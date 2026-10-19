@@ -63,6 +63,10 @@ Ferramentas marcadas com `destructiveHint` mudam a máquina; os clientes MCP cos
 | `search_logs`, `logs_summary` | `GET /api/logs`, `/api/logs/summary` | `logs.view` |
 | `list_scripts`, `get_script` | `GET /api/scripts`, `/api/scripts/{id}` | `scripts.view` |
 | `search_docs`, `get_doc_page` | `GET /api/doc-pages`, `/api/doc-pages/{id}` | `docs.view` |
+| `search_faq`, `get_faq` | `GET /api/faq` (publicadas por padrão; `status=proposed` ou `all`), `/api/faq/{id}` | `docs.view` |
+| `create_faq` | `POST /api/faq` (sugestão por padrão; `status=published` para publicar) | `docs.view` (publicar exige `docs.manage`) |
+| `update_faq` | `GET` + `PUT /api/faq/{id}` (campos omitidos ficam como estão) | `docs.manage` |
+| `faq_used` | `POST /api/faq/{id}/used` | `docs.view` |
 | `list_assets` | `GET /api/assets` | `inventory.view` |
 | `api_get` | qualquer `GET /api/...` (só caminho relativo; sem host, `..` ou `//`) | a da rota |
 

@@ -122,6 +122,7 @@ export const queryKeys = {
   logInsight: (id: number) => ['assistant', 'insights', id] as const,
   faq: ['faq'] as const,
   faqList: (params: ListFaqParams) => ['faq', 'list', params] as const,
+  faqOverview: (clientId?: number) => ['faq', 'overview', clientId ?? null] as const,
   snmp: ['snmp'] as const,
   snmpDeviceLists: ['snmp', 'devices'] as const,
   snmpDevices: (params: ListSnmpDevicesParams) => ['snmp', 'devices', params] as const,

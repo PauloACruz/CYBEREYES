@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import { ActionIcon, Button, Checkbox, Group, Modal, Paper, SegmentedControl, Stack, Text, Textarea, Title, Tooltip } from '@mantine/core';
-import { IconPencil } from '@tabler/icons-react';
+import { IconHelpCircle, IconPencil } from '@tabler/icons-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../api/queryKeys';
 import { ticketsApi } from '../../api/tickets';
-import type { ResolveTicketRequest, TicketDetail, TicketResolutionKind } from '../../api/types';
+import { PERMISSIONS, type ResolveTicketRequest, type TicketDetail, type TicketResolutionKind } from '../../api/types';
+import { hasPermission } from '../../auth/permissions';
+import { useMe } from '../../auth/useMe';
 import { formatDateTime } from '../../lib/format';
 import { notifySuccess } from '../../lib/feedback';
+import { FaqFormModal } from '../faq/FaqFormModal';
 import { isInternalTicket, RESOLUTION_KIND_LABEL } from './ticketFormat';
 import { storeTicket } from './ticketActions';
 
@@ -111,6 +114,8 @@ function ResolveForm({ ticket, editing, onClose }: { ticket: TicketDetail; editi
 /** Solucao registrada pelo botao Resolver; pode ser corrigida enquanto o chamado estiver resolvido. */
 export function ResolutionCard({ ticket, canManage }: { ticket: TicketDetail; canManage: boolean }) {
   const [editing, setEditing] = useState(false);
+  const [faqOpen, setFaqOpen] = useState(false);
+  const { data: me } = useMe();
   if (!ticket.resolutionKind || ticket.resolution === null) return null;
   const label = RESOLUTION_KIND_LABEL[ticket.resolutionKind];
   return (
@@ -125,19 +130,34 @@ export function ResolutionCard({ ticket, canManage }: { ticket: TicketDetail; ca
         <Title order={4} id="solucao-title">
           {label}
         </Title>
-        {canManage && ticket.status === 'resolved' && (
-          <Tooltip label="Editar solução">
-            <ActionIcon variant="subtle" color="gray" aria-label="Editar solução" onClick={() => setEditing(true)}>
-              <IconPencil size={16} />
-            </ActionIcon>
-          </Tooltip>
-        )}
+        <Group gap={4} wrap="nowrap">
+          {hasPermission(me, PERMISSIONS.docsView) && (
+            <Tooltip label="Registrar esta solução no FAQ">
+              <ActionIcon variant="subtle" color="gray" aria-label="Criar entrada no FAQ" onClick={() => setFaqOpen(true)}>
+                <IconHelpCircle size={16} />
+              </ActionIcon>
+            </Tooltip>
+          )}
+          {canManage && ticket.status === 'resolved' && (
+            <Tooltip label="Editar solução">
+              <ActionIcon variant="subtle" color="gray" aria-label="Editar solução" onClick={() => setEditing(true)}>
+                <IconPencil size={16} />
+              </ActionIcon>
+            </Tooltip>
+          )}
+        </Group>
       </Group>
       <Text size="sm" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
         {ticket.resolution}
       </Text>
       <ResolutionByline ticket={ticket} />
       <ResolveTicketModal ticket={ticket} opened={editing} onClose={() => setEditing(false)} />
+      <FaqFormModal
+        opened={faqOpen}
+        onClose={() => setFaqOpen(false)}
+        entry={null}
+        prefill={{ question: ticket.title, answer: ticket.resolution, clientId: ticket.clientId, sourceTicketId: ticket.id }}
+      />
     </Paper>
   );
 }

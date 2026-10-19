@@ -232,6 +232,10 @@ export const routes: RouteObject[] = [
                 path: `${PATHS.docs}/paginas/:id`,
                 lazy: () => import('../features/docs/pages/DocPageEditorPage').then((m) => ({ Component: m.DocPageEditorPage })),
               },
+              {
+                path: PATHS.faq,
+                lazy: () => import('../features/faq/FaqPage').then((m) => ({ Component: m.FaqPage })),
+              },
             ],
           },
           {

@@ -1163,9 +1163,16 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
             e.Property(x => x.Answer).HasMaxLength(20000);
             e.Property(x => x.Tags).HasColumnType("text[]");
             e.Property(x => x.UpdatedBy).HasMaxLength(200);
+            e.Property(x => x.Category).HasMaxLength(80);
+            e.Property(x => x.Status).HasMaxLength(16);
+            e.Property(x => x.Source).HasMaxLength(16);
+            e.Property(x => x.SuggestedBy).HasMaxLength(300);
             e.Ignore(x => x.Guides);
             e.HasIndex(x => x.ClientId);
+            e.HasIndex(x => x.Status);
+            e.HasIndex(x => x.SourceTicketId);
             e.HasOne<Client>().WithMany().HasForeignKey(x => x.ClientId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<Ticket>().WithMany().HasForeignKey(x => x.SourceTicketId).OnDelete(DeleteBehavior.SetNull);
         });
 
         builder.Entity<LogInsightReport>(e =>

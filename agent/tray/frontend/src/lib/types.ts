@@ -45,7 +45,30 @@ export interface SessionInfo {
   /** O assistente de IA faz o primeiro atendimento dos chamados abertos pelo app. */
   assistantEnabled?: boolean;
   assistantName?: string;
+  /** Há perguntas frequentes publicadas para a ajuda do app. */
+  faqEnabled?: boolean;
   error?: string;
+}
+
+/** Pergunta da ajuda, com o começo da resposta. */
+export interface FaqItem {
+  id: number;
+  question: string;
+  category: string | null;
+  excerpt: string;
+}
+
+export interface FaqList {
+  categories: string[];
+  entries: FaqItem[];
+}
+
+export interface FaqEntry {
+  id: number;
+  question: string;
+  answer: string;
+  category: string | null;
+  updatedAt: string;
 }
 
 export interface CreateResult {
@@ -128,4 +151,8 @@ export interface Backend {
   onRemote(cb: (e: RemoteEvent) => void): Unsubscribe;
   remoteAnswer(session: string, accept: boolean): Promise<void>;
   remoteEnd(session: string): Promise<void>;
+  listFaq(search: string, category: string): Promise<FaqList>;
+  getFaq(id: number): Promise<FaqEntry>;
+  faqFeedback(id: number, helpful: boolean): Promise<void>;
+  suggestFaq(question: string): Promise<void>;
 }

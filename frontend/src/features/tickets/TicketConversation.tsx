@@ -20,9 +20,12 @@ import { IconLock, IconPaperclip, IconRobot, IconSend, IconX } from '@tabler/ico
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '../../api/queryKeys';
 import { ticketsApi } from '../../api/tickets';
-import type { TicketMessageDto } from '../../api/types';
+import { PERMISSIONS, type TicketMessageDto } from '../../api/types';
+import { hasPermission } from '../../auth/permissions';
+import { useMe } from '../../auth/useMe';
 import { LoadError } from '../../components/TableStates';
 import { formatBytes, formatDateTime } from '../../lib/format';
+import { FaqPickerButton } from '../faq/FaqPicker';
 import { AttachmentList } from './TicketAttachments';
 import { REPLY_OPTIONS, useTicketRealtime, useTicketReply } from './ticketReply';
 
@@ -94,7 +97,17 @@ export function MessageItem({ message }: { message: TicketMessageDto }) {
   );
 }
 
-export function TicketConversation({ ticketId, canManage, internalOnly = false }: { ticketId: number; canManage: boolean; internalOnly?: boolean }) {
+export function TicketConversation({
+  ticketId,
+  canManage,
+  internalOnly = false,
+  clientId,
+}: {
+  ticketId: number;
+  canManage: boolean;
+  internalOnly?: boolean;
+  clientId?: number | null;
+}) {
   useTicketRealtime(ticketId);
   const messages = useQuery({ queryKey: queryKeys.ticketMessages(ticketId), queryFn: () => ticketsApi.messages(ticketId) });
   const viewport = useRef<HTMLDivElement>(null);
@@ -131,13 +144,15 @@ export function TicketConversation({ ticketId, canManage, internalOnly = false }
           )}
         </Box>
       )}
-      {canManage && <ReplyForm ticketId={ticketId} internalOnly={internalOnly} />}
+      {canManage && <ReplyForm ticketId={ticketId} internalOnly={internalOnly} clientId={clientId} />}
     </Paper>
   );
 }
 
-function ReplyForm({ ticketId, internalOnly }: { ticketId: number; internalOnly: boolean }) {
+function ReplyForm({ ticketId, internalOnly, clientId }: { ticketId: number; internalOnly: boolean; clientId?: number | null }) {
   const { mode, setMode, body, setBody, files, addFiles, removeFile, internal, send, tooLong, canSend } = useTicketReply(ticketId, internalOnly);
+  const { data: me } = useMe();
+  const canReadFaq = hasPermission(me, PERMISSIONS.docsView);
 
   return (
     <form
@@ -197,15 +212,18 @@ function ReplyForm({ ticketId, internalOnly }: { ticketId: number; internalOnly:
           </Group>
         )}
         <Group justify="space-between">
-          <FileButton onChange={addFiles} multiple>
-            {(props) => (
-              <Tooltip label="Até 10 MB por arquivo">
-                <Button {...props} variant="default" leftSection={<IconPaperclip size={16} />}>
-                  Anexar arquivos
-                </Button>
-              </Tooltip>
-            )}
-          </FileButton>
+          <Group gap="xs">
+            <FileButton onChange={addFiles} multiple>
+              {(props) => (
+                <Tooltip label="Até 10 MB por arquivo">
+                  <Button {...props} variant="default" leftSection={<IconPaperclip size={16} />}>
+                    Anexar arquivos
+                  </Button>
+                </Tooltip>
+              )}
+            </FileButton>
+            {canReadFaq && <FaqPickerButton clientId={clientId} onInsert={(answer) => setBody(body.trim() ? `${body.trimEnd()}\n\n${answer}` : answer)} />}
+          </Group>
           <Button type="submit" color={internal ? 'yellow' : undefined} leftSection={<IconSend size={16} />} loading={send.isPending} disabled={!canSend}>
             {internal ? 'Salvar nota' : 'Enviar resposta'}
           </Button>

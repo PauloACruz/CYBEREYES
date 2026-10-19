@@ -29,7 +29,7 @@ public sealed record TicketDetail(
     DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, DateTimeOffset? FirstResponseDueAt, DateTimeOffset? ResolutionDueAt,
     bool SlaBreached, bool UnreadForTechnician, string Description, string? RequesterUsername, string? RequesterEmail, long? AlertId,
     string? CreatedByName, DateTimeOffset? FirstResponseAt, DateTimeOffset? ResolvedAt, DateTimeOffset? ClosedAt, int TotalMinutes,
-    TicketAgentDto? Agent, string? ResolutionKind, string? Resolution, string? ResolvedByName);
+    TicketAgentDto? Agent, string? ResolutionKind, string? Resolution, string? ResolvedByName, int? ClientId = null);
 
 public sealed record CreateTicketRequest(
     [property: Required, StringLength(200, MinimumLength = 3)] string Title,
@@ -279,7 +279,7 @@ public static class TicketEndpoints
             item.ClientName, item.SiteName, item.RequesterName, item.AssignedToId, item.AssignedToName, item.Source, item.CreatedAt, item.UpdatedAt,
             item.FirstResponseDueAt, item.ResolutionDueAt, item.SlaBreached, item.UnreadForTechnician, t.Description, t.RequesterUsername,
             t.RequesterEmail, t.AlertId, row.CreatedByName, t.FirstResponseAt, t.ResolvedAt, t.ClosedAt, minutes, agent, t.ResolutionKind, t.Resolution,
-            resolvedBy);
+            resolvedBy, t.ClientId);
     }
 
     public static async Task<string> ActorNameAsync(ClaimsPrincipal principal, CybereyesDbContext db, CancellationToken ct)
@@ -405,7 +405,7 @@ public static class TicketEndpoints
     }
 
     private static async Task<IResult> ResolveAsync(int id, ResolveRequest r, ClaimsPrincipal principal, CybereyesDbContext db, TicketService svc,
-        IAuditService audit, TimeProvider time, CancellationToken ct)
+        Assistant.FaqLearnOutbox faqLearn, IAuditService audit, TimeProvider time, CancellationToken ct)
     {
         if (!TicketResolutionKind.All.Contains(r.Kind))
         {
@@ -427,6 +427,8 @@ public static class TicketEndpoints
         }
         await svc.ResolveAsync(ticket, r.Kind, resolution, r.Internal, principal.UserId(), await ActorNameAsync(principal, db, ct), ct);
         await audit.LogAsync("ticket.resolve", "ticket", Id(id), $"Chamado #{id} resolvido ({TicketService.ResolutionKindName(r.Kind)})", cancellationToken: ct);
+        // O assistente le o chamado depois e sugere uma entrada do FAQ com a solucao, se valer a pena.
+        faqLearn.Enqueue(id);
         return TypedResults.Ok(await DetailAsync(id, db, time, ct));
     }
 

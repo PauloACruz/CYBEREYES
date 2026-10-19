@@ -309,7 +309,7 @@ public sealed partial class LogInsightRunner(
     {
         var agents = await db.Agents.AsNoTracking().GroupBy(a => a.Plat).Select(g => new { g.Key, Count = g.Count() }).ToListAsync(ct);
         var rules = await db.LogAlertRules.AsNoTracking().Where(r => r.Enabled).Select(r => r.Name).Take(30).ToListAsync(ct);
-        var faq = await db.FaqEntries.AsNoTracking().Where(f => f.Enabled).Select(f => new { f.Question, f.Tags }).ToListAsync(ct);
+        var faq = await db.FaqEntries.AsNoTracking().Where(f => f.Enabled && f.Status == FaqStatus.Published).Select(f => new { f.Question, f.Tags }).ToListAsync(ct);
         var scripts = await db.Scripts.AsNoTracking().OrderBy(s => s.Name).Select(s => s.Name).Take(80).ToListAsync(ct);
         var checks = await db.Checks.AsNoTracking().CountAsync(ct);
         var tasks = await db.Tasks.AsNoTracking().CountAsync(ct);

@@ -1,8 +1,9 @@
 import { Group, Select, Tabs } from '@mantine/core';
-import { IconFileText, IconHelpCircle, IconKey, IconNetwork, IconSitemap, type Icon } from '@tabler/icons-react';
+import { IconFileText, IconKey, IconNetwork, IconSitemap, type Icon } from '@tabler/icons-react';
 import type { ReactNode } from 'react';
-import { useSearchParams } from 'react-router';
+import { Navigate, useSearchParams } from 'react-router';
 import { PERMISSIONS } from '../../api/types';
+import { PATHS } from '../../app/paths';
 import { hasPermission } from '../../auth/permissions';
 import { useMe } from '../../auth/useMe';
 import { PageHeader } from '../../components/PageHeader';
@@ -10,7 +11,6 @@ import { useClients } from '../clients/useClients';
 import { toId } from '../inventory/inventoryFormat';
 import { CredentialsTab } from './credentials/CredentialsTab';
 import { DiagramsTab } from './diagrams/DiagramsTab';
-import { FaqTab } from './faq/FaqTab';
 import { NetworksTab } from './networks/NetworksTab';
 import { DocPagesTab } from './pages/DocPagesTab';
 
@@ -40,7 +40,6 @@ export function DocsPage() {
       render: () => <CredentialsTab clientId={clientId} canManage={canManageCredentials} canReveal={canReveal} />,
     },
     { value: 'paginas', label: 'Páginas', icon: IconFileText, render: () => <DocPagesTab clientId={clientId} canManage={canManage} /> },
-    { value: 'faq', label: 'FAQ', icon: IconHelpCircle, render: () => <FaqTab clientId={clientId} canManage={canManage} /> },
   ];
 
   const requested = searchParams.get('aba');
@@ -58,11 +57,14 @@ export function DocsPage() {
     );
   };
 
+  // O FAQ saiu da documentação e ganhou uma área própria.
+  if (requested === 'faq') return <Navigate to={PATHS.faq} replace />;
+
   return (
     <>
       <PageHeader
         title="Documentação"
-        description="Redes, diagramas, credenciais, páginas de documentação e o FAQ de problemas conhecidos."
+        description="Redes, diagramas, credenciais e páginas de documentação dos clientes."
         actions={
           <Select
             aria-label="Filtrar por cliente"

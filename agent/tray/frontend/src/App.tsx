@@ -6,6 +6,7 @@ import type { SelfServiceOptions, SelfServiceTask, SessionInfo, Ticket } from '.
 import { useSelfServiceRun } from './lib/useSelfServiceRun';
 import { AssistantStart } from './components/AssistantStart';
 import { Header } from './components/Header';
+import { HelpPanel } from './components/HelpPanel';
 import { RemoteAccess } from './components/RemoteAccess';
 import { NewTicketForm } from './components/NewTicketForm';
 import { TicketDetailView } from './components/TicketDetailView';
@@ -17,6 +18,7 @@ import { ViewTabs } from './components/ViewTabs';
 type View =
   | { kind: 'list' }
   | { kind: 'selfService' }
+  | { kind: 'help' }
   | { kind: 'new'; draft?: TicketDraft }
   | { kind: 'ticket'; id: number; notice: string };
 
@@ -150,7 +152,8 @@ export function App() {
   }
 
   const selfServiceVisible = selfService?.enabled === true || selfRun.run !== null;
-  const showTabs = connected && selfServiceVisible && (view.kind === 'list' || view.kind === 'selfService');
+  const helpVisible = session?.faqEnabled === true;
+  const showTabs = connected && (selfServiceVisible || helpVisible) && (view.kind === 'list' || view.kind === 'selfService' || view.kind === 'help');
 
   let body;
   if (!session) {
@@ -185,6 +188,8 @@ export function App() {
         onDismiss={selfRun.clear}
       />
     );
+  } else if (view.kind === 'help' && helpVisible) {
+    body = <HelpPanel onOpenTicket={(draft) => { setView(draft ? { kind: 'new', draft } : { kind: 'new' }); }} />;
   } else if (view.kind === 'ticket') {
     body = (
       <TicketDetailView key={view.id} ticketId={view.id} notice={view.notice} onBack={() => { setView({ kind: 'list' }); }} />
@@ -208,9 +213,11 @@ export function App() {
       <RemoteAccess backend={backend} />
       {showTabs && (
         <ViewTabs
-          active={view.kind === 'selfService' ? 'selfService' : 'tickets'}
+          active={view.kind === 'selfService' ? 'selfService' : view.kind === 'help' ? 'help' : 'tickets'}
           running={selfRun.run?.status === 'running'}
-          onChange={(tab) => { setView({ kind: tab === 'selfService' ? 'selfService' : 'list' }); }}
+          selfService={selfServiceVisible}
+          help={helpVisible}
+          onChange={(tab) => { setView({ kind: tab === 'selfService' ? 'selfService' : tab === 'help' ? 'help' : 'list' }); }}
         />
       )}
       <main className="main">{body}</main>

@@ -19,6 +19,7 @@ function makeSettings(overrides: Partial<AssistantSettingsDto> = {}): AssistantS
     logEffort: 'medium',
     efforts: ['low', 'medium', 'high', 'xhigh', 'max'],
     chatEnabled: false,
+    faqLearn: true,
     logInsightsEnabled: false,
     logInsightsIntervalHours: 24,
     logInsightsMinLevel: 'error',
@@ -97,6 +98,7 @@ describe('assistente de IA nas configurações', () => {
     expect(saved[0]).toMatchObject({
       apiKey: 'sk-ant-api03-chave-de-teste-1234',
       chatEnabled: true,
+      faqLearn: true,
       logInsightsEnabled: true,
       logInsightsIntervalHours: 24,
       model: 'claude-opus-5-5',

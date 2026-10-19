@@ -88,6 +88,7 @@ export function makeTicket(overrides: Partial<TicketListItem> = {}): TicketListI
 export function makeTicketDetail(overrides: Partial<TicketDetail> = {}): TicketDetail {
   return {
     ...makeTicket(),
+    clientId: 1,
     description: 'A impressora da recepção parou de imprimir.',
     requesterUsername: 'maria',
     requesterEmail: null,

@@ -33,6 +33,29 @@ public static class FaqTags
     public const string Guide = "orientar";
 }
 
+/// <summary>Situacao da entrada: so as publicadas valem para o assistente, para os tecnicos e para o app EYES.</summary>
+public static class FaqStatus
+{
+    public const string Published = "published";
+
+    /// <summary>Sugestao do assistente, de um tecnico sem permissao de editar ou de um usuario do app, aguardando revisao.</summary>
+    public const string Proposed = "proposed";
+
+    public static readonly string[] All = [Published, Proposed];
+}
+
+/// <summary>Quem criou a entrada.</summary>
+public static class FaqSource
+{
+    public const string Team = "team";
+
+    /// <summary>O assistente escreveu a partir de um chamado resolvido.</summary>
+    public const string Assistant = "assistant";
+
+    /// <summary>Pergunta enviada por um usuario pelo app EYES.</summary>
+    public const string Requester = "requester";
+}
+
 /// <summary>Pergunta frequente com a solucao. Sem cliente vale para todos; com cliente, so para os chamados dele.</summary>
 public sealed class FaqEntry
 {
@@ -42,6 +65,32 @@ public sealed class FaqEntry
     public string Answer { get; set; } = string.Empty;
     public List<string> Tags { get; set; } = [];
     public bool Enabled { get; set; } = true;
+
+    /// <summary>Assunto para navegar no FAQ (Impressoras, E-mail...); nulo fica em "Sem categoria".</summary>
+    public string? Category { get; set; }
+
+    public string Status { get; set; } = FaqStatus.Published;
+
+    /// <summary>Aparece para os usuarios na ajuda do app EYES.</summary>
+    public bool Public { get; set; }
+
+    public string Source { get; set; } = FaqSource.Team;
+
+    /// <summary>Chamado de onde a entrada saiu (sugestao do assistente ou de um tecnico).</summary>
+    public int? SourceTicketId { get; set; }
+
+    /// <summary>Quem sugeriu: tecnico, assistente ou "usuario em MAQUINA".</summary>
+    public string? SuggestedBy { get; set; }
+
+    /// <summary>Aberturas na ajuda do app EYES.</summary>
+    public int Views { get; set; }
+
+    public int HelpfulCount { get; set; }
+    public int NotHelpfulCount { get; set; }
+
+    /// <summary>Vezes que o assistente mandou o passo a passo ou um tecnico inseriu a resposta num chamado.</summary>
+    public int UsedCount { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
     public required string UpdatedBy { get; set; }

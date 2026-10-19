@@ -81,6 +81,7 @@ function AssistantForm({ initial }: { initial: AssistantSettingsDto }) {
   const [logEffort, setLogEffort] = useState<EffortLevel>(initial.logEffort);
   const [name, setName] = useState(initial.name);
   const [chatEnabled, setChatEnabled] = useState(initial.chatEnabled);
+  const [faqLearn, setFaqLearn] = useState(initial.faqLearn);
   const [insightsEnabled, setInsightsEnabled] = useState(initial.logInsightsEnabled);
   const [interval, setInterval] = useState<number | string>(initial.logInsightsIntervalHours);
   const [minLevel, setMinLevel] = useState<InsightLevel>(initial.logInsightsMinLevel);
@@ -135,6 +136,7 @@ function AssistantForm({ initial }: { initial: AssistantSettingsDto }) {
         logEffort,
         name: name.trim(),
         chatEnabled,
+        faqLearn,
         logInsightsEnabled: insightsEnabled,
         logInsightsIntervalHours: hours,
         logInsightsMinLevel: minLevel,
@@ -337,8 +339,8 @@ function AssistantForm({ initial }: { initial: AssistantSettingsDto }) {
             allowDeselect={false}
           />
           <Select
-            label="Nível de esforço na análise de logs"
-            description="Níveis altos aprofundam a análise dos erros e custam mais tokens."
+            label="Nível de esforço na análise de logs e no FAQ"
+            description="Níveis altos aprofundam a análise dos erros e os rascunhos do FAQ, e custam mais tokens."
             data={EFFORT_OPTIONS}
             value={logEffort}
             onChange={(v) => isEffort(v) && setLogEffort(v)}
@@ -352,6 +354,14 @@ function AssistantForm({ initial }: { initial: AssistantSettingsDto }) {
           description="Pede a descrição do problema, envia o passo a passo das entradas do FAQ com a tag orientar e encaminha para a equipe quando não há solução conhecida. Para de responder quando um técnico assume o chamado."
           checked={chatEnabled}
           onChange={(e) => setChatEnabled(e.currentTarget.checked)}
+        />
+
+        <Divider label="FAQ" labelPosition="left" />
+        <Switch
+          label="Sugerir entradas do FAQ a partir dos chamados resolvidos"
+          description="Quando um técnico resolve um chamado, o assistente escreve a pergunta e o passo a passo da solução, sem dados pessoais. A entrada fica em FAQ → Sugestões até alguém revisar e publicar."
+          checked={faqLearn}
+          onChange={(e) => setFaqLearn(e.currentTarget.checked)}
         />
 
         <Divider label="Análise dos erros nos logs" labelPosition="left" />

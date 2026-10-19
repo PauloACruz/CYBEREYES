@@ -1,5 +1,6 @@
 import type {
   Backend,
+  FaqEntry,
   Message,
   RemoteEvent,
   RunStatus,
@@ -147,12 +148,36 @@ const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 const PIXEL =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mN8+P9/PQAJYwPBpqbiOAAAAABJRU5ErkJggg==';
 
+const faq: FaqEntry[] = [
+  {
+    id: 1,
+    question: 'A impressora não imprime',
+    answer: '1. Confira se a impressora está ligada e com papel.\n2. Desligue e ligue a impressora.\n3. Imprima uma página de teste.\n4. Se não resolver, abra um chamado.',
+    category: 'Impressoras',
+    updatedAt: '2026-10-18T14:00:00Z',
+  },
+  {
+    id: 2,
+    question: 'O Wi-Fi cai toda hora',
+    answer: '1. Desligue e ligue o Wi-Fi do computador.\n2. Aproxime-se do roteador.\n3. Se não resolver, abra um chamado.',
+    category: 'Rede e internet',
+    updatedAt: '2026-10-17T09:30:00Z',
+  },
+  {
+    id: 3,
+    question: 'Esqueci a senha do e-mail',
+    answer: '1. Abra o portal de senhas da empresa.\n2. Clique em Esqueci a senha e siga as instruções.',
+    category: 'Acesso e senhas',
+    updatedAt: '2026-10-16T11:00:00Z',
+  },
+];
+
 export const mockBackend: Backend = {
   async session() {
     await delay(150);
     return {
       hostname: 'PC-FINANCEIRO-01', username: 'maria', clientName: 'Contoso', siteName: 'Matriz', connected: true, realtime: true,
-      assistantEnabled: true, assistantName: 'Assistente Cybereyes',
+      assistantEnabled: true, assistantName: 'Assistente Cybereyes', faqEnabled: true,
     };
   },
   async listTickets() {
@@ -270,5 +295,27 @@ export const mockBackend: Backend = {
   async remoteEnd(session) {
     await delay(100);
     for (const cb of remoteListeners) cb({ event: 'remote-ended', session });
+  },
+  async listFaq(search, category) {
+    await delay(150);
+    const term = search.trim().toLowerCase();
+    const entries = faq
+      .filter((f) => !category || f.category === category)
+      .filter((f) => !term || f.question.toLowerCase().includes(term) || f.answer.toLowerCase().includes(term))
+      .map((f) => ({ id: f.id, question: f.question, category: f.category, excerpt: f.answer.replace(/\s+/g, ' ').slice(0, 160) }));
+    return { categories: [...new Set(faq.map((f) => f.category ?? ''))].filter(Boolean).sort(), entries };
+  },
+  async getFaq(id) {
+    await delay(100);
+    const entry = faq.find((f) => f.id === id);
+    if (!entry) throw new Error('Esta pergunta não está mais disponível.');
+    return { ...entry };
+  },
+  async faqFeedback() {
+    await delay(100);
+  },
+  async suggestFaq(question) {
+    await delay(300);
+    if (question.trim().length < 3) throw new Error('Escreva a sua pergunta.');
   },
 };

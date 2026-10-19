@@ -8,7 +8,7 @@ atendimento dos chamados abertos pelo app EYES e a análise periódica dos erros
 
 | Rota | Uso |
 |---|---|
-| `GET /api/assistant/settings` | `{ keySet, keyHint, model, name, agentId, agentEnabled, nativeEnabled, instructions, chatEffort, logEffort, efforts, chatEnabled, logInsightsEnabled, logInsightsIntervalHours, logInsightsMinLevel, logInsightsPush, logInsightsEmail, logInsightsLastRunAt, smtpConfigured, models }` |
+| `GET /api/assistant/settings` | `{ keySet, keyHint, model, name, agentId, agentEnabled, nativeEnabled, instructions, chatEffort, logEffort, efforts, chatEnabled, faqLearn, logInsightsEnabled, logInsightsIntervalHours, logInsightsMinLevel, logInsightsPush, logInsightsEmail, logInsightsLastRunAt, smtpConfigured, models }` |
 | `PUT /api/assistant/settings` | Mesmos campos mais `apiKey`: `null` mantém a chave gravada, `""` apaga, `sk-ant-...` troca. Ligar o chat ou a análise sem chave ou sem nenhum agente ativo dá 400 |
 | `POST /api/assistant/test` | `{ apiKey?, model?, agentId? }` → confere a chave digitada (ou a gravada) pela API de modelos, sem gastar tokens; com `model: "agent"`, o modelo do agente |
 | `GET /api/assistant/agents` | Agentes não arquivados da conta da chave gravada (`{ id, name, description, model, version }`) |
@@ -29,18 +29,15 @@ Os blocos valem no chat e na análise de logs. `model` é um dos modelos da list
 e `agentEnabled`). O agente é lido de novo a cada
 5 minutos ou quando a configuração é salva; se a Anthropic não responder ou o agente sumir, o assistente segue com as instruções e o
 modelo padrão. O assistente não abre sessões de Managed Agents: só usa a configuração do agente nas chamadas da Messages API.
-`chatEffort` (padrão `low`) e `logEffort` (padrão `medium`) vão em `output_config.effort`: `low`, `medium`, `high`, `xhigh` ou `max`.
+`chatEffort` (padrão `low`) e `logEffort` (padrão `medium`, usado também nos rascunhos do FAQ) vão em `output_config.effort`: `low`,
+`medium`, `high`, `xhigh` ou `max`. `faqLearn` (padrão ligado) faz o assistente sugerir entradas do FAQ a partir dos chamados resolvidos.
 
-## FAQ (`docs.view` / `docs.manage`)
+## FAQ
 
-| Rota | Uso |
-|---|---|
-| `GET /api/faq?clientId=&search=&tag=` | Entradas visíveis; com `clientId`, as globais e as do cliente |
-| `POST /api/faq`, `PUT /api/faq/{id}` | `{ clientId, question, answer, tags, enabled }`; tags em minúsculas, sem repetição |
-| `DELETE /api/faq/{id}` | 204 |
-
+As rotas, as sugestões do assistente e a Ajuda do app estão em [faq.md](faq.md). O chat só usa entradas publicadas e ativas.
 Entradas com a tag `orientar` são as únicas cujo passo a passo vai ao usuário; o texto da resposta é enviado exatamente como
-cadastrado (o modelo escreve só a introdução). As demais servem de referência para a equipe e aparecem na nota interna.
+cadastrado (o modelo escreve só a introdução) e conta um uso da entrada. As demais servem de referência para a equipe e aparecem
+na nota interna.
 
 ## Atendimento no chat do app EYES
 
