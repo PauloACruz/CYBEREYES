@@ -144,7 +144,7 @@ public static class Tray
             return Problems.NotFound("Agente");
         }
         var settings = await SettingsStore.GetAsync(db, ct);
-        var assistant = settings.AssistantChatEnabled && settings.AnthropicKeyProtected is not null;
+        var assistant = AssistantChat.ChatOn(settings);
         return TypedResults.Ok(new
         {
             agent.Hostname, username = s.Username, agent.ClientName, agent.SiteName,

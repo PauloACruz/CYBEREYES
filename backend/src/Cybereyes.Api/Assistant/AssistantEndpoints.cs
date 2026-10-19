@@ -28,7 +28,10 @@ public sealed record AssistantSettingsRequest(
     bool LogInsightsEmail,
     [property: StringLength(100)] string? AgentId = null,
     string ChatEffort = "low",
-    string LogEffort = "medium");
+    string LogEffort = "medium",
+    bool AgentEnabled = true,
+    bool NativeEnabled = true,
+    [property: StringLength(20000)] string? Instructions = null);
 
 /// <summary>Cria na conta da Anthropic um agente com as instrucoes iniciais do Cybereyes, para editar depois no Console.</summary>
 public sealed record CreateAgentRequest([property: StringLength(200)] string? Name, string? Model);
@@ -86,6 +89,9 @@ public static class AssistantEndpoints
         model = s.AssistantModel,
         name = s.AssistantName,
         agentId = s.AssistantAgentId,
+        agentEnabled = s.AssistantAgentEnabled,
+        nativeEnabled = s.AssistantNativeEnabled,
+        instructions = s.AssistantInstructions,
         chatEffort = s.AssistantChatEffort,
         logEffort = s.AssistantLogEffort,
         efforts = AssistantModels.Efforts,
@@ -121,6 +127,14 @@ public static class AssistantEndpoints
         {
             return Problems.Validation("model", agentId is null && r.Model == AssistantModels.FromAgent ? "Escolha um agente para usar o modelo dele" : "Modelo invalido");
         }
+        if (r.Model == AssistantModels.FromAgent && !r.AgentEnabled)
+        {
+            return Problems.Validation("model", "Ative o agente da Anthropic para usar o modelo dele");
+        }
+        if ((r.ChatEnabled || r.LogInsightsEnabled) && !r.NativeEnabled && !(r.AgentEnabled && agentId is not null))
+        {
+            return Problems.Validation("nativeEnabled", "Ative o agente nativo ou o agente da Anthropic para ligar o assistente");
+        }
         if (!AssistantModels.Efforts.Contains(r.ChatEffort) || !AssistantModels.Efforts.Contains(r.LogEffort))
         {
             return Problems.Validation("chatEffort", "Nivel de esforco invalido");
@@ -153,6 +167,9 @@ public static class AssistantEndpoints
         s.AssistantModel = r.Model;
         s.AssistantName = r.Name.Trim();
         s.AssistantAgentId = agentId;
+        s.AssistantAgentEnabled = r.AgentEnabled;
+        s.AssistantNativeEnabled = r.NativeEnabled;
+        s.AssistantInstructions = string.IsNullOrWhiteSpace(r.Instructions) ? null : r.Instructions.Trim();
         s.AssistantChatEffort = r.ChatEffort;
         s.AssistantLogEffort = r.LogEffort;
         s.AssistantChatEnabled = r.ChatEnabled;
@@ -291,10 +308,11 @@ public static class AssistantEndpoints
             return Problems.NotFound("Analise");
         }
         var content = JsonSerializer.Deserialize<InsightContent>(r.Content, JsonSerializerOptions.Web) ?? new InsightContent([], []);
+        var items = await LogInsightRunner.WithCurrentMachinesAsync(db, content.Items, ct);
         return TypedResults.Ok(new
         {
             r.Id, r.CreatedAt, r.WindowStart, r.WindowEnd, r.Status, r.Manual, r.Model, r.Summary, r.EventCount, r.GroupCount, r.AgentCount,
-            r.InputTokens, r.OutputTokens, r.Error, content.Items, content.Suggestions,
+            r.InputTokens, r.OutputTokens, r.Error, items, content.Suggestions,
         });
     }
 
@@ -308,6 +326,10 @@ public static class AssistantEndpoints
         if (s.AnthropicKeyProtected is null)
         {
             return Problems.BadRequest("Cadastre a chave da API da Anthropic em Configurações");
+        }
+        if (!AssistantProfiles.AnyAgentEnabled(s))
+        {
+            return Problems.BadRequest("Ative o agente nativo ou o agente da Anthropic em Configurações");
         }
         if (trigger.Running)
         {

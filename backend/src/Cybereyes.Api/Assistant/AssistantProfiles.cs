@@ -5,21 +5,34 @@ using Cybereyes.Core.Rmm;
 
 namespace Cybereyes.Api.Assistant;
 
-/// <summary>Modelo e instrucoes que valem para uma chamada; <see cref="AgentName"/> e nulo quando nao ha agente vinculado.</summary>
-public sealed record AssistantProfile(string Model, string? AgentName, string? Instructions)
+/// <summary>
+/// Modelo e instrucoes que valem para uma chamada: <see cref="NativeInstructions"/> sao as do agente nativo, escritas no console, e
+/// <see cref="Instructions"/> as do agente vinculado da Anthropic. <see cref="AgentName"/> e nulo quando o agente vinculado nao participa.
+/// </summary>
+public sealed record AssistantProfile(string Model, string? AgentName, string? Instructions, string? NativeInstructions = null)
 {
-    /// <summary>Bloco com as instrucoes do agente para o prompt de sistema, ou vazio sem agente.</summary>
+    /// <summary>Bloco com as instrucoes dos agentes ativos para o prompt de sistema, ou vazio sem instrucoes.</summary>
     public string InstructionsBlock(string purpose)
     {
-        if (Instructions is null)
+        if (Instructions is null && NativeInstructions is null)
         {
             return string.Empty;
         }
-        return new StringBuilder()
-            .Append("<instrucoes_do_agente nome=\"").Append(AgentName).Append("\">\n")
-            .Append(Instructions.Trim())
-            .Append("\n</instrucoes_do_agente>\n")
-            .Append("Siga as instrucoes do agente acima sobre tom, linguagem e regras da empresa ao ").Append(purpose)
+        var text = new StringBuilder();
+        if (NativeInstructions is not null)
+        {
+            text.Append("<instrucoes_da_empresa>\n").Append(NativeInstructions.Trim()).Append("\n</instrucoes_da_empresa>\n");
+        }
+        if (Instructions is not null)
+        {
+            text.Append("<instrucoes_do_agente nome=\"").Append(AgentName).Append("\">\n").Append(Instructions.Trim()).Append("\n</instrucoes_do_agente>\n");
+        }
+        if (NativeInstructions is not null && Instructions is not null)
+        {
+            text.Append("Quando as instrucoes da empresa e as do agente conflitarem, valem as da empresa.\n");
+        }
+        return text
+            .Append("Siga as instrucoes acima sobre tom, linguagem e regras da empresa ao ").Append(purpose)
             .Append(". Quando elas conflitarem com as regras de formato, de acao e de FAQ deste prompt, valem as deste prompt.\n\n")
             .ToString();
     }
@@ -37,19 +50,23 @@ public sealed partial class AssistantProfiles(IAssistantModel model, TimeProvide
 
     public static string Effort(string? value, string fallback) => value is not null && AssistantModels.Efforts.Contains(value) ? value : fallback;
 
+    /// <summary>Agente vinculado que participa do atendimento: escolhido e ligado.</summary>
+    public static string? LinkedAgentId(CoreSettings settings) =>
+        settings.AssistantAgentEnabled && settings.AssistantAgentId is { Length: > 0 } id ? id : null;
+
+    /// <summary>Sem o agente nativo e sem o vinculado, o assistente nao atende nem analisa os logs.</summary>
+    public static bool AnyAgentEnabled(CoreSettings settings) => settings.AssistantNativeEnabled || LinkedAgentId(settings) is not null;
+
     public async Task<AssistantProfile> ResolveAsync(CoreSettings settings, string apiKey, CancellationToken ct)
     {
         var chosen = settings.AssistantModel == AssistantModels.FromAgent ? null : settings.AssistantModel;
-        if (settings.AssistantAgentId is not { Length: > 0 } agentId)
-        {
-            return new AssistantProfile(chosen ?? AssistantModels.Default, null, null);
-        }
-        var agent = await AgentAsync(apiKey, agentId, ct);
+        var native = settings.AssistantNativeEnabled && !string.IsNullOrWhiteSpace(settings.AssistantInstructions) ? settings.AssistantInstructions : null;
+        var agent = LinkedAgentId(settings) is { } agentId ? await AgentAsync(apiKey, agentId, ct) : null;
         if (agent is null)
         {
-            return new AssistantProfile(chosen ?? AssistantModels.Default, null, null);
+            return new AssistantProfile(chosen ?? AssistantModels.Default, null, null, native);
         }
-        return new AssistantProfile(chosen ?? agent.Model, agent.Name, string.IsNullOrWhiteSpace(agent.System) ? null : agent.System);
+        return new AssistantProfile(chosen ?? agent.Model, agent.Name, string.IsNullOrWhiteSpace(agent.System) ? null : agent.System, native);
     }
 
     private async Task<AssistantAgent?> AgentAsync(string apiKey, string agentId, CancellationToken ct)

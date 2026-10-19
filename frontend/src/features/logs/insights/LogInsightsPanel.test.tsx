@@ -1,7 +1,8 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { LogInsightDetailDto, LogInsightSummaryDto } from '../../../api/types';
+import type { CreateTicketRequest, LogInsightDetailDto, LogInsightSummaryDto } from '../../../api/types';
+import { makeTicketDetail } from '../../../test/fixtures';
 import { json, makeMe, mockFetch, problem, renderApp } from '../../../test/utils';
 import { trendLabel } from './insightFormat';
 
@@ -38,6 +39,10 @@ const DETAIL: LogInsightDetailDto = {
       firstSeen: '2026-10-13T08:00:00Z',
       lastSeen: '2026-10-19T11:00:00Z',
       hosts: ['PC-RECEPCAO', 'PC-CAIXA'],
+      machines: [
+        { agentId: 12, hostname: 'PC-RECEPCAO', client: 'Padaria Central', site: 'Matriz' },
+        { agentId: null, hostname: 'PC-CAIXA', client: 'Padaria Central', site: 'Loja 2' },
+      ],
       title: 'Spooler de impressão parando',
       severity: 'alta',
       officialDescription: 'O Service Control Manager registra o evento 7031 quando um serviço termina de forma inesperada.',
@@ -75,9 +80,55 @@ describe('análises da IA na tela de logs', () => {
     expect(screen.getByText('Crie uma regra de alerta de log para o evento 7031')).toBeInTheDocument();
     expect(screen.getByText('Entrada no FAQ')).toBeInTheDocument();
 
+    // Cada máquina com o cliente e o site; sem tickets.manage não há botão de incidente.
+    const machines = screen.getByRole('table', { name: 'Máquinas com o erro Spooler de impressão parando' });
+    const recepcao = within(machines).getByRole('row', { name: /PC-RECEPCAO/ });
+    expect(within(recepcao).getByText('Padaria Central')).toBeInTheDocument();
+    expect(within(recepcao).getByText('Matriz')).toBeInTheDocument();
+    expect(within(machines).getByRole('link', { name: 'PC-RECEPCAO' })).toHaveAttribute('href', '/agentes/12');
+    expect(within(machines).getByRole('row', { name: /PC-CAIXA/ })).toHaveTextContent('Loja 2');
+    expect(screen.getByText('E mais 2 máquinas com o erro.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Abrir incidente/ })).not.toBeInTheDocument();
+
     await userEvent.setup().click(screen.getByRole('button', { name: 'Analisar agora' }));
     await waitFor(() => expect(ran).toBe(true));
     expect(await screen.findByText('Análise iniciada. Leva alguns minutos.')).toBeInTheDocument();
+  });
+
+  it('abre um incidente interno na máquina com a análise na descrição', async () => {
+    let sent: CreateTicketRequest | undefined;
+    mockFetch({
+      'GET /api/auth/me': () => json(makeMe({ permissions: ['logs.view', 'tickets.manage'] })),
+      'GET /api/assistant/insights': () => json({ configured: true, enabled: true, intervalHours: 24, running: false, reports: [SUMMARY] }),
+      'GET /api/assistant/insights/3': () => json(DETAIL),
+      'GET /api/ticket-queues': () => json([{ id: 1, name: 'Suporte', description: null, isDefault: true }]),
+      'GET /api/tickets/assignees': () => json([]),
+      'POST /api/tickets': (init) => {
+        sent = JSON.parse(typeof init?.body === 'string' ? init.body : '{}') as CreateTicketRequest;
+        return json(makeTicketDetail({ id: 77, title: sent.title, type: 'incident' }), 201);
+      },
+    });
+    renderApp('/logs?aba=analises');
+
+    const user = userEvent.setup();
+    const machines = await screen.findByRole('table', { name: 'Máquinas com o erro Spooler de impressão parando' });
+    // A máquina que não existe mais não recebe incidente.
+    expect(within(within(machines).getByRole('row', { name: /PC-CAIXA/ })).queryByRole('button')).not.toBeInTheDocument();
+    await user.click(within(machines).getByRole('button', { name: 'Abrir incidente em PC-RECEPCAO' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Abrir incidente' });
+    expect(within(dialog).getByText(/não aparece para o usuário da máquina/)).toBeInTheDocument();
+    expect(within(dialog).getByRole('textbox', { name: /Título/ })).toHaveValue('[PC-RECEPCAO] Spooler de impressão parando');
+    expect(within(dialog).getByRole('combobox', { name: 'Prioridade' })).toHaveValue('Alta');
+    await user.click(within(dialog).getByRole('button', { name: 'Abrir incidente' }));
+
+    await waitFor(() => expect(sent).toBeDefined());
+    expect(sent).toMatchObject({ type: 'incident', agentId: 12, priority: 'high', requesterName: 'Análise da IA' });
+    expect(sent?.description).toContain('Máquina: PC-RECEPCAO (Padaria Central / Matriz)');
+    expect(sent?.description).toContain('1. Atualize o driver da impressora');
+    expect(sent?.description).toContain(`Análise completa: ${window.location.origin}/logs?aba=analises&analise=3`);
+    expect(await within(machines).findByRole('link', { name: 'Incidente #77' })).toHaveAttribute('href', '/chamados/77');
+    expect(await screen.findByText('Incidente #77 aberto em PC-RECEPCAO.')).toBeInTheDocument();
   });
 
   it('explica a restrição para quem vê só alguns clientes', async () => {

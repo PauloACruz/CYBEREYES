@@ -58,6 +58,32 @@ describe('detalhe do chamado', () => {
     expect(screen.getByRole('textbox', { name: 'Nota interna' })).toHaveValue('');
   });
 
+  it('incidente interno só aceita nota interna, na conversa e na solução', async () => {
+    let sent: CreateTicketMessageRequest | undefined;
+    mockFetch(
+      ticketHandlers({
+        'GET /api/tickets/101': () => json(makeTicketDetail({ type: 'incident', requesterName: 'Análise da IA', requesterUsername: null })),
+        'POST /api/tickets/101/messages': (init) => {
+          sent = JSON.parse(typeof init?.body === 'string' ? init.body : '{}') as CreateTicketMessageRequest;
+          return json(makeTicketMessage({ id: 4, authorType: 'technician', authorName: 'Maria Silva', body: sent.body, internal: sent.internal }), 201);
+        },
+      }),
+    );
+    renderApp('/chamados/101');
+
+    expect(await screen.findByText('Incidente interno: as mensagens ficam como notas, só para os técnicos.')).toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: 'Resposta ao usuário' })).not.toBeInTheDocument();
+    const user = userEvent.setup();
+    await user.type(screen.getByRole('textbox', { name: 'Nota interna' }), 'Driver atualizado.');
+    await user.click(screen.getByRole('button', { name: 'Salvar nota' }));
+    await waitFor(() => expect(sent).toEqual({ body: 'Driver atualizado.', internal: true }));
+
+    await user.click(screen.getByRole('button', { name: 'Resolver' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Resolver chamado #101' });
+    expect(within(dialog).queryByRole('checkbox', { name: 'Enviar ao usuário na conversa' })).not.toBeInTheDocument();
+    expect(within(dialog).getByText('Incidente interno: o texto fica como nota, só para os técnicos.')).toBeInTheDocument();
+  });
+
   it('resolve com uma solução de contorno e mostra o texto no chamado', async () => {
     let sent: ResolveTicketRequest | undefined;
     mockFetch(

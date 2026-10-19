@@ -2938,6 +2938,12 @@ export interface AssistantSettingsDto {
   model: string;
   name: string;
   agentId: string | null;
+  /** O agente vinculado da Anthropic participa do atendimento. */
+  agentEnabled: boolean;
+  /** O agente nativo participa, com as instrucoes escritas no console. */
+  nativeEnabled: boolean;
+  /** Instrucoes do agente nativo. */
+  instructions: string | null;
   chatEffort: EffortLevel;
   logEffort: EffortLevel;
   efforts: EffortLevel[];
@@ -2958,6 +2964,9 @@ export interface SaveAssistantSettingsRequest {
   model: string;
   name: string;
   agentId: string | null;
+  agentEnabled: boolean;
+  nativeEnabled: boolean;
+  instructions: string | null;
   chatEffort: EffortLevel;
   logEffort: EffortLevel;
   chatEnabled: boolean;
@@ -3021,6 +3030,14 @@ export interface LogInsightListDto {
   reports: LogInsightSummaryDto[];
 }
 
+/** Maquina com o erro; agentId e null quando ela nao existe mais. Cliente e site sao os atuais. */
+export interface LogInsightMachine {
+  agentId: number | null;
+  hostname: string;
+  client: string | null;
+  site: string | null;
+}
+
 export interface LogInsightItem {
   group: string;
   level: string;
@@ -3035,6 +3052,7 @@ export interface LogInsightItem {
   firstSeen: string;
   lastSeen: string;
   hosts: string[];
+  machines: LogInsightMachine[];
   title: string;
   severity: InsightSeverity;
   officialDescription: string;

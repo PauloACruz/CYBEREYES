@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Cybereyes.Api.Assistant;
+using Cybereyes.Core.Assistant;
 using Cybereyes.Core.Notifications;
 using Cybereyes.Core.Persistence;
 using Cybereyes.Core.Rmm;
@@ -15,11 +16,15 @@ public sealed partial class AgentTests
     private const string AnthropicKey = "sk-ant-api03-chave-de-teste-1234";
 
     private static object AssistantSettings(string? apiKey = null, bool chat = false, bool insights = false, string model = "claude-opus-5-5",
-        string? agentId = null, string chatEffort = "low", string logEffort = "medium") => new
+        string? agentId = null, string chatEffort = "low", string logEffort = "medium", bool agentEnabled = true, bool nativeEnabled = true,
+        string? instructions = null) => new
     {
         apiKey,
         model,
         agentId,
+        agentEnabled,
+        nativeEnabled,
+        instructions,
         chatEffort,
         logEffort,
         name = "Assistente Teste",
@@ -207,6 +212,85 @@ public sealed partial class AgentTests
     }
 
     [Fact]
+    public async Task NativeAgent_AddsTheCompanyInstructions_AndEachAgentTurnsOff()
+    {
+        using var admin = await fixture.AdminClientAsync();
+        var (_, pk, _, _, clientId, _) = await RegisteredAgentAsync("Cliente agente nativo", monitoringType: "workstation");
+        using (var seed = fixture.Services.CreateScope())
+        {
+            var db = seed.ServiceProvider.GetRequiredService<CybereyesDbContext>();
+            db.SystemLogs.Add(new SystemLog { Time = DateTimeOffset.UtcNow.AddHours(-1), AgentId = pk, ClientId = clientId, Level = LogLevels.Error,
+                Source = "Teste do agente nativo", Message = "Falha de teste" });
+            await db.SaveChangesAsync();
+        }
+        const string LinkedId = "agent_nativo_teste";
+        lock (fixture.Assistant.Agents)
+        {
+            fixture.Assistant.Agents.Add(new AssistantAgent(LinkedId, "Agente da conta", null, "claude-sonnet-5-5", "Assine como Equipe N1.", 1));
+        }
+        const string Instructions = "Chame o usuario de voce e assine como Suporte ACME.";
+
+        async Task<string> AnalysisSystemAsync()
+        {
+            fixture.Assistant.Enqueue(new { summary = "ok", items = Array.Empty<object>(), suggestions = Array.Empty<object>() });
+            using var scope = fixture.Services.CreateScope();
+            Assert.NotNull(await scope.ServiceProvider.GetRequiredService<LogInsightRunner>().RunAsync(manual: true, CancellationToken.None));
+            return fixture.Assistant.Calls[^1].System;
+        }
+
+        // Sem nenhum agente ativo o assistente nao liga.
+        Assert.Equal(HttpStatusCode.BadRequest,
+            (await admin.PutAsJsonAsync("/api/assistant/settings", AssistantSettings(AnthropicKey, insights: true, nativeEnabled: false))).StatusCode);
+
+        await WithAssistantAsync(admin, chat: false, insights: true, async () =>
+        {
+            var saved = await (await admin.PutAsJsonAsync("/api/assistant/settings",
+                AssistantSettings(insights: true, agentId: LinkedId, instructions: $"  {Instructions}  "))).Content.ReadFromJsonAsync<JsonElement>();
+            Assert.Equal(Instructions, saved.GetProperty("instructions").GetString());
+            Assert.True(saved.GetProperty("nativeEnabled").GetBoolean());
+            Assert.True(saved.GetProperty("agentEnabled").GetBoolean());
+            var both = await AnalysisSystemAsync();
+            Assert.Contains($"<instrucoes_da_empresa>\n{Instructions}\n</instrucoes_da_empresa>", both, StringComparison.Ordinal);
+            Assert.Contains("Assine como Equipe N1.", both, StringComparison.Ordinal);
+            Assert.Contains("valem as da empresa", both, StringComparison.Ordinal);
+
+            // Agente da Anthropic desligado: continua gravado, mas so as instrucoes da empresa entram e o modelo dele nao vale.
+            Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync("/api/assistant/settings",
+                AssistantSettings(insights: true, model: "agent", agentId: LinkedId, agentEnabled: false, instructions: Instructions))).StatusCode);
+            saved = await (await admin.PutAsJsonAsync("/api/assistant/settings",
+                AssistantSettings(insights: true, agentId: LinkedId, agentEnabled: false, instructions: Instructions))).Content.ReadFromJsonAsync<JsonElement>();
+            Assert.Equal(LinkedId, saved.GetProperty("agentId").GetString());
+            Assert.False(saved.GetProperty("agentEnabled").GetBoolean());
+            var native = await AnalysisSystemAsync();
+            Assert.Contains(Instructions, native, StringComparison.Ordinal);
+            Assert.DoesNotContain("instrucoes_do_agente", native, StringComparison.Ordinal);
+
+            // Agente nativo desligado: so o da Anthropic, e as instrucoes da empresa ficam guardadas.
+            saved = await (await admin.PutAsJsonAsync("/api/assistant/settings",
+                AssistantSettings(insights: true, agentId: LinkedId, nativeEnabled: false, instructions: Instructions))).Content.ReadFromJsonAsync<JsonElement>();
+            Assert.Equal(Instructions, saved.GetProperty("instructions").GetString());
+            var linked = await AnalysisSystemAsync();
+            Assert.DoesNotContain("instrucoes_da_empresa", linked, StringComparison.Ordinal);
+            Assert.Contains("Assine como Equipe N1.", linked, StringComparison.Ordinal);
+
+            // Os dois desligados: so grava com o assistente desligado, e a analise manual recusa.
+            Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync("/api/assistant/settings",
+                AssistantSettings(insights: true, agentId: LinkedId, agentEnabled: false, nativeEnabled: false))).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await admin.PutAsJsonAsync("/api/assistant/settings",
+                AssistantSettings(agentId: LinkedId, agentEnabled: false, nativeEnabled: false))).StatusCode);
+            Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsync("/api/assistant/insights/run", null)).StatusCode);
+            var calls = fixture.Assistant.Calls.Count;
+            using var scope = fixture.Services.CreateScope();
+            Assert.Null(await scope.ServiceProvider.GetRequiredService<LogInsightRunner>().RunAsync(manual: true, CancellationToken.None));
+            Assert.Equal(calls, fixture.Assistant.Calls.Count);
+        });
+        lock (fixture.Assistant.Agents)
+        {
+            fixture.Assistant.Agents.RemoveAll(a => a.Id == LinkedId);
+        }
+    }
+
+    [Fact]
     public async Task Faq_NormalizesTags_AndFiltersByTagAndSearch()
     {
         using var admin = await fixture.AdminClientAsync();
@@ -347,11 +431,13 @@ public sealed partial class AgentTests
         using var admin = await fixture.AdminClientAsync();
         var (_, pk, _, _, clientId, _) = await RegisteredAgentAsync("Cliente assistente logs", plat: "windows", monitoringType: "workstation");
         const string Source = "Servico de teste do assistente";
+        var hostname = $"insight-{Guid.NewGuid():N}"[..20];
         var adminId = Guid.Parse((await admin.GetFromJsonAsync<JsonElement>("/api/auth/me")).GetProperty("id").GetString()!);
         var now = DateTimeOffset.UtcNow;
         using (var scope = fixture.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<CybereyesDbContext>();
+            await db.Agents.Where(a => a.Id == pk).ExecuteUpdateAsync(u => u.SetProperty(a => a.Hostname, hostname));
             // Mesmo erro com numeros diferentes: cai num grupo so. Dois no dia anterior contam como janela anterior.
             for (var i = 0; i < 5; i++)
             {
@@ -408,7 +494,29 @@ public sealed partial class AgentTests
             Assert.Equal(5, item.GetProperty("count").GetInt32());
             Assert.Equal(2, item.GetProperty("previousCount").GetInt32());
             Assert.Equal(2, item.GetProperty("resolution").GetArrayLength());
-            Assert.NotEmpty(item.GetProperty("hosts").EnumerateArray());
+            Assert.Equal(hostname, item.GetProperty("hosts")[0].GetString());
+            var machine = item.GetProperty("machines").EnumerateArray().Single();
+            Assert.Equal(pk, machine.GetProperty("agentId").GetInt32());
+            Assert.Equal(hostname, machine.GetProperty("hostname").GetString());
+            Assert.Equal("Cliente assistente logs", machine.GetProperty("client").GetString());
+            Assert.Equal("Matriz", machine.GetProperty("site").GetString());
+
+            // Analise gravada antes das maquinas (so com o hostname): a maquina e achada pelo nome, com o cliente e o site atuais.
+            long legacyId;
+            using (var legacyScope = fixture.Services.CreateScope())
+            {
+                var db = legacyScope.ServiceProvider.GetRequiredService<CybereyesDbContext>();
+                var saved = JsonSerializer.Deserialize<InsightContent>(report.Content, JsonSerializerOptions.Web)!;
+                var legacy = new LogInsightReport { CreatedAt = report.CreatedAt.AddMinutes(-1), WindowStart = report.WindowStart, WindowEnd = report.WindowEnd, Summary = "antiga",
+                    Content = JsonSerializer.Serialize(new InsightContent([.. saved.Items.Select(i => i with { Machines = null })], saved.Suggestions), JsonSerializerOptions.Web) };
+                db.LogInsightReports.Add(legacy);
+                await db.SaveChangesAsync();
+                legacyId = legacy.Id;
+            }
+            var old = await admin.GetFromJsonAsync<JsonElement>($"/api/assistant/insights/{legacyId}");
+            var oldMachine = old.GetProperty("items").EnumerateArray().Single(i => i.GetProperty("source").GetString() == Source).GetProperty("machines")[0];
+            Assert.Equal(pk, oldMachine.GetProperty("agentId").GetInt32());
+            Assert.Equal("Cliente assistente logs", oldMachine.GetProperty("client").GetString());
             Assert.Equal("Entrada no FAQ", detail.GetProperty("suggestions")[0].GetProperty("title").GetString());
 
             var list = await admin.GetFromJsonAsync<JsonElement>("/api/assistant/insights");

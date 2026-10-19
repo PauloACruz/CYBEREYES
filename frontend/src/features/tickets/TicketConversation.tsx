@@ -94,7 +94,7 @@ export function MessageItem({ message }: { message: TicketMessageDto }) {
   );
 }
 
-export function TicketConversation({ ticketId, canManage }: { ticketId: number; canManage: boolean }) {
+export function TicketConversation({ ticketId, canManage, internalOnly = false }: { ticketId: number; canManage: boolean; internalOnly?: boolean }) {
   useTicketRealtime(ticketId);
   const messages = useQuery({ queryKey: queryKeys.ticketMessages(ticketId), queryFn: () => ticketsApi.messages(ticketId) });
   const viewport = useRef<HTMLDivElement>(null);
@@ -131,13 +131,13 @@ export function TicketConversation({ ticketId, canManage }: { ticketId: number; 
           )}
         </Box>
       )}
-      {canManage && <ReplyForm ticketId={ticketId} />}
+      {canManage && <ReplyForm ticketId={ticketId} internalOnly={internalOnly} />}
     </Paper>
   );
 }
 
-function ReplyForm({ ticketId }: { ticketId: number }) {
-  const { mode, setMode, body, setBody, files, addFiles, removeFile, internal, send, tooLong, canSend } = useTicketReply(ticketId);
+function ReplyForm({ ticketId, internalOnly }: { ticketId: number; internalOnly: boolean }) {
+  const { mode, setMode, body, setBody, files, addFiles, removeFile, internal, send, tooLong, canSend } = useTicketReply(ticketId, internalOnly);
 
   return (
     <form
@@ -147,14 +147,20 @@ function ReplyForm({ ticketId }: { ticketId: number }) {
       }}
     >
       <Stack gap="xs" mt="md" pt="md" style={{ borderTop: '1px solid var(--mantine-color-default-border)' }}>
-        <SegmentedControl
-          aria-label="Tipo de resposta"
-          data={REPLY_OPTIONS}
-          value={mode}
-          onChange={(v) => setMode(v === 'internal' ? 'internal' : 'public')}
-          color={internal ? 'yellow' : undefined}
-          w="fit-content"
-        />
+        {internalOnly ? (
+          <Text size="sm" c="dimmed">
+            Incidente interno: as mensagens ficam como notas, só para os técnicos.
+          </Text>
+        ) : (
+          <SegmentedControl
+            aria-label="Tipo de resposta"
+            data={REPLY_OPTIONS}
+            value={mode}
+            onChange={(v) => setMode(v === 'internal' ? 'internal' : 'public')}
+            color={internal ? 'yellow' : undefined}
+            w="fit-content"
+          />
+        )}
         <Textarea
           aria-label={internal ? 'Nota interna' : 'Resposta ao usuário'}
           placeholder={internal ? 'Visível somente para os técnicos no console.' : 'O usuário recebe esta resposta no app de bandeja.'}

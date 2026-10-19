@@ -12,25 +12,27 @@ import {
   SimpleGrid,
   Skeleton,
   Stack,
+  Table,
   Text,
   ThemeIcon,
   Title,
   UnstyledButton,
 } from '@mantine/core';
-import { IconAlertTriangle, IconBulb, IconPlayerPlay, IconRobot, IconTrendingDown, IconTrendingUp } from '@tabler/icons-react';
+import { IconAlertOctagon, IconAlertTriangle, IconBulb, IconPlayerPlay, IconRobot, IconTrendingDown, IconTrendingUp } from '@tabler/icons-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import { assistantApi } from '../../../api/assistant';
 import { ApiError } from '../../../api/client';
 import { queryKeys } from '../../../api/queryKeys';
 import { PERMISSIONS, type InsightSeverity, type LogInsightItem, type LogInsightSummaryDto } from '../../../api/types';
-import { PATHS } from '../../../app/paths';
+import { agentPath, PATHS, ticketPath } from '../../../app/paths';
 import { hasPermission } from '../../../auth/permissions';
 import { useMe } from '../../../auth/useMe';
 import { LoadError } from '../../../components/TableStates';
 import { notifySuccess } from '../../../lib/feedback';
 import { formatDateTime } from '../../../lib/format';
 import { trendLabel } from './insightFormat';
+import { OpenIncidentModal, type IncidentTarget } from './OpenIncidentModal';
 
 const SEVERITY: Record<InsightSeverity, { label: string; color: string }> = {
   critica: { label: 'Crítica', color: 'red' },
@@ -41,7 +43,93 @@ const SEVERITY: Record<InsightSeverity, { label: string; color: string }> = {
 
 const SEVERITY_ORDER: InsightSeverity[] = ['critica', 'alta', 'media', 'baixa'];
 
-function InsightItemView({ item }: { item: LogInsightItem }) {
+/** Incidentes abertos nesta tela, por grupo e maquina, para trocar o botao pelo link. */
+type CreatedIncidents = Record<string, number>;
+
+function incidentKey(item: LogInsightItem, agentId: number): string {
+  return `${item.group}:${agentId}`;
+}
+
+interface MachinesProps {
+  item: LogInsightItem;
+  canOpen: boolean;
+  created: CreatedIncidents;
+  onOpen: (target: IncidentTarget) => void;
+}
+
+function InsightMachines({ item, canOpen, created, onOpen }: MachinesProps) {
+  if (item.machines.length === 0) return null;
+  const more = item.agents - item.machines.length;
+  return (
+    <div>
+      <Text size="sm" fw={600} mb={4}>
+        Máquinas
+      </Text>
+      <Table.ScrollContainer minWidth={520}>
+        <Table withTableBorder verticalSpacing={4} fz="sm" aria-label={`Máquinas com o erro ${item.title}`}>
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th>Máquina</Table.Th>
+              <Table.Th>Cliente</Table.Th>
+              <Table.Th>Site</Table.Th>
+              {canOpen && <Table.Th aria-label="Incidente" />}
+            </Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
+            {item.machines.map((machine) => {
+              const agentId = machine.agentId;
+              const ticketId = agentId !== null ? created[incidentKey(item, agentId)] : undefined;
+              return (
+                <Table.Tr key={agentId ?? machine.hostname}>
+                  <Table.Td>
+                    {agentId !== null ? (
+                      <Anchor component={Link} to={agentPath(agentId)} size="sm">
+                        {machine.hostname}
+                      </Anchor>
+                    ) : (
+                      machine.hostname
+                    )}
+                  </Table.Td>
+                  <Table.Td>{machine.client ?? '—'}</Table.Td>
+                  <Table.Td>{machine.site ?? '—'}</Table.Td>
+                  {canOpen && (
+                    <Table.Td ta="right">
+                      {ticketId !== undefined ? (
+                        <Anchor component={Link} to={ticketPath(ticketId)} size="sm">
+                          Incidente #{ticketId}
+                        </Anchor>
+                      ) : (
+                        agentId !== null && (
+                          <Button
+                            size="compact-xs"
+                            variant="light"
+                            color="red"
+                            leftSection={<IconAlertOctagon size={14} />}
+                            aria-label={`Abrir incidente em ${machine.hostname}`}
+                            onClick={() => onOpen({ item, machine: { ...machine, agentId } })}
+                          >
+                            Abrir incidente
+                          </Button>
+                        )
+                      )}
+                    </Table.Td>
+                  )}
+                </Table.Tr>
+              );
+            })}
+          </Table.Tbody>
+        </Table>
+      </Table.ScrollContainer>
+      {more > 0 && (
+        <Text size="xs" c="dimmed" mt={4}>
+          E mais {more} máquina{more === 1 ? '' : 's'} com o erro.
+        </Text>
+      )}
+    </div>
+  );
+}
+
+function InsightItemView({ item, ...machines }: Omit<MachinesProps, 'item'> & { item: LogInsightItem }) {
   const severity = SEVERITY[item.severity];
   const trend = trendLabel(item.count, item.previousCount);
   return (
@@ -81,12 +169,7 @@ function InsightItemView({ item }: { item: LogInsightItem }) {
               Recorrência: {trend.text} ({item.previousCount} antes). Primeira vez em {formatDateTime(item.firstSeen)}, última em {formatDateTime(item.lastSeen)}.
             </Text>
           </Group>
-          {item.hosts.length > 0 && (
-            <Text size="sm">
-              Máquinas: {item.hosts.join(', ')}
-              {item.agents > item.hosts.length ? ` e mais ${item.agents - item.hosts.length}` : ''}
-            </Text>
-          )}
+          <InsightMachines item={item} {...machines} />
           <Paper withBorder p="xs" bg="var(--mantine-color-default-hover)">
             <Text size="xs" ff="monospace" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
               {item.sample}
@@ -145,6 +228,10 @@ function InsightItemView({ item }: { item: LogInsightItem }) {
 
 function InsightDetail({ id }: { id: number }) {
   const detail = useQuery({ queryKey: queryKeys.logInsight(id), queryFn: () => assistantApi.insight(id) });
+  const { data: me } = useMe();
+  const canOpen = hasPermission(me, PERMISSIONS.ticketsManage);
+  const [target, setTarget] = useState<IncidentTarget | null>(null);
+  const [created, setCreated] = useState<CreatedIncidents>({});
   if (detail.isError) return <LoadError error={detail.error} onRetry={() => void detail.refetch()} />;
   if (!detail.data) return <Skeleton height={240} />;
   const report = detail.data;
@@ -179,10 +266,16 @@ function InsightDetail({ id }: { id: number }) {
       {items.length > 0 && (
         <Accordion variant="separated" multiple defaultValue={items.slice(0, 1).map((i) => i.group)}>
           {items.map((item) => (
-            <InsightItemView key={item.group} item={item} />
+            <InsightItemView key={item.group} item={item} canOpen={canOpen} created={created} onOpen={setTarget} />
           ))}
         </Accordion>
       )}
+      <OpenIncidentModal
+        report={report}
+        target={target}
+        onClose={() => setTarget(null)}
+        onCreated={(t, ticketId) => setCreated((current) => ({ ...current, [incidentKey(t.item, t.machine.agentId)]: ticketId }))}
+      />
       {report.suggestions.length > 0 && (
         <Paper withBorder p="md">
           <Group gap="xs" mb="xs">
@@ -339,7 +432,7 @@ export function LogInsightsPanel({ selectedId, onSelect }: Props) {
               ))}
             </Stack>
           </Paper>
-          <div style={{ gridColumn: 'span 3' }}>{current !== undefined && <InsightDetail id={current} />}</div>
+          <div style={{ gridColumn: 'span 3' }}>{current !== undefined && <InsightDetail key={current} id={current} />}</div>
         </SimpleGrid>
       )}
     </Stack>

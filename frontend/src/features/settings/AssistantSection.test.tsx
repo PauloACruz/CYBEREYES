@@ -12,6 +12,9 @@ function makeSettings(overrides: Partial<AssistantSettingsDto> = {}): AssistantS
     model: 'claude-opus-5-5',
     name: 'Assistente Cybereyes',
     agentId: null,
+    agentEnabled: true,
+    nativeEnabled: true,
+    instructions: null,
     chatEffort: 'low',
     logEffort: 'medium',
     efforts: ['low', 'medium', 'high', 'xhigh', 'max'],
@@ -108,6 +111,50 @@ describe('assistente de IA nas configurações', () => {
     await user.click(within(section).getByRole('button', { name: 'Salvar' }));
     await waitFor(() => expect(saved).toHaveLength(2));
     expect(saved[1]?.apiKey).toBeNull();
+  });
+
+  it('escreve as instruções do agente nativo e liga e desliga cada agente', async () => {
+    const saved: SaveAssistantSettingsRequest[] = [];
+    mockFetch({
+      ...BASE,
+      'GET /api/assistant/settings': () =>
+        json(makeSettings({ keySet: true, keyHint: '1234', chatEnabled: true, agentId: 'agent_01', model: 'agent', instructions: 'Assine como Suporte ACME.' })),
+      'GET /api/assistant/agents': () => json([AGENT]),
+      'PUT /api/assistant/settings': (init) => {
+        const request = body(init) as SaveAssistantSettingsRequest;
+        saved.push(request);
+        return json(makeSettings({ ...request, keySet: true, keyHint: '1234' }));
+      },
+    });
+    renderApp('/configuracoes');
+
+    const section = await screen.findByRole('region', { name: 'Assistente de IA' });
+    const user = userEvent.setup();
+    const instructions = await within(section).findByRole('textbox', { name: 'Instruções do agente nativo' });
+    expect(instructions).toHaveValue('Assine como Suporte ACME.');
+    await user.type(instructions, ' Atendemos das 8h às 18h.');
+
+    // Desligar o agente da Anthropic tira o modelo dele e desabilita a escolha do agente.
+    await user.click(within(section).getByRole('switch', { name: /Agente da Anthropic/ }));
+    expect(within(section).getByRole('combobox', { name: /^Modelo/ })).toHaveValue('Claude Opus 5.5 (recomendado)');
+    expect(within(section).getByRole('combobox', { name: /Agente vinculado/ })).toBeDisabled();
+
+    // Sem nenhum agente o assistente ligado não salva.
+    await user.click(within(section).getByRole('switch', { name: /Agente nativo/ }));
+    expect(instructions).toBeDisabled();
+    expect(within(section).getByText(/Ative o agente nativo ou o agente da Anthropic/)).toBeInTheDocument();
+    expect(within(section).getByRole('button', { name: 'Salvar' })).toBeDisabled();
+
+    await user.click(within(section).getByRole('switch', { name: /Agente nativo/ }));
+    await user.click(within(section).getByRole('button', { name: 'Salvar' }));
+    await waitFor(() => expect(saved).toHaveLength(1));
+    expect(saved[0]).toMatchObject({
+      nativeEnabled: true,
+      agentEnabled: false,
+      agentId: 'agent_01',
+      model: 'claude-opus-5-5',
+      instructions: 'Assine como Suporte ACME. Atendemos das 8h às 18h.',
+    });
   });
 
   it('mostra o erro da Anthropic ao testar uma chave recusada', async () => {

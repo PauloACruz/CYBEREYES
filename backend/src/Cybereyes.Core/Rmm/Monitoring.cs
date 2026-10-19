@@ -314,6 +314,15 @@ public sealed class CoreSettings
     /// <summary>Agente da conta da Anthropic (Managed Agents) cujas instrucoes e modelo o assistente usa; nulo usa so as do Cybereyes.</summary>
     public string? AssistantAgentId { get; set; }
 
+    /// <summary>Usa o agente vinculado da Anthropic; desligado, ele fica gravado mas nao entra no atendimento.</summary>
+    public bool AssistantAgentEnabled { get; set; } = true;
+
+    /// <summary>Agente nativo do Cybereyes: as instrucoes da empresa escritas no console entram no atendimento.</summary>
+    public bool AssistantNativeEnabled { get; set; } = true;
+
+    /// <summary>Instrucoes do agente nativo (tom, horario, regras da empresa), escritas no console.</summary>
+    public string? AssistantInstructions { get; set; }
+
     public string AssistantChatEffort { get; set; } = "low";
     public string AssistantLogEffort { get; set; } = "medium";
 

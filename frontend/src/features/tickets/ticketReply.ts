@@ -38,13 +38,13 @@ export function useTicketRealtime(ticketId: number) {
   }, [connection, connected, ticketId]);
 }
 
-/** Estado e envio de uma resposta (texto e anexos): usado no console e no app do tecnico. */
-export function useTicketReply(ticketId: number) {
+/** Estado e envio de uma resposta (texto e anexos): usado no console e no app do tecnico. Em incidente interno, so nota interna. */
+export function useTicketReply(ticketId: number, internalOnly = false) {
   const queryClient = useQueryClient();
   const [mode, setMode] = useState<ReplyMode>('public');
   const [body, setBody] = useState('');
   const [files, setFiles] = useState<File[]>([]);
-  const internal = mode === 'internal';
+  const internal = internalOnly || mode === 'internal';
 
   const send = useMutation({
     mutationFn: async () => {
