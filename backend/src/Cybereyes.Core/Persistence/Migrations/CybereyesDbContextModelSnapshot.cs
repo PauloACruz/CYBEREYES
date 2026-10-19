@@ -432,6 +432,10 @@ namespace Cybereyes.Core.Persistence.Migrations
                         .HasMaxLength(20000)
                         .HasColumnType("character varying(20000)");
 
+                    b.Property<string>("Category")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
                     b.Property<int?>("ClientId")
                         .HasColumnType("integer");
 
@@ -441,8 +445,34 @@ namespace Cybereyes.Core.Persistence.Migrations
                     b.Property<bool>("Enabled")
                         .HasColumnType("boolean");
 
+                    b.Property<int>("HelpfulCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("NotHelpfulCount")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("Public")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Question")
                         .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<int?>("SourceTicketId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("SuggestedBy")
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)");
 
@@ -458,9 +488,19 @@ namespace Cybereyes.Core.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<int>("UsedCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Views")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ClientId");
+
+                    b.HasIndex("SourceTicketId");
+
+                    b.HasIndex("Status");
 
                     b.ToTable("faq_entries", (string)null);
                 });
@@ -2531,6 +2571,9 @@ namespace Cybereyes.Core.Persistence.Migrations
                     b.Property<bool>("DisablePasswordLogin")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("FaqLearnFromTickets")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("IncidentPriority")
                         .IsRequired()
                         .HasMaxLength(16)
@@ -4419,6 +4462,11 @@ namespace Cybereyes.Core.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("ClientId")
                         .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("Cybereyes.Core.Tickets.Ticket", null)
+                        .WithMany()
+                        .HasForeignKey("SourceTicketId")
+                        .OnDelete(DeleteBehavior.SetNull);
                 });
 
             modelBuilder.Entity("Cybereyes.Core.Identity.ApiKey", b =>

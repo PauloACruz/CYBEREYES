@@ -18,7 +18,7 @@ import {
   Title,
   UnstyledButton,
 } from '@mantine/core';
-import { IconAlertOctagon, IconAlertTriangle, IconBulb, IconPlayerPlay, IconRobot, IconTrendingDown, IconTrendingUp } from '@tabler/icons-react';
+import { IconAlertOctagon, IconAlertTriangle, IconBulb, IconHelpCircle, IconPlayerPlay, IconRobot, IconTrendingDown, IconTrendingUp } from '@tabler/icons-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import { assistantApi } from '../../../api/assistant';
@@ -31,6 +31,8 @@ import { useMe } from '../../../auth/useMe';
 import { LoadError } from '../../../components/TableStates';
 import { notifySuccess } from '../../../lib/feedback';
 import { formatDateTime } from '../../../lib/format';
+import { FaqFormModal } from '../../faq/FaqFormModal';
+import { numberedSteps } from '../../faq/faqFormat';
 import { trendLabel } from './insightFormat';
 import { OpenIncidentModal, type IncidentTarget } from './OpenIncidentModal';
 
@@ -132,6 +134,8 @@ function InsightMachines({ item, canOpen, created, onOpen }: MachinesProps) {
 function InsightItemView({ item, ...machines }: Omit<MachinesProps, 'item'> & { item: LogInsightItem }) {
   const severity = SEVERITY[item.severity];
   const trend = trendLabel(item.count, item.previousCount);
+  const { data: me } = useMe();
+  const [faqOpen, setFaqOpen] = useState(false);
   return (
     <Accordion.Item value={item.group}>
       <Accordion.Control>
@@ -220,7 +224,20 @@ function InsightItemView({ item, ...machines }: Omit<MachinesProps, 'item'> & { 
               </List>
             </div>
           )}
+          {hasPermission(me, PERMISSIONS.docsView) && item.resolution.length > 0 && (
+            <Group justify="flex-end">
+              <Button size="xs" variant="light" leftSection={<IconHelpCircle size={14} />} onClick={() => setFaqOpen(true)}>
+                Criar entrada no FAQ
+              </Button>
+            </Group>
+          )}
         </Stack>
+        <FaqFormModal
+          opened={faqOpen}
+          onClose={() => setFaqOpen(false)}
+          entry={null}
+          prefill={{ question: item.title, answer: numberedSteps(item.resolution), category: 'Erros nas máquinas', tags: [], clientId: null }}
+        />
       </Accordion.Panel>
     </Accordion.Item>
   );

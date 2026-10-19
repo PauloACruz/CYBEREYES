@@ -23,6 +23,7 @@ export const PATHS = {
   inventory: '/inventario',
   people: '/inventario/pessoas',
   docs: '/documentacao',
+  faq: '/faq',
   newDocPage: '/documentacao/paginas/nova',
   logs: '/logs',
   snmp: '/snmp',
@@ -110,8 +111,13 @@ export function docPagePath(id: number): string {
 }
 
 /** Aba da tela de documentacao (?aba=). */
-export function docsTabPath(tab: 'redes' | 'diagramas' | 'credenciais' | 'paginas' | 'faq'): string {
+export function docsTabPath(tab: 'redes' | 'diagramas' | 'credenciais' | 'paginas'): string {
   return tab === 'redes' ? PATHS.docs : `${PATHS.docs}?aba=${tab}`;
+}
+
+/** Aba de sugestões do FAQ, aguardando revisão. */
+export function faqSuggestionsPath(): string {
+  return `${PATHS.faq}?aba=sugestoes`;
 }
 
 export function webAppPath(id: number): string {

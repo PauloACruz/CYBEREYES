@@ -1,12 +1,16 @@
-export type Tab = 'tickets' | 'selfService';
+export type Tab = 'tickets' | 'selfService' | 'help';
 
 interface Props {
   active: Tab;
   running: boolean;
+  /** Mostra a aba "Resolver sozinho" (autoatendimento liberado). */
+  selfService: boolean;
+  /** Mostra a aba "Ajuda" (há perguntas frequentes publicadas). */
+  help: boolean;
   onChange: (tab: Tab) => void;
 }
 
-export function ViewTabs({ active, running, onChange }: Props) {
+export function ViewTabs({ active, running, selfService, help, onChange }: Props) {
   const tab = (id: Tab, label: string) => (
     <button
       type="button"
@@ -21,7 +25,8 @@ export function ViewTabs({ active, running, onChange }: Props) {
   return (
     <nav className="tabs" aria-label="Seções">
       {tab('tickets', 'Meus chamados')}
-      {tab('selfService', 'Resolver sozinho')}
+      {help && tab('help', 'Ajuda')}
+      {selfService && tab('selfService', 'Resolver sozinho')}
     </nav>
   );
 }

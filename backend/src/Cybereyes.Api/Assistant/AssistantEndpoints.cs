@@ -31,7 +31,8 @@ public sealed record AssistantSettingsRequest(
     string LogEffort = "medium",
     bool AgentEnabled = true,
     bool NativeEnabled = true,
-    [property: StringLength(20000)] string? Instructions = null);
+    [property: StringLength(20000)] string? Instructions = null,
+    bool FaqLearn = true);
 
 /// <summary>Cria na conta da Anthropic um agente com as instrucoes iniciais do Cybereyes, para editar depois no Console.</summary>
 public sealed record CreateAgentRequest([property: StringLength(200)] string? Name, string? Model);
@@ -40,16 +41,6 @@ public sealed record AssistantAgentDto(string Id, string Name, string? Descripti
 
 /// <summary>Testa a chave informada ou, sem ela, a gravada; com Model "agent", o modelo do agente informado (ou do gravado).</summary>
 public sealed record AssistantTestRequest([property: StringLength(500)] string? ApiKey, string? Model, [property: StringLength(100)] string? AgentId = null);
-
-public sealed record SaveFaqRequest(
-    int? ClientId,
-    [property: Required, StringLength(300, MinimumLength = 3)] string Question,
-    [property: Required, StringLength(20000, MinimumLength = 1)] string Answer,
-    List<string>? Tags,
-    bool Enabled = true);
-
-public sealed record FaqDto(int Id, int? ClientId, string? ClientName, string Question, string Answer, IReadOnlyList<string> Tags, bool Enabled,
-    bool Guides, DateTimeOffset UpdatedAt, string UpdatedBy);
 
 public sealed record LogInsightSummaryDto(long Id, DateTimeOffset CreatedAt, DateTimeOffset WindowStart, DateTimeOffset WindowEnd, string Status, bool Manual,
     string Model, string Summary, int EventCount, int GroupCount, int AgentCount, string? Error);
@@ -71,13 +62,6 @@ public static class AssistantEndpoints
         assistant.MapGet("/insights/{id:long}", InsightAsync).RequireAuthorization(Policies.Permission(Permissions.LogsView));
         assistant.MapPost("/insights/run", RunInsightsAsync).RequireAuthorization(settings);
 
-        var faq = app.MapGroup("/api/faq").WithTags("FAQ");
-        faq.MapGet("/", ListFaqAsync).RequireAuthorization(Policies.Permission(Permissions.DocsView));
-        faq.MapPost("/", (SaveFaqRequest r, ClaimsPrincipal p, CybereyesDbContext db, IAuditService a, TimeProvider t, CancellationToken ct) =>
-            SaveFaqAsync(null, r, p, db, a, t, ct)).RequireAuthorization(Policies.Permission(Permissions.DocsManage));
-        faq.MapPut("/{id:int}", (int id, SaveFaqRequest r, ClaimsPrincipal p, CybereyesDbContext db, IAuditService a, TimeProvider t, CancellationToken ct) =>
-            SaveFaqAsync(id, r, p, db, a, t, ct)).RequireAuthorization(Policies.Permission(Permissions.DocsManage));
-        faq.MapDelete("/{id:int}", DeleteFaqAsync).RequireAuthorization(Policies.Permission(Permissions.DocsManage));
     }
 
     // Configuracao
@@ -96,6 +80,7 @@ public static class AssistantEndpoints
         logEffort = s.AssistantLogEffort,
         efforts = AssistantModels.Efforts,
         chatEnabled = s.AssistantChatEnabled,
+        faqLearn = s.FaqLearnFromTickets,
         s.LogInsightsEnabled,
         s.LogInsightsIntervalHours,
         s.LogInsightsMinLevel,
@@ -173,6 +158,7 @@ public static class AssistantEndpoints
         s.AssistantChatEffort = r.ChatEffort;
         s.AssistantLogEffort = r.LogEffort;
         s.AssistantChatEnabled = r.ChatEnabled;
+        s.FaqLearnFromTickets = r.FaqLearn;
         s.LogInsightsEnabled = r.LogInsightsEnabled;
         s.LogInsightsIntervalHours = r.LogInsightsIntervalHours;
         s.LogInsightsMinLevel = r.LogInsightsMinLevel;
@@ -338,107 +324,5 @@ public static class AssistantEndpoints
         trigger.Request();
         await audit.LogAsync("assistant.insights.run", "settings", "1", "Analise de logs pedida manualmente", cancellationToken: ct);
         return TypedResults.Accepted((string?)null);
-    }
-
-    // FAQ
-
-    /// <summary>Tags em minusculas, sem repeticao, ate 20 de ate 40 caracteres.</summary>
-    public static List<string> NormalizeTags(IEnumerable<string>? tags) =>
-        (tags ?? []).Select(t => t.Trim().ToLowerInvariant()).Where(t => t.Length is > 0 and <= 40).Distinct(StringComparer.Ordinal).Take(20).ToList();
-
-    private static async Task<IResult> ListFaqAsync(int? clientId, string? search, string? tag, CybereyesDbContext db, CancellationToken ct)
-    {
-        var query = db.FaqEntries.AsNoTracking();
-        if (clientId is { } c)
-        {
-            query = query.Where(f => f.ClientId == null || f.ClientId == c);
-        }
-        if (!string.IsNullOrWhiteSpace(search))
-        {
-            var pattern = Logs.LogEndpoints.Like(search.Trim());
-            query = query.Where(f => EF.Functions.ILike(f.Question, pattern) || EF.Functions.ILike(f.Answer, pattern));
-        }
-        if (!string.IsNullOrWhiteSpace(tag))
-        {
-            var t = tag.Trim().ToLowerInvariant();
-            query = query.Where(f => f.Tags.Contains(t));
-        }
-        var rows = await (
-            from f in query
-            join cl in db.Clients on f.ClientId equals cl.Id into cg
-            from cl in cg.DefaultIfEmpty()
-            orderby f.Question
-            select new { F = f, ClientName = cl == null ? null : cl.Name }).ToListAsync(ct);
-        return TypedResults.Ok(rows.Select(x => ToDto(x.F, x.ClientName)));
-    }
-
-    private static FaqDto ToDto(FaqEntry f, string? clientName) =>
-        new(f.Id, f.ClientId, clientName, f.Question, f.Answer, f.Tags, f.Enabled, f.Guides, f.UpdatedAt, f.UpdatedBy);
-
-    private static async Task<IResult> SaveFaqAsync(int? id, SaveFaqRequest r, ClaimsPrincipal principal, CybereyesDbContext db, IAuditService audit,
-        TimeProvider time, CancellationToken ct)
-    {
-        string? clientName = null;
-        if (r.ClientId is { } clientId)
-        {
-            clientName = await db.Clients.AsNoTracking().Where(c => c.Id == clientId).Select(c => c.Name).FirstOrDefaultAsync(ct);
-            if (clientName is null)
-            {
-                return Problems.Validation("clientId", "Cliente nao encontrado");
-            }
-        }
-        else if (db.IsClientRestricted)
-        {
-            return Problems.Validation("clientId", "Escolha um dos seus clientes; entradas para todos os clientes exigem acesso a todos eles");
-        }
-        var actor = await TicketEndpoints.ActorNameAsync(principal, db, ct);
-        FaqEntry entry;
-        if (id is null)
-        {
-            entry = new FaqEntry { Question = r.Question.Trim(), UpdatedBy = actor, CreatedAt = time.GetUtcNow() };
-            db.FaqEntries.Add(entry);
-        }
-        else
-        {
-            var found = await db.FaqEntries.FirstOrDefaultAsync(f => f.Id == id, ct);
-            if (found is null)
-            {
-                return Problems.NotFound("Entrada do FAQ");
-            }
-            if (found.ClientId is null && db.IsClientRestricted)
-            {
-                return Problems.Forbidden("Entradas para todos os clientes exigem acesso a todos eles");
-            }
-            entry = found;
-        }
-        entry.ClientId = r.ClientId;
-        entry.Question = r.Question.Trim();
-        entry.Answer = r.Answer.Trim();
-        entry.Tags = NormalizeTags(r.Tags);
-        entry.Enabled = r.Enabled;
-        entry.UpdatedAt = time.GetUtcNow();
-        entry.UpdatedBy = actor;
-        await db.SaveChangesAsync(ct);
-        await audit.LogAsync(id is null ? "faq.create" : "faq.update", "faq", entry.Id.ToString(CultureInfo.InvariantCulture),
-            $"FAQ {entry.Question}", cancellationToken: ct);
-        var dto = ToDto(entry, clientName);
-        return id is null ? TypedResults.Created($"/api/faq/{entry.Id}", dto) : TypedResults.Ok(dto);
-    }
-
-    private static async Task<IResult> DeleteFaqAsync(int id, CybereyesDbContext db, IAuditService audit, CancellationToken ct)
-    {
-        var entry = await db.FaqEntries.FirstOrDefaultAsync(f => f.Id == id, ct);
-        if (entry is null)
-        {
-            return Problems.NotFound("Entrada do FAQ");
-        }
-        if (entry.ClientId is null && db.IsClientRestricted)
-        {
-            return Problems.Forbidden("Entradas para todos os clientes exigem acesso a todos eles");
-        }
-        db.FaqEntries.Remove(entry);
-        await db.SaveChangesAsync(ct);
-        await audit.LogAsync("faq.delete", "faq", id.ToString(CultureInfo.InvariantCulture), $"FAQ {entry.Question}", cancellationToken: ct);
-        return TypedResults.NoContent();
     }
 }

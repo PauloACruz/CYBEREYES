@@ -2,7 +2,10 @@ import { api } from './client';
 import type {
   AssistantAgentDto,
   AssistantSettingsDto,
+  FaqDraftDto,
+  FaqDraftRequest,
   FaqEntryDto,
+  FaqOverviewDto,
   ListFaqParams,
   LogInsightDetailDto,
   LogInsightListDto,
@@ -27,7 +30,12 @@ export const assistantApi = {
 
 export const faqApi = {
   list: (params: ListFaqParams) => api.get<FaqEntryDto[]>('/api/faq', { ...params }),
+  overview: (clientId?: number) => api.get<FaqOverviewDto>('/api/faq/overview', { clientId }),
+  get: (id: number) => api.get<FaqEntryDto>(`/api/faq/${id}`),
   create: (body: SaveFaqRequest) => api.post<FaqEntryDto>('/api/faq', body),
   update: (id: number, body: SaveFaqRequest) => api.put<FaqEntryDto>(`/api/faq/${id}`, body),
   remove: (id: number) => api.delete(`/api/faq/${id}`),
+  /** Um técnico inseriu a resposta numa conversa; conta como uso, sem aviso em caso de erro. */
+  used: (id: number) => api.post(`/api/faq/${id}/used`, undefined, { silent: true }),
+  draft: (body: FaqDraftRequest) => api.post<FaqDraftDto>('/api/faq/draft', body),
 };

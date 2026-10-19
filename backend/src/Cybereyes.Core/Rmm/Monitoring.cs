@@ -329,6 +329,9 @@ public sealed class CoreSettings
     /// <summary>O assistente atende primeiro os chamados abertos pelo app de bandeja.</summary>
     public bool AssistantChatEnabled { get; set; }
 
+    /// <summary>Ao resolver um chamado, o assistente escreve uma sugestao de entrada para o FAQ, que a equipe revisa.</summary>
+    public bool FaqLearnFromTickets { get; set; } = true;
+
     public bool LogInsightsEnabled { get; set; }
     public int LogInsightsIntervalHours { get; set; } = 24;
     public string LogInsightsMinLevel { get; set; } = LogLevels.Error;

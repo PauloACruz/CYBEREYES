@@ -305,3 +305,24 @@ button { font: inherit; }
 }
 .remote-banner strong { color: var(--attention); }
 .remote-error { padding: 0 12px; }
+
+.help-search {
+  font: inherit; color: inherit; background: var(--surface); border: 1px solid var(--border-strong);
+  border-radius: 4px; padding: 9px 12px; width: 100%;
+}
+.help-search::placeholder { color: var(--tertiary); }
+.help-search:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.help-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  font: inherit; font-size: 12px; font-weight: 600; color: var(--muted); background: var(--surface);
+  border: 1px solid var(--border); border-radius: 999px; padding: 4px 10px; cursor: pointer;
+}
+.chip:hover { border-color: var(--border-strong); color: var(--text); }
+.chip-active { color: var(--text); border-color: var(--accent); background: var(--hover); }
+.chip:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.help-question { font-weight: 600; }
+.help-excerpt { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.help-suggest { margin-top: auto; }
+.help-suggest-title { font-size: 14px; font-weight: 600; }
+.help-ask { margin: 0; font-weight: 600; }
+.help-thanks { margin: 0; color: var(--ok); font-weight: 600; }

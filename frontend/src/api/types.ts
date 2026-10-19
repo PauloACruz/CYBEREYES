@@ -1296,6 +1296,7 @@ export interface TicketAgentDto {
 }
 
 export interface TicketDetail extends TicketListItem {
+  clientId: number | null;
   description: string;
   requesterUsername: string | null;
   requesterEmail: string | null;
@@ -2948,6 +2949,8 @@ export interface AssistantSettingsDto {
   logEffort: EffortLevel;
   efforts: EffortLevel[];
   chatEnabled: boolean;
+  /** Ao resolver um chamado, o assistente sugere uma entrada do FAQ. */
+  faqLearn: boolean;
   logInsightsEnabled: boolean;
   logInsightsIntervalHours: number;
   logInsightsMinLevel: InsightLevel;
@@ -2970,6 +2973,7 @@ export interface SaveAssistantSettingsRequest {
   chatEffort: EffortLevel;
   logEffort: EffortLevel;
   chatEnabled: boolean;
+  faqLearn: boolean;
   logInsightsEnabled: boolean;
   logInsightsIntervalHours: number;
   logInsightsMinLevel: InsightLevel;
@@ -2977,16 +2981,36 @@ export interface SaveAssistantSettingsRequest {
   logInsightsEmail: boolean;
 }
 
+/** Publicada vale para o assistente, os técnicos e o app EYES; sugestão aguarda revisão. */
+export type FaqStatus = 'published' | 'proposed';
+
+/** Quem criou: a equipe, o assistente (a partir de um chamado resolvido) ou um usuário pelo app EYES. */
+export type FaqSource = 'team' | 'assistant' | 'requester';
+
 export interface FaqEntryDto {
   id: number;
   clientId: number | null;
   clientName: string | null;
   question: string;
   answer: string;
+  category: string | null;
   tags: string[];
   enabled: boolean;
   /** Tem a tag "orientar": o assistente envia o passo a passo ao cliente. */
   guides: boolean;
+  status: FaqStatus;
+  /** Aparece na ajuda do app EYES para os usuários. */
+  public: boolean;
+  source: FaqSource;
+  sourceTicketId: number | null;
+  suggestedBy: string | null;
+  /** Aberturas na ajuda do app EYES. */
+  views: number;
+  helpfulCount: number;
+  notHelpfulCount: number;
+  /** Vezes que o assistente enviou ou um técnico inseriu a resposta num chamado. */
+  usedCount: number;
+  createdAt: string;
   updatedAt: string;
   updatedBy: string;
 }
@@ -2997,12 +3021,59 @@ export interface SaveFaqRequest {
   answer: string;
   tags: string[];
   enabled: boolean;
+  category: string | null;
+  /** Sem permissão de editar, a entrada sempre vira sugestão. */
+  status: FaqStatus;
+  public: boolean;
+  sourceTicketId?: number | null;
 }
 
 export interface ListFaqParams {
   clientId?: number;
   search?: string;
   tag?: string;
+  category?: string;
+  /** Só as entradas sem categoria. */
+  uncategorized?: boolean;
+  status?: FaqStatus;
+  public?: boolean;
+}
+
+export interface FaqCategoryDto {
+  name: string;
+  count: number;
+}
+
+export interface FaqOverviewDto {
+  published: number;
+  proposed: number;
+  uncategorized: number;
+  categories: FaqCategoryDto[];
+  /** Todas as categorias, para sugerir no formulário. */
+  allCategories: string[];
+  /** Há chave da Anthropic: o assistente pode escrever rascunhos. */
+  assistant: boolean;
+}
+
+export interface FaqDraftRequest {
+  question?: string | null;
+  context?: string | null;
+  ticketId?: number | null;
+}
+
+/** Rascunho escrito pelo assistente; nada é gravado até o técnico salvar. */
+export interface FaqDraftDto {
+  action: 'create' | 'skip';
+  reason: string;
+  duplicateOf: number | null;
+  duplicateQuestion: string | null;
+  question: string;
+  answer: string;
+  category: string | null;
+  tags: string[];
+  guides: boolean;
+  public: boolean;
+  clientSpecific: boolean;
 }
 
 export type InsightSeverity = 'baixa' | 'media' | 'alta' | 'critica';

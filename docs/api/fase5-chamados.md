@@ -149,6 +149,7 @@ sequenceDiagram
 | GET | `/api/tray/tickets/{id}` | `TrayTicket` mais `{ description, messages: TrayMessage[], attachments }` (`attachments`: anexos sem mensagem, como a captura de tela da abertura); 404 se nao for do usuario |
 | POST | `/api/tray/tickets/{id}/messages` | `{ body }` -> 201 `TrayMessage`; 409 `CHAT_LOCKED` sem tecnico atribuido ou chamado fechado |
 | GET | `/api/tray/tickets/{id}/attachments/{attachmentId}` | arquivo (somente anexos de mensagens publicas ou do proprio usuario) |
+| GET/POST | `/api/tray/faq...` | Ajuda do app (perguntas frequentes, avaliacao e perguntas novas); ver [faq.md](faq.md) |
 
 `TrayMessage`: `{ id, authorType, authorName, body, createdAt, attachments: [{ id, fileName, contentType, size }] }` (nunca inclui notas internas).
 

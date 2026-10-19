@@ -12,6 +12,31 @@ type Me struct {
 	// AssistantEnabled diz se o assistente de IA faz o primeiro atendimento dos chamados abertos pelo app.
 	AssistantEnabled bool   `json:"assistantEnabled"`
 	AssistantName    string `json:"assistantName"`
+	// FaqEnabled diz se ha perguntas frequentes publicadas para a ajuda do app.
+	FaqEnabled bool `json:"faqEnabled"`
+}
+
+// FaqItem e uma pergunta da ajuda do app, com o comeco da resposta.
+type FaqItem struct {
+	ID       int     `json:"id"`
+	Question string  `json:"question"`
+	Category *string `json:"category"`
+	Excerpt  string  `json:"excerpt"`
+}
+
+// FaqList traz as categorias e as perguntas encontradas.
+type FaqList struct {
+	Categories []string  `json:"categories"`
+	Entries    []FaqItem `json:"entries"`
+}
+
+// FaqEntry e a pergunta com a resposta completa.
+type FaqEntry struct {
+	ID        int       `json:"id"`
+	Question  string    `json:"question"`
+	Answer    string    `json:"answer"`
+	Category  *string   `json:"category"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 // Attachment descreve um anexo de chamado ou de mensagem.

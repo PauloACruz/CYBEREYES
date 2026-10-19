@@ -128,6 +128,7 @@ public static class Tray
         tray.MapGet("/tickets/{id:int}", GetAsync);
         tray.MapPost("/tickets/{id:int}/messages", MessageAsync);
         tray.MapGet("/tickets/{id:int}/attachments/{attachmentId:long}", DownloadAsync);
+        TrayFaq.Map(tray);
         app.MapHub<TrayHub>(TrayTokenAuthenticationHandler.HubPath);
     }
 
@@ -138,7 +139,7 @@ public static class Tray
     {
         var s = Session(principal)!;
         var agent = await db.Agents.AsNoTracking().Where(a => a.Id == s.AgentId)
-            .Select(a => new { a.Hostname, ClientName = a.Site!.Client!.Name, SiteName = a.Site.Name }).FirstOrDefaultAsync(ct);
+            .Select(a => new { a.Hostname, a.Site!.ClientId, ClientName = a.Site.Client!.Name, SiteName = a.Site.Name }).FirstOrDefaultAsync(ct);
         if (agent is null)
         {
             return Problems.NotFound("Agente");
@@ -149,6 +150,7 @@ public static class Tray
         {
             agent.Hostname, username = s.Username, agent.ClientName, agent.SiteName,
             assistantEnabled = assistant, assistantName = assistant ? settings.AssistantName : null,
+            faqEnabled = await TrayFaq.Visible(db, agent.ClientId).AnyAsync(ct),
         });
     }
 

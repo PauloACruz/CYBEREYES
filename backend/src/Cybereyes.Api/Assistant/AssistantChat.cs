@@ -214,7 +214,8 @@ public sealed partial class AssistantChat(
             return false;
         }
 
-        var faq = await db.FaqEntries.AsNoTracking().Where(f => f.Enabled && (f.ClientId == null || f.ClientId == ticket.ClientId))
+        var faq = await db.FaqEntries.AsNoTracking()
+            .Where(f => f.Enabled && f.Status == FaqStatus.Published && (f.ClientId == null || f.ClientId == ticket.ClientId))
             .OrderBy(f => f.Id).Take(MaxFaqEntries).ToListAsync(ct);
         AssistantDecision decision;
         try
@@ -260,6 +261,7 @@ public sealed partial class AssistantChat(
                 await tickets.AddMessageAsync(ticket, MessageAuthor.Assistant, null, name,
                     Clip($"Orientei o solicitante com o FAQ #{entry.Id} \"{entry.Question}\".\n\n{decision.Summary}"), true, ct);
                 await tickets.ChangeStatusAsync(ticket, TicketStatus.WaitingUser, name, ct);
+                await db.FaqEntries.Where(f => f.Id == entry.Id).ExecuteUpdateAsync(x => x.SetProperty(f => f.UsedCount, f => f.UsedCount + 1), ct);
                 break;
             case Actions.AskDetails:
                 await tickets.AddMessageAsync(ticket, MessageAuthor.Assistant, null, name, Clip(reply), false, ct);
