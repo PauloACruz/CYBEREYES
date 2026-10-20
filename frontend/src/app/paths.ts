@@ -24,6 +24,7 @@ export const PATHS = {
   people: '/inventario/pessoas',
   docs: '/documentacao',
   faq: '/faq',
+  aiAgent: '/agente-ia',
   newDocPage: '/documentacao/paginas/nova',
   logs: '/logs',
   snmp: '/snmp',

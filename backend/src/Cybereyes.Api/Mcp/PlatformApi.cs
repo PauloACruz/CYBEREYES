@@ -77,20 +77,19 @@ public sealed class PlatformApi(IHttpClientFactory factory, IHttpContextAccessor
         return text.Length > 0 ? text : $"{{\"status\":{(int)response.StatusCode}}}";
     }
 
-    private Uri BaseAddress()
+    private Uri BaseAddress() => baseAddress ??= LocalBaseAddress(server, config);
+
+    /// <summary>A propria API pela maquina local; o agente de IA do console tambem chama o MCP por aqui.</summary>
+    public static Uri LocalBaseAddress(IServer server, IConfiguration config)
     {
-        if (baseAddress is not null)
-        {
-            return baseAddress;
-        }
         if (config["Mcp:ApiBaseUrl"] is { Length: > 0 } configured)
         {
-            return baseAddress = new Uri(configured);
+            return new Uri(configured);
         }
         // Na mesma maquina: a porta HTTP em que o Kestrel escuta (8080 no conteiner). Sem endereco (testes), o handler decide.
         var address = server.Features.Get<IServerAddressesFeature>()?.Addresses
             .FirstOrDefault(a => a.StartsWith("http://", StringComparison.OrdinalIgnoreCase));
-        return baseAddress = address is null
+        return address is null
             ? new Uri("http://localhost")
             : new Uri($"http://127.0.0.1:{BindingAddress.Parse(address).Port.ToString(CultureInfo.InvariantCulture)}");
     }

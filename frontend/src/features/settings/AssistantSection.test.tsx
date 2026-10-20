@@ -15,6 +15,13 @@ function makeSettings(overrides: Partial<AssistantSettingsDto> = {}): AssistantS
     agentEnabled: true,
     nativeEnabled: true,
     instructions: null,
+    nativePermissions: ['tickets.view'],
+    agentPermissions: ['tickets.view'],
+    permissionCatalog: [
+      { key: 'tickets.view', group: 'Chamados', description: 'Ver chamados' },
+      { key: 'tickets.manage', group: 'Chamados', description: 'Responder chamados' },
+      { key: 'agents.run', group: 'Agentes', description: 'Executar comandos' },
+    ],
     chatEffort: 'low',
     logEffort: 'medium',
     efforts: ['low', 'medium', 'high', 'xhigh', 'max'],
@@ -156,6 +163,41 @@ describe('assistente de IA nas configurações', () => {
       agentId: 'agent_01',
       model: 'claude-opus-5-5',
       instructions: 'Assine como Suporte ACME. Atendemos das 8h às 18h.',
+    });
+  });
+
+  it('libera e limita as permissões de cada agente pela lista completa', async () => {
+    const saved: SaveAssistantSettingsRequest[] = [];
+    mockFetch({
+      ...BASE,
+      'GET /api/assistant/settings': () => json(makeSettings({ keySet: true, keyHint: '1234' })),
+      'GET /api/assistant/agents': () => json([AGENT]),
+      'PUT /api/assistant/settings': (init) => {
+        const request = body(init) as SaveAssistantSettingsRequest;
+        saved.push(request);
+        return json(makeSettings({ ...request, keySet: true, keyHint: '1234' }));
+      },
+    });
+    renderApp('/configuracoes');
+
+    const section = await screen.findByRole('region', { name: 'Assistente de IA' });
+    const user = userEvent.setup();
+    const native = await within(section).findByRole('group', { name: 'Permissões do agente nativo' });
+    expect(within(native).getByRole('checkbox', { name: /Ver chamados/ })).toBeChecked();
+    await user.click(within(native).getByRole('checkbox', { name: /Responder chamados/ }));
+    expect(within(section).getByText('2 de 3 permissões liberadas para o agente nativo.')).toBeInTheDocument();
+
+    await user.click(within(section).getByRole('radio', { name: 'Agente da Anthropic' }));
+    const linked = within(section).getByRole('group', { name: 'Permissões do agente da Anthropic' });
+    await user.click(within(section).getByRole('button', { name: 'Todas' }));
+    expect(within(linked).getByRole('checkbox', { name: /Executar comandos/ })).toBeChecked();
+    await user.click(within(linked).getByRole('checkbox', { name: /Ver chamados/ }));
+
+    await user.click(within(section).getByRole('button', { name: 'Salvar' }));
+    await waitFor(() => expect(saved).toHaveLength(1));
+    expect(saved[0]).toMatchObject({
+      nativePermissions: ['tickets.view', 'tickets.manage'],
+      agentPermissions: ['tickets.manage', 'agents.run'],
     });
   });
 

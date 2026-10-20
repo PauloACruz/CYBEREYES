@@ -13,6 +13,7 @@ public sealed class ApiKeyAuthenticationHandler(
     ILoggerFactory logger,
     UrlEncoder encoder,
     CybereyesDbContext db,
+    Assistant.AgentRunTokens runTokens,
     TimeProvider timeProvider)
     : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
 {
@@ -32,6 +33,13 @@ public sealed class ApiKeyAuthenticationHandler(
         if (string.IsNullOrWhiteSpace(value))
         {
             return AuthenticateResult.NoResult();
+        }
+        // Credencial de uma execucao do agente de IA no console: tecnico que pediu + agente que executa.
+        if (Assistant.AgentRunTokens.IsRunToken(value.Trim()))
+        {
+            return runTokens.Authenticate(value.Trim(), Scheme.Name) is { } run
+                ? AuthenticateResult.Success(new AuthenticationTicket(run, Scheme.Name))
+                : AuthenticateResult.Fail("Execucao do agente encerrada");
         }
 
         var hash = ApiKeyGenerator.Hash(value.Trim());

@@ -314,6 +314,8 @@ export interface AuditDto {
   objectId: string | null;
   message: string | null;
   ipAddress: string | null;
+  /** Agente de IA que executou a ação a pedido de username (coautoria). */
+  agent?: string | null;
 }
 
 export interface ListAuditParams {
@@ -675,6 +677,7 @@ export type SaveUrlActionRequest = Omit<UrlActionDto, 'id'>;
 export const PERMISSIONS = {
   usersView: 'users.view',
   usersManage: 'users.manage',
+  assistantUse: 'assistant.use',
   rolesManage: 'roles.manage',
   apiKeysManage: 'apikeys.manage',
   auditView: 'audit.view',
@@ -1413,6 +1416,36 @@ export interface CreateTimeEntryRequest {
   minutes: number;
   description?: string;
   workDate?: string;
+}
+
+/** Técnico na fila de atendimento: recebe os chamados novos por rodízio. */
+export interface TicketRotationMemberDto {
+  userId: string;
+  name: string;
+  active: boolean;
+  /** Filas de chamados que ele atende; vazia, todas. */
+  queueIds: number[];
+  lastAssignedAt: string | null;
+  openTickets: number;
+}
+
+export interface TicketRotationOption {
+  id: string;
+  name: string;
+}
+
+export interface TicketRotationDto {
+  enabled: boolean;
+  nextUserId: string | null;
+  members: TicketRotationMemberDto[];
+  /** Quem pode entrar na fila e ainda não está nela. */
+  candidates: TicketRotationOption[];
+  queues: TicketRotationOption[];
+}
+
+export interface SaveTicketRotationRequest {
+  enabled: boolean;
+  members: { userId: string; active: boolean; queueIds: number[] }[];
 }
 
 export interface TicketQueueDto {
@@ -2945,6 +2978,10 @@ export interface AssistantSettingsDto {
   nativeEnabled: boolean;
   /** Instrucoes do agente nativo. */
   instructions: string | null;
+  /** O que cada agente pode fazer quando um técnico pede ações no menu Agente de IA. */
+  nativePermissions: string[];
+  agentPermissions: string[];
+  permissionCatalog: PermissionDto[];
   chatEffort: EffortLevel;
   logEffort: EffortLevel;
   efforts: EffortLevel[];
@@ -2970,6 +3007,8 @@ export interface SaveAssistantSettingsRequest {
   agentEnabled: boolean;
   nativeEnabled: boolean;
   instructions: string | null;
+  nativePermissions: string[];
+  agentPermissions: string[];
   chatEffort: EffortLevel;
   logEffort: EffortLevel;
   chatEnabled: boolean;
@@ -2979,6 +3018,43 @@ export interface SaveAssistantSettingsRequest {
   logInsightsMinLevel: InsightLevel;
   logInsightsPush: boolean;
   logInsightsEmail: boolean;
+}
+
+/** Agente que executa os pedidos do menu Agente de IA: o nativo ou o vinculado da Anthropic. */
+export type ConsoleExecutorId = 'native' | 'anthropic';
+
+export interface ConsoleExecutorDto {
+  id: ConsoleExecutorId;
+  name: string;
+  /** O que ele pode fazer para quem pergunta: as permissões do agente que o técnico também tem. */
+  permissions: string[];
+}
+
+export type ConsoleSessionStatus = 'running' | 'awaiting_approval' | 'idle' | 'failed';
+
+export type ConsoleActionStatus = 'running' | 'pending' | 'done' | 'error' | 'rejected';
+
+export interface ConsoleEntryDto {
+  kind: 'request' | 'reply' | 'action';
+  text: string | null;
+  at: string | null;
+  tool?: string | null;
+  /** Argumentos da ferramenta em JSON. */
+  input?: string | null;
+  result?: string | null;
+  status?: ConsoleActionStatus | null;
+}
+
+export interface ConsoleSessionDto {
+  id: string;
+  title: string;
+  executor: ConsoleExecutorId;
+  executorName: string;
+  status: ConsoleSessionStatus;
+  error: string | null;
+  createdAt: string;
+  updatedAt: string;
+  entries?: ConsoleEntryDto[] | null;
 }
 
 /** Publicada vale para o assistente, os técnicos e o app EYES; sugestão aguarda revisão. */

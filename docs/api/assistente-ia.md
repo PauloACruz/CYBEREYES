@@ -8,8 +8,8 @@ atendimento dos chamados abertos pelo app EYES e a análise periódica dos erros
 
 | Rota | Uso |
 |---|---|
-| `GET /api/assistant/settings` | `{ keySet, keyHint, model, name, agentId, agentEnabled, nativeEnabled, instructions, chatEffort, logEffort, efforts, chatEnabled, faqLearn, logInsightsEnabled, logInsightsIntervalHours, logInsightsMinLevel, logInsightsPush, logInsightsEmail, logInsightsLastRunAt, smtpConfigured, models }` |
-| `PUT /api/assistant/settings` | Mesmos campos mais `apiKey`: `null` mantém a chave gravada, `""` apaga, `sk-ant-...` troca. Ligar o chat ou a análise sem chave ou sem nenhum agente ativo dá 400 |
+| `GET /api/assistant/settings` | `{ keySet, keyHint, model, name, agentId, agentEnabled, nativeEnabled, instructions, nativePermissions, agentPermissions, permissionCatalog, chatEffort, logEffort, efforts, chatEnabled, faqLearn, logInsightsEnabled, logInsightsIntervalHours, logInsightsMinLevel, logInsightsPush, logInsightsEmail, logInsightsLastRunAt, smtpConfigured, models }` |
+| `PUT /api/assistant/settings` | Mesmos campos mais `apiKey`: `null` mantém a chave gravada, `""` apaga, `sk-ant-...` troca. Ligar o chat ou a análise sem chave ou sem nenhum agente ativo dá 400. `nativePermissions`/`agentPermissions` ausentes mantêm as atuais; permissão desconhecida dá 400 |
 | `POST /api/assistant/test` | `{ apiKey?, model?, agentId? }` → confere a chave digitada (ou a gravada) pela API de modelos, sem gastar tokens; com `model: "agent"`, o modelo do agente |
 | `GET /api/assistant/agents` | Agentes não arquivados da conta da chave gravada (`{ id, name, description, model, version }`) |
 | `POST /api/assistant/agents` | `{ name?, model? }` → cria na conta um agente com as instruções iniciais do Cybereyes (201) |
@@ -53,6 +53,8 @@ modelo. A cada mensagem do solicitante o modelo escolhe uma ação:
 | `resolved` | Agradece, nota interna, grava a solução (`resolutionKind = solution`, citando o FAQ usado) e status `resolved` |
 
 O assistente para quando um técnico assume o chamado ou responde ao usuário, depois de 6 respostas e quando a API falha (encaminha).
+O técnico que o rodízio da fila de atendimento atribui na abertura não interrompe o assistente: ele recebe o push do chamado novo,
+não recebe as mensagens do chat enquanto o assistente conversa e recebe o encaminhamento (resposta e nota interna).
 Atende no máximo 10 chamados por máquina por hora. As mensagens dele têm `authorType = "assistant"` e não contam como primeira
 resposta do SLA. `GET /api/tray/me` traz `assistantEnabled` e `assistantName` para o app abrir o chamado conversando.
 
@@ -82,3 +84,34 @@ no período anterior do mesmo tamanho, máquinas afetadas e dias com o erro nos 
 com o que já está configurado na plataforma (regras de alerta de log, checks, tarefas, scripts, FAQ, autoatendimento). O relatório
 fica em `log_insight_reports`; quem vê todos os clientes recebe push (`Insights` na inscrição) e, se ligado, e-mail. Com várias
 réplicas, só a que grava `LogInsightsLastRunAt` primeiro roda a análise periódica.
+
+## Agente de IA no console (menu Agente de IA, `assistant.use`)
+
+O técnico pede ações a um dos agentes ligados (o nativo, com o nome do assistente, ou o vinculado da Anthropic) e o agente
+executa com as ferramentas do MCP do Cybereyes (`docs/api/mcp.md`), pela própria máquina:
+
+- **Permissões**: cada agente tem a sua lista (`nativePermissions`, `agentPermissions`; a migration começa os dois só com leitura:
+  `clients.view`, `agents.view`, `alerts.view`, `tickets.view`, `logs.view`, `scripts.view`, `docs.view`, `inventory.view`). A
+  execução recebe só as permissões do agente que o técnico também tem (o superusuário tem todas) e o escopo de clientes do técnico.
+  Uma ferramenta fora disso volta com o 403 da rota, e o agente avisa qual permissão falta.
+- **Credencial da execução**: um token `cyr_...` gerado a cada pedido, guardado só na memória da réplica que atende e revogado no
+  fim (o agente chama `127.0.0.1`, então a outra réplica nunca o recebe). O principal já sai com as permissões da execução.
+- **Coautoria**: a auditoria das rotas grava `username` = técnico e `agent` = agente (`GET /api/audit` devolve `agent`; a tela
+  mostra "pelo agente X"). Mensagens e mudanças nos chamados saem como "Técnico (pelo agente X)". O pedido, a aprovação e a recusa
+  também entram (`assistant.request`, `assistant.approved`, `assistant.rejected`).
+- **Aprovação**: ferramentas com `destructiveHint` (comando, script, serviço, processo, energia, tarefa, instalação, Windows Update)
+  param a execução em `awaiting_approval`; o técnico aprova ou recusa todas as da rodada. Recusada, o modelo recebe o resultado
+  "O tecnico recusou esta acao" e segue.
+- **Limites**: até 25 rodadas do modelo por pedido, 8000 tokens de saída por rodada, resultados de ferramenta cortados em 20000
+  caracteres, esforço `logEffort`. Execução sem sinal por 15 minutos (réplica reiniciada) aparece como falha e libera a conversa.
+
+| Rota | Uso |
+|---|---|
+| `GET /api/assistant/console/executors` | Agentes disponíveis `[{ id: "native" \| "anthropic", name, permissions }]` (permissões efetivas para quem pergunta) |
+| `GET /api/assistant/console/sessions` | As 30 conversas mais recentes do técnico |
+| `POST /api/assistant/console/sessions` | `{ executor, message }` → 202 com a conversa; o agente trabalha em segundo plano |
+| `GET /api/assistant/console/sessions/{id}` | `{ id, title, executor, executorName, status, error, entries: [{ kind: request \| reply \| action, text, at, tool, input, result, status }] }` |
+| `POST /api/assistant/console/sessions/{id}/messages` | `{ message }` continua a conversa (409 enquanto trabalha ou espera aprovação) |
+| `POST /api/assistant/console/sessions/{id}/approval` | `{ approve }` aprova ou recusa as ações pendentes (409 sem pendência) |
+
+Cada técnico só vê as próprias conversas (`assistant_sessions`, com a conversa no formato da Messages API em `jsonb`).

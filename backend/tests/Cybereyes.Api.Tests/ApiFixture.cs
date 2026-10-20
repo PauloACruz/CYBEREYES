@@ -279,6 +279,9 @@ public sealed class FakeAssistant : Cybereyes.Api.Assistant.IAssistantModel
 {
     private readonly Queue<object> replies = new();
     private readonly List<Cybereyes.Api.Assistant.AssistantCall> calls = [];
+    private readonly Queue<Cybereyes.Api.Assistant.AgentTurn> turns = new();
+    private readonly List<Cybereyes.Api.Assistant.AgentConversation> conversations = [];
+    private int toolUses;
 
     /// <summary>Chave que o teste da conexao recusa.</summary>
     public const string RejectedKey = "sk-ant-recusada-0000000000";
@@ -309,6 +312,49 @@ public sealed class FakeAssistant : Cybereyes.Api.Assistant.IAssistantModel
         lock (calls)
         {
             replies.Clear();
+            turns.Clear();
+        }
+    }
+
+    /// <summary>Pedidos ao agente do console (rodadas com ferramentas), na ordem.</summary>
+    public List<Cybereyes.Api.Assistant.AgentConversation> Conversations
+    {
+        get
+        {
+            lock (calls)
+            {
+                return [.. conversations];
+            }
+        }
+    }
+
+    /// <summary>Proxima rodada do agente do console: texto e, se houver, as ferramentas que ele pede (nome e argumentos).</summary>
+    public void EnqueueTurn(string? text, params (string Name, object Input)[] tools)
+    {
+        lock (calls)
+        {
+            var content = new List<Cybereyes.Api.Assistant.AgentBlock>();
+            if (text is not null)
+            {
+                content.Add(Cybereyes.Api.Assistant.AgentBlock.FromText(text));
+            }
+            foreach (var (name, input) in tools)
+            {
+                content.Add(new Cybereyes.Api.Assistant.AgentBlock("tool_use", Id: $"toolu_{++toolUses:D4}", Name: name,
+                    Input: System.Text.Json.JsonSerializer.SerializeToElement(input)));
+            }
+            turns.Enqueue(new Cybereyes.Api.Assistant.AgentTurn(content, tools.Length > 0 ? "tool_use" : "end_turn"));
+        }
+    }
+
+    public Task<Cybereyes.Api.Assistant.AgentTurn> ConverseAsync(Cybereyes.Api.Assistant.AgentConversation request, CancellationToken ct)
+    {
+        lock (calls)
+        {
+            conversations.Add(request);
+            return turns.Count > 0
+                ? Task.FromResult(turns.Dequeue())
+                : throw new Cybereyes.Api.Assistant.AssistantException("sem rodada enfileirada");
         }
     }
 

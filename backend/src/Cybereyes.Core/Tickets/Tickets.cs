@@ -101,6 +101,26 @@ public sealed class Ticket
 
     /// <summary>Respostas que o assistente ja deu, para encaminhar a um tecnico depois de algumas tentativas.</summary>
     public int AssistantTurns { get; set; }
+
+    /// <summary>O tecnico veio do rodizio da fila de atendimento, e nao de uma pessoa; volta a falso quando alguem atribui.</summary>
+    public bool AutoAssigned { get; set; }
+}
+
+/// <summary>
+/// Tecnico na fila de atendimento: os chamados abertos sem tecnico vao, por rodizio, para quem esta ha mais tempo sem receber um.
+/// </summary>
+public sealed class TicketRotationMember
+{
+    public Guid UserId { get; set; }
+    public int Position { get; set; }
+
+    /// <summary>Falso: continua na lista, mas o rodizio pula (folga, ferias).</summary>
+    public bool Active { get; set; } = true;
+
+    /// <summary>Filas de chamados que o tecnico atende; vazia, todas.</summary>
+    public List<int> QueueIds { get; set; } = [];
+
+    public DateTimeOffset? LastAssignedAt { get; set; }
 }
 
 public sealed class TicketMessage

@@ -17,4 +17,7 @@ public static class CybereyesClaims
     public const string Installer = "ce_installer";
     public const string TrayAgent = "ce_tray_agent";
     public const string TrayUser = "ce_tray_user";
+
+    /// <summary>Agente de IA que executa a acao a pedido do usuario do principal (coautoria na auditoria).</summary>
+    public const string AiAgent = "ce_ai_agent";
 }

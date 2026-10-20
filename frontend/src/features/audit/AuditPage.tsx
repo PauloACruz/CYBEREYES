@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Badge, Group, Pagination, Paper, SimpleGrid, Table, Text, TextInput } from '@mantine/core';
 import { DatePickerInput, type DatesRangeValue } from '@mantine/dates';
 import { useDebouncedValue } from '@mantine/hooks';
-import { IconCalendar, IconSearch, IconUser } from '@tabler/icons-react';
+import { IconCalendar, IconRobot, IconSearch, IconUser } from '@tabler/icons-react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { auditApi } from '../../api/audit';
@@ -107,7 +107,18 @@ export function AuditPage() {
                       {formatDateTime(entry.timestamp, '')}
                     </Text>
                   </Table.Td>
-                  <Table.Td>{entry.username ?? <Text size="sm" c="dimmed">Sistema</Text>}</Table.Td>
+                  <Table.Td>
+                    {entry.username ?? (
+                      <Text size="sm" c="dimmed">
+                        Sistema
+                      </Text>
+                    )}
+                    {entry.agent && (
+                      <Badge display="flex" mt={4} size="sm" variant="light" color="violet" leftSection={<IconRobot size={12} />} w="fit-content">
+                        pelo agente {entry.agent}
+                      </Badge>
+                    )}
+                  </Table.Td>
                   <Table.Td>
                     <Badge variant="light" color="gray" size="sm" tt="none">
                       {entry.action}

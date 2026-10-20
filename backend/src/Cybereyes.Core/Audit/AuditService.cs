@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Http;
 using Cybereyes.Core.Persistence;
+using Cybereyes.Core.Security;
 
 namespace Cybereyes.Core.Audit;
 
@@ -23,6 +24,7 @@ public sealed class AuditService(CybereyesDbContext db, IHttpContextAccessor htt
             Message = message,
             Username = username ?? context?.User.Identity?.Name ?? "sistema",
             IpAddress = context?.Connection.RemoteIpAddress?.ToString(),
+            Agent = context?.User.FindFirst(CybereyesClaims.AiAgent)?.Value,
         });
         await db.SaveChangesAsync(cancellationToken);
     }

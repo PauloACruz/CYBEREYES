@@ -111,7 +111,7 @@ public sealed record CreateApiKeyRequest([property: Required, StringLength(100, 
     Guid? UserId = null);
 
 public sealed record AuditDto(long Id, DateTimeOffset Timestamp, string Username, string Action, string? ObjectType,
-    string? ObjectId, string? Message, string? IpAddress);
+    string? ObjectId, string? Message, string? IpAddress, string? Agent = null);
 
 internal static class Paging
 {

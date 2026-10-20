@@ -32,7 +32,9 @@ public sealed record AssistantSettingsRequest(
     bool AgentEnabled = true,
     bool NativeEnabled = true,
     [property: StringLength(20000)] string? Instructions = null,
-    bool FaqLearn = true);
+    bool FaqLearn = true,
+    IReadOnlyList<string>? NativePermissions = null,
+    IReadOnlyList<string>? AgentPermissions = null);
 
 /// <summary>Cria na conta da Anthropic um agente com as instrucoes iniciais do Cybereyes, para editar depois no Console.</summary>
 public sealed record CreateAgentRequest([property: StringLength(200)] string? Name, string? Model);
@@ -76,6 +78,9 @@ public static class AssistantEndpoints
         agentEnabled = s.AssistantAgentEnabled,
         nativeEnabled = s.AssistantNativeEnabled,
         instructions = s.AssistantInstructions,
+        nativePermissions = s.AssistantNativePermissions,
+        agentPermissions = s.AssistantAgentPermissions,
+        permissionCatalog = Permissions.Catalog,
         chatEffort = s.AssistantChatEffort,
         logEffort = s.AssistantLogEffort,
         efforts = AssistantModels.Efforts,
@@ -93,6 +98,8 @@ public static class AssistantEndpoints
 
     private static async Task<IResult> GetSettingsAsync(CybereyesDbContext db, CancellationToken ct) =>
         TypedResults.Ok(SettingsDto(await SettingsStore.GetAsync(db, ct)));
+
+    private static string Describe(List<string> permissions) => permissions.Count == 0 ? "nenhuma" : string.Join(", ", permissions);
 
     /// <summary>Chave da Anthropic: comeca com sk-ant- e nao tem espacos.</summary>
     public static bool ValidKey(string key) => key.StartsWith("sk-ant-", StringComparison.Ordinal) && key.Length >= 20 && !key.Any(char.IsWhiteSpace);
@@ -128,6 +135,10 @@ public static class AssistantEndpoints
         {
             return Problems.Validation("logInsightsMinLevel", "Nivel invalido");
         }
+        if ((r.NativePermissions ?? []).Concat(r.AgentPermissions ?? []).FirstOrDefault(p => !Permissions.IsKnown(p)) is { } unknown)
+        {
+            return Problems.Validation("nativePermissions", $"Permissao desconhecida: {unknown}");
+        }
         var key = r.ApiKey?.Trim();
         if (key is { Length: > 0 } && !ValidKey(key))
         {
@@ -155,6 +166,17 @@ public static class AssistantEndpoints
         s.AssistantAgentEnabled = r.AgentEnabled;
         s.AssistantNativeEnabled = r.NativeEnabled;
         s.AssistantInstructions = string.IsNullOrWhiteSpace(r.Instructions) ? null : r.Instructions.Trim();
+        // Lista ausente mantem a atual (clientes antigos da API nao apagam as permissoes dos agentes).
+        var permissionsBefore = (string.Join(',', s.AssistantNativePermissions), string.Join(',', s.AssistantAgentPermissions));
+        if (r.NativePermissions is { } native)
+        {
+            s.AssistantNativePermissions = [.. native.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)];
+        }
+        if (r.AgentPermissions is { } linked)
+        {
+            s.AssistantAgentPermissions = [.. linked.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)];
+        }
+        var permissionsChanged = permissionsBefore != (string.Join(',', s.AssistantNativePermissions), string.Join(',', s.AssistantAgentPermissions));
         s.AssistantChatEffort = r.ChatEffort;
         s.AssistantLogEffort = r.LogEffort;
         s.AssistantChatEnabled = r.ChatEnabled;
@@ -167,7 +189,11 @@ public static class AssistantEndpoints
         await db.SaveChangesAsync(ct);
         profiles.Forget();
         await audit.LogAsync("assistant.updated", "settings", "1",
-            keyChange is null ? "Assistente de IA alterado" : $"Assistente de IA alterado (chave da API {keyChange})", cancellationToken: ct);
+            (keyChange is null ? "Assistente de IA alterado" : $"Assistente de IA alterado (chave da API {keyChange})") +
+            (permissionsChanged
+                ? $"; permissoes do agente nativo: {Describe(s.AssistantNativePermissions)}; do agente da Anthropic: {Describe(s.AssistantAgentPermissions)}"
+                : string.Empty),
+            cancellationToken: ct);
         return TypedResults.Ok(SettingsDto(s));
     }
 
