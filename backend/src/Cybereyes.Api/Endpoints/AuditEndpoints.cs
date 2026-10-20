@@ -37,7 +37,7 @@ public static class AuditEndpoints
         var total = await query.CountAsync(ct);
         var items = await query.OrderByDescending(a => a.Timestamp).ThenByDescending(a => a.Id)
             .Skip((p - 1) * size).Take(size)
-            .Select(a => new AuditDto(a.Id, a.Timestamp, a.Username, a.Action, a.ObjectType, a.ObjectId, a.Message, a.IpAddress))
+            .Select(a => new AuditDto(a.Id, a.Timestamp, a.Username, a.Action, a.ObjectType, a.ObjectId, a.Message, a.IpAddress, a.Agent))
             .ToListAsync(ct);
         return TypedResults.Ok(new Paged<AuditDto>(items, total, p, size));
     }

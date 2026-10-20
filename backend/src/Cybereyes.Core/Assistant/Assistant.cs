@@ -14,6 +14,54 @@ public static class AssistantModels
     public static readonly string[] Efforts = ["low", "medium", "high", "xhigh", "max"];
 }
 
+/// <summary>Agentes que executam os pedidos dos tecnicos no console (menu Agente de IA).</summary>
+public static class AssistantExecutors
+{
+    /// <summary>Agente nativo do Cybereyes: instrucoes escritas no console.</summary>
+    public const string Native = "native";
+
+    /// <summary>Agente vinculado da conta da Anthropic.</summary>
+    public const string Anthropic = "anthropic";
+
+    public static readonly string[] All = [Native, Anthropic];
+
+    /// <summary>Permissoes que cada agente comeca tendo: so leitura. A equipe libera o resto em Configuracoes > Assistente de IA.</summary>
+    public static readonly string[] DefaultPermissions =
+    [
+        "clients.view", "agents.view", "alerts.view", "tickets.view", "logs.view", "scripts.view", "docs.view", "inventory.view",
+    ];
+}
+
+public static class AssistantSessionStatus
+{
+    public const string Running = "running";
+
+    /// <summary>O agente pediu uma acao que muda maquinas e espera o tecnico aprovar ou recusar.</summary>
+    public const string AwaitingApproval = "awaiting_approval";
+
+    public const string Idle = "idle";
+    public const string Failed = "failed";
+}
+
+/// <summary>
+/// Conversa de um tecnico com o agente de IA no console. <see cref="Messages"/> guarda a conversa no formato da Messages API
+/// (texto, pedidos de ferramenta e resultados) e <see cref="Pending"/> as acoes que esperam aprovacao.
+/// </summary>
+public sealed class AssistantSession
+{
+    public Guid Id { get; set; }
+    public Guid UserId { get; set; }
+    public required string Executor { get; set; }
+    public required string ExecutorName { get; set; }
+    public required string Title { get; set; }
+    public string Status { get; set; } = AssistantSessionStatus.Idle;
+    public string Messages { get; set; } = "[]";
+    public string? Pending { get; set; }
+    public string? Error { get; set; }
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
+}
+
 /// <summary>Situacao do atendimento do assistente num chamado aberto pelo app de bandeja.</summary>
 public static class AssistantStates
 {

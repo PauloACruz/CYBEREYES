@@ -14,6 +14,29 @@ public sealed record AssistantAnswer(JsonElement Output, long InputTokens, long 
 /// <summary>Agente da conta da Anthropic (Managed Agents): o assistente usa o prompt de sistema e o modelo dele.</summary>
 public sealed record AssistantAgent(string Id, string Name, string? Description, string Model, string? System, long Version);
 
+/// <summary>
+/// Bloco de uma conversa com ferramentas, no formato da Messages API: <c>text</c>, <c>tool_use</c> (<see cref="Id"/>,
+/// <see cref="Name"/>, <see cref="Input"/>), <c>tool_result</c> (<see cref="ToolUseId"/>, <see cref="Text"/>, <see cref="IsError"/>),
+/// <c>thinking</c> (<see cref="Text"/>, <see cref="Signature"/>) ou <c>redacted_thinking</c> (<see cref="Signature"/> com os dados).
+/// </summary>
+public sealed record AgentBlock(string Type, string? Text = null, string? Id = null, string? Name = null, JsonElement? Input = null,
+    string? ToolUseId = null, bool? IsError = null, string? Signature = null)
+{
+    public static AgentBlock FromText(string text) => new("text", text);
+
+    public static AgentBlock Result(string toolUseId, string text, bool isError) => new("tool_result", text, ToolUseId: toolUseId, IsError: isError);
+}
+
+public sealed record AgentMessage(string Role, IReadOnlyList<AgentBlock> Content, DateTimeOffset? At = null);
+
+public sealed record AgentToolSpec(string Name, string Description, JsonElement InputSchema);
+
+public sealed record AgentConversation(string ApiKey, string Model, string System, IReadOnlyList<AgentMessage> Messages,
+    IReadOnlyList<AgentToolSpec> Tools, string Effort, int MaxTokens);
+
+/// <summary>Resposta de uma rodada: o conteudo do modelo e o motivo da parada (<c>tool_use</c> quando ele pede ferramentas).</summary>
+public sealed record AgentTurn(IReadOnlyList<AgentBlock> Content, string StopReason);
+
 /// <summary>Falha ao falar com o modelo, com a mensagem pronta para a tela ou para o registro do relatorio.</summary>
 public sealed class AssistantException(string message, Exception? inner = null) : Exception(message, inner);
 
@@ -31,6 +54,9 @@ public interface IAssistantModel
     Task<AssistantAgent> GetAgentAsync(string apiKey, string agentId, CancellationToken ct);
 
     Task<AssistantAgent> CreateAgentAsync(string apiKey, string name, string description, string model, string system, CancellationToken ct);
+
+    /// <summary>Uma rodada da conversa com ferramentas: o modelo responde com texto e pedidos de ferramenta.</summary>
+    Task<AgentTurn> ConverseAsync(AgentConversation request, CancellationToken ct);
 }
 
 /// <summary>Claude pela API da Anthropic (SDK oficial). Um cliente por chave, reaproveitado entre as chamadas.</summary>
@@ -96,6 +122,109 @@ public sealed class AnthropicAssistantModel : IAssistantModel, IDisposable
         {
             throw new AssistantException("O modelo respondeu fora do formato esperado", ex);
         }
+    }
+
+    public async Task<AgentTurn> ConverseAsync(AgentConversation request, CancellationToken ct)
+    {
+        var parameters = new MessageCreateParams
+        {
+            Model = request.Model,
+            MaxTokens = request.MaxTokens,
+            System = new List<BetaTextBlockParam> { new() { Text = request.System, CacheControl = new BetaCacheControlEphemeral() } },
+            Messages = request.Messages.Select(ToParam).ToList(),
+            Tools = request.Tools.Select(t => (BetaToolUnion)new BetaTool
+            {
+                Name = t.Name,
+                Description = t.Description,
+                InputSchema = ToSchema(t.InputSchema),
+            }).ToList(),
+            OutputConfig = new BetaOutputConfig { Effort = request.Effort },
+        };
+        if (FallbackModels.Contains(request.Model))
+        {
+            parameters = parameters with { Betas = [FallbackBeta], Fallbacks = new Default() };
+        }
+
+        BetaMessage response;
+        try
+        {
+            response = await Client(request.ApiKey).Beta.Messages.Create(parameters, ct);
+        }
+        catch (Exception ex) when (Translate(ex) is { } friendly)
+        {
+            throw friendly;
+        }
+        if (response.StopReason == "refusal")
+        {
+            throw new AssistantException("O modelo recusou o pedido");
+        }
+        var content = new List<AgentBlock>();
+        foreach (var block in response.Content)
+        {
+            if (block.TryPickText(out var text))
+            {
+                content.Add(AgentBlock.FromText(text.Text));
+            }
+            else if (block.TryPickToolUse(out var use))
+            {
+                content.Add(new AgentBlock("tool_use", Id: use.ID, Name: use.Name, Input: JsonSerializer.SerializeToElement(use.Input)));
+            }
+            else if (block.TryPickThinking(out var thinking))
+            {
+                content.Add(new AgentBlock("thinking", thinking.Thinking, Signature: thinking.Signature));
+            }
+            else if (block.TryPickRedactedThinking(out var redacted))
+            {
+                content.Add(new AgentBlock("redacted_thinking", Signature: redacted.Data));
+            }
+        }
+        return new AgentTurn(content, response.StopReason == "tool_use" ? "tool_use" : response.StopReason == "max_tokens" ? "max_tokens" : "end_turn");
+    }
+
+    private static BetaMessageParam ToParam(AgentMessage message)
+    {
+        var blocks = new List<BetaContentBlockParam>();
+        foreach (var b in message.Content)
+        {
+            switch (b.Type)
+            {
+                case "text":
+                    blocks.Add(new BetaTextBlockParam { Text = b.Text ?? string.Empty });
+                    break;
+                case "tool_use":
+                    blocks.Add(new BetaToolUseBlockParam
+                    {
+                        ID = b.Id!,
+                        Name = b.Name!,
+                        Input = b.Input is { ValueKind: JsonValueKind.Object } input
+                            ? input.EnumerateObject().ToDictionary(p => p.Name, p => p.Value.Clone())
+                            : new Dictionary<string, JsonElement>(),
+                    });
+                    break;
+                case "tool_result":
+                    blocks.Add(new BetaToolResultBlockParam { ToolUseID = b.ToolUseId!, Content = b.Text ?? string.Empty, IsError = b.IsError ?? false });
+                    break;
+                case "thinking":
+                    blocks.Add(new BetaThinkingBlockParam { Thinking = b.Text ?? string.Empty, Signature = b.Signature ?? string.Empty });
+                    break;
+                case "redacted_thinking":
+                    blocks.Add(new BetaRedactedThinkingBlockParam { Data = b.Signature ?? string.Empty });
+                    break;
+            }
+        }
+        return new BetaMessageParam { Role = message.Role == "assistant" ? Role.Assistant : Role.User, Content = blocks };
+    }
+
+    /// <summary>Esquema JSON da ferramenta (vindo do MCP) no formato do SDK: propriedades, obrigatorios e o resto como veio.</summary>
+    private static InputSchema ToSchema(JsonElement schema)
+    {
+        var properties = schema.TryGetProperty("properties", out var p) && p.ValueKind == JsonValueKind.Object
+            ? p.EnumerateObject().ToDictionary(x => x.Name, x => x.Value.Clone())
+            : new Dictionary<string, JsonElement>();
+        var required = schema.TryGetProperty("required", out var r) && r.ValueKind == JsonValueKind.Array
+            ? r.EnumerateArray().Select(x => x.GetString()!).ToList()
+            : [];
+        return new InputSchema { Properties = properties, Required = required };
     }
 
     public async Task VerifyAsync(string apiKey, string model, CancellationToken ct)

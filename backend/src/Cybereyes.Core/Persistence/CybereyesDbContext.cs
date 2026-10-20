@@ -45,6 +45,7 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
     public DbSet<CoreSettings> CoreSettings => Set<CoreSettings>();
     public DbSet<TicketQueue> TicketQueues => Set<TicketQueue>();
     public DbSet<Ticket> Tickets => Set<Ticket>();
+    public DbSet<TicketRotationMember> TicketRotationMembers => Set<TicketRotationMember>();
     public DbSet<TicketMessage> TicketMessages => Set<TicketMessage>();
     public DbSet<TicketAttachment> TicketAttachments => Set<TicketAttachment>();
     public DbSet<TicketAttachmentData> TicketAttachmentData => Set<TicketAttachmentData>();
@@ -86,6 +87,7 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
     public DbSet<AppRun> AppRuns => Set<AppRun>();
     public DbSet<PushSubscription> PushSubscriptions => Set<PushSubscription>();
     public DbSet<FaqEntry> FaqEntries => Set<FaqEntry>();
+    public DbSet<AssistantSession> AssistantSessions => Set<AssistantSession>();
     public DbSet<LogInsightReport> LogInsightReports => Set<LogInsightReport>();
 
     // Escopo de clientes do usuario da requisicao. Nulo = sem restricao (agentes, servicos internos e
@@ -156,6 +158,7 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
             e.Property(a => a.ObjectId).HasMaxLength(64);
             e.Property(a => a.Message).HasMaxLength(2000);
             e.Property(a => a.IpAddress).HasMaxLength(64);
+            e.Property(a => a.Agent).HasMaxLength(200);
             e.HasIndex(a => a.Timestamp);
             e.HasIndex(a => new { a.Username, a.Timestamp });
             e.HasIndex(a => new { a.Action, a.Timestamp });
@@ -663,6 +666,14 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
             e.HasOne<Alert>().WithMany().HasForeignKey(x => x.AlertId).OnDelete(DeleteBehavior.SetNull);
         });
 
+        builder.Entity<TicketRotationMember>(e =>
+        {
+            e.ToTable("ticket_rotation_members");
+            e.HasKey(x => x.UserId);
+            e.Property(x => x.QueueIds).HasColumnType("integer[]");
+            e.HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
         builder.Entity<TicketMessage>(e =>
         {
             e.ToTable("ticket_messages");
@@ -1149,12 +1160,28 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
             e.Property(x => x.AssistantName).HasMaxLength(100);
             e.Property(x => x.AssistantAgentId).HasMaxLength(100);
             e.Property(x => x.AssistantInstructions).HasMaxLength(20000);
+            e.Property(x => x.AssistantNativePermissions).HasColumnType("text[]");
+            e.Property(x => x.AssistantAgentPermissions).HasColumnType("text[]");
             e.Property(x => x.AssistantChatEffort).HasMaxLength(16);
             e.Property(x => x.AssistantLogEffort).HasMaxLength(16);
             e.Property(x => x.LogInsightsMinLevel).HasMaxLength(16);
         });
 
         builder.Entity<Ticket>(e => e.Property(x => x.AssistantState).HasMaxLength(16));
+
+        builder.Entity<AssistantSession>(e =>
+        {
+            e.ToTable("assistant_sessions");
+            e.Property(x => x.Executor).HasMaxLength(16);
+            e.Property(x => x.ExecutorName).HasMaxLength(200);
+            e.Property(x => x.Title).HasMaxLength(200);
+            e.Property(x => x.Status).HasMaxLength(24);
+            e.Property(x => x.Messages).HasColumnType("jsonb");
+            e.Property(x => x.Pending).HasColumnType("jsonb");
+            e.Property(x => x.Error).HasMaxLength(2000);
+            e.HasIndex(x => new { x.UserId, x.UpdatedAt });
+            e.HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
 
         builder.Entity<FaqEntry>(e =>
         {

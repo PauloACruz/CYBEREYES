@@ -238,18 +238,8 @@ public static class TicketEndpoints
         });
     }
 
-    private static async Task<List<(Guid Id, string Name)>> AssigneeListAsync(CybereyesDbContext db, CancellationToken ct)
-    {
-        var rows = await (
-            from u in db.Users.AsNoTracking()
-            where u.IsActive
-            join ur in db.UserRoles.AsNoTracking() on u.Id equals ur.UserId
-            join r in db.Roles.AsNoTracking() on ur.RoleId equals r.Id
-            select new { u.Id, u.FullName, u.UserName, r.IsSuperuser, r.Permissions }).ToListAsync(ct);
-        return rows.Where(r => r.IsSuperuser || r.Permissions.Contains(Permissions.TicketsManage))
-            .GroupBy(r => r.Id).Select(g => (g.Key, string.IsNullOrEmpty(g.First().FullName) ? g.First().UserName! : g.First().FullName))
-            .OrderBy(x => x.Item2, StringComparer.CurrentCultureIgnoreCase).ToList();
-    }
+    private static async Task<List<(Guid Id, string Name)>> AssigneeListAsync(CybereyesDbContext db, CancellationToken ct) =>
+        (await TicketRotation.AssigneesAsync(db, ct)).Select(a => (a.Id, a.Name)).ToList();
 
     private static async Task<IResult> AssigneesAsync(CybereyesDbContext db, CancellationToken ct) =>
         TypedResults.Ok((await AssigneeListAsync(db, ct)).Select(x => new { id = x.Id, name = x.Name }));
@@ -282,11 +272,13 @@ public static class TicketEndpoints
             resolvedBy, t.ClientId);
     }
 
+    /// <summary>Nome de quem age; pelo agente de IA do console, o tecnico que pediu e o agente que executou.</summary>
     public static async Task<string> ActorNameAsync(ClaimsPrincipal principal, CybereyesDbContext db, CancellationToken ct)
     {
         var id = principal.UserId();
         var name = id is null ? null : await db.Users.AsNoTracking().Where(u => u.Id == id).Select(u => u.FullName).FirstOrDefaultAsync(ct);
-        return string.IsNullOrWhiteSpace(name) ? principal.Identity?.Name ?? "?" : name;
+        var actor = string.IsNullOrWhiteSpace(name) ? principal.Identity?.Name ?? "?" : name;
+        return principal.FindFirstValue(CybereyesClaims.AiAgent) is { Length: > 0 } agent ? $"{actor} (pelo agente {agent})" : actor;
     }
 
     private static IResult? ValidateEnums(string? type, string? priority)

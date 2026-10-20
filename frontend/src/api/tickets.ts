@@ -9,6 +9,7 @@ import type {
   Paged,
   ResolveTicketRequest,
   SaveTicketQueueRequest,
+  SaveTicketRotationRequest,
   SlaRuleDto,
   TicketAssignee,
   TicketAttachmentDto,
@@ -16,6 +17,7 @@ import type {
   TicketListItem,
   TicketMessageDto,
   TicketQueueDto,
+  TicketRotationDto,
   TicketSummary,
   TimeEntryDto,
   UpdateTicketRequest,
@@ -54,6 +56,12 @@ export const ticketsApi = {
   saveSla: (rules: SlaRuleDto[]) => api.put<SlaRuleDto[]>('/api/tickets/sla', rules),
   incidentSettings: () => api.get<IncidentSettingsDto>('/api/tickets/incident-settings'),
   saveIncidentSettings: (body: IncidentSettingsDto) => api.put<IncidentSettingsDto>('/api/tickets/incident-settings', body),
+};
+
+/** Fila de atendimento (aba Fila em Usuários): o agente distribui os chamados novos por rodízio. */
+export const ticketRotationApi = {
+  get: () => api.get<TicketRotationDto>('/api/ticket-rotation'),
+  save: (body: SaveTicketRotationRequest) => api.put<TicketRotationDto>('/api/ticket-rotation', body),
 };
 
 export const ticketQueuesApi = {

@@ -110,8 +110,12 @@ public sealed partial class AssistantChat(
     /// <summary>Chat ligado, com a chave da Anthropic e pelo menos um agente (nativo ou vinculado) ativo.</summary>
     public static bool ChatOn(CoreSettings s) => s.AssistantChatEnabled && s.AnthropicKeyProtected is not null && AssistantProfiles.AnyAgentEnabled(s);
 
+    /// <summary>
+    /// O tecnico do rodizio, atribuido na abertura, nao interrompe o atendimento; quem atribui depois passa o estado para
+    /// <see cref="AssistantStates.Handoff"/> (<see cref="TicketService.AssignAsync"/>).
+    /// </summary>
     public static bool Attending(Ticket t) =>
-        t.AssistantState == AssistantStates.Active && t.AssignedToId is null && t.Status is not (TicketStatus.Closed or TicketStatus.Resolved);
+        t.AssistantState == AssistantStates.Active && t.Status is not (TicketStatus.Closed or TicketStatus.Resolved);
 
     /// <summary>Chamado novo da bandeja: liga o atendimento e, sem descricao, ja pede os detalhes ao solicitante.</summary>
     public async Task StartAsync(Ticket ticket, CancellationToken ct)

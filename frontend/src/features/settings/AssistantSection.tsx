@@ -10,6 +10,7 @@ import {
   NumberInput,
   Paper,
   PasswordInput,
+  SegmentedControl,
   Select,
   SimpleGrid,
   Skeleton,
@@ -27,6 +28,7 @@ import { assistantApi } from '../../api/assistant';
 import { queryKeys } from '../../api/queryKeys';
 import { MODEL_FROM_AGENT, type AssistantSettingsDto, type EffortLevel, type InsightLevel } from '../../api/types';
 import { LoadError } from '../../components/TableStates';
+import { AgentPermissions } from './AgentPermissions';
 import { notifySuccess } from '../../lib/feedback';
 import { formatDateTime } from '../../lib/format';
 
@@ -77,6 +79,9 @@ function AssistantForm({ initial }: { initial: AssistantSettingsDto }) {
   const [agentEnabled, setAgentEnabled] = useState(initial.agentEnabled);
   const [nativeEnabled, setNativeEnabled] = useState(initial.nativeEnabled);
   const [instructions, setInstructions] = useState(initial.instructions ?? '');
+  const [nativePermissions, setNativePermissions] = useState(initial.nativePermissions);
+  const [agentPermissions, setAgentPermissions] = useState(initial.agentPermissions);
+  const [permissionsOf, setPermissionsOf] = useState<'native' | 'anthropic'>('native');
   const [chatEffort, setChatEffort] = useState<EffortLevel>(initial.chatEffort);
   const [logEffort, setLogEffort] = useState<EffortLevel>(initial.logEffort);
   const [name, setName] = useState(initial.name);
@@ -132,6 +137,8 @@ function AssistantForm({ initial }: { initial: AssistantSettingsDto }) {
         agentEnabled,
         nativeEnabled,
         instructions: instructions.trim() || null,
+        nativePermissions,
+        agentPermissions,
         chatEffort,
         logEffort,
         name: name.trim(),
@@ -310,6 +317,32 @@ function AssistantForm({ initial }: { initial: AssistantSettingsDto }) {
           <Text size="sm" c="red">
             Ative o agente nativo ou o agente da Anthropic (com um agente vinculado) para ligar o assistente.
           </Text>
+        )}
+
+        <Divider label="Permissões dos agentes" labelPosition="left" />
+        <Text size="sm" c="dimmed">
+          O que cada agente pode fazer quando um técnico pede ações no menu Agente de IA. Vale o que o agente e o técnico têm ao mesmo tempo, e
+          ações que mudam máquinas ainda esperam a aprovação do técnico. Na auditoria, o técnico aparece como autor e o agente como executor.
+        </Text>
+        <SegmentedControl
+          aria-label="Permissões de qual agente"
+          value={permissionsOf}
+          onChange={(v) => setPermissionsOf(v === 'anthropic' ? 'anthropic' : 'native')}
+          data={[
+            { value: 'native', label: 'Agente nativo' },
+            { value: 'anthropic', label: 'Agente da Anthropic' },
+          ]}
+          w="fit-content"
+        />
+        {permissionsOf === 'native' ? (
+          <AgentPermissions agent="agente nativo" catalog={initial.permissionCatalog} value={nativePermissions} onChange={setNativePermissions} />
+        ) : (
+          <AgentPermissions
+            agent="agente da Anthropic"
+            catalog={initial.permissionCatalog}
+            value={agentPermissions}
+            onChange={setAgentPermissions}
+          />
         )}
         <SimpleGrid cols={{ base: 1, sm: 2 }}>
           <Select

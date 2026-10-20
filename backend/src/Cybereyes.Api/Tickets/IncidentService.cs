@@ -76,7 +76,8 @@ public sealed partial class IncidentService(CybereyesDbContext db, TicketService
             foreach (var ticket in open)
             {
                 await tickets.SystemMessageAsync(ticket, "O alerta de origem foi resolvido", ct);
-                if (settings.IncidentResolveWithAlert && ticket.AssignedToId is null)
+                // Tecnico que veio so do rodizio ainda nao assumiu o incidente; o que uma pessoa atribuiu fica aberto.
+                if (settings.IncidentResolveWithAlert && (ticket.AssignedToId is null || ticket.AutoAssigned))
                 {
                     await tickets.ChangeStatusAsync(ticket, TicketStatus.Resolved, "Monitoramento", ct);
                 }

@@ -239,6 +239,15 @@ export const routes: RouteObject[] = [
             ],
           },
           {
+            element: <RequirePermission permission={PERMISSIONS.assistantUse} />,
+            children: [
+              {
+                path: PATHS.aiAgent,
+                lazy: () => import('../features/aiagent/AiAgentPage').then((m) => ({ Component: m.AiAgentPage })),
+              },
+            ],
+          },
+          {
             element: <RequirePermission permission={PERMISSIONS.reportsView} />,
             children: [
               {

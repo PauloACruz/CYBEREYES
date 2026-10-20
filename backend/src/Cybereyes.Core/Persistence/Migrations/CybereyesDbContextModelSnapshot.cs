@@ -419,6 +419,59 @@ namespace Cybereyes.Core.Persistence.Migrations
                     b.ToTable("web_app_checks", (string)null);
                 });
 
+            modelBuilder.Entity("Cybereyes.Core.Assistant.AssistantSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Error")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("Executor")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("ExecutorName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Messages")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("Pending")
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "UpdatedAt");
+
+                    b.ToTable("assistant_sessions", (string)null);
+                });
+
             modelBuilder.Entity("Cybereyes.Core.Assistant.FaqEntry", b =>
                 {
                     b.Property<int>("Id")
@@ -582,6 +635,10 @@ namespace Cybereyes.Core.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Agent")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
 
                     b.Property<string>("IpAddress")
                         .HasMaxLength(64)
@@ -2523,6 +2580,10 @@ namespace Cybereyes.Core.Persistence.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.PrimitiveCollection<List<string>>("AssistantAgentPermissions")
+                        .IsRequired()
+                        .HasColumnType("text[]");
+
                     b.Property<string>("AssistantChatEffort")
                         .IsRequired()
                         .HasMaxLength(16)
@@ -2552,6 +2613,10 @@ namespace Cybereyes.Core.Persistence.Migrations
 
                     b.Property<bool>("AssistantNativeEnabled")
                         .HasColumnType("boolean");
+
+                    b.PrimitiveCollection<List<string>>("AssistantNativePermissions")
+                        .IsRequired()
+                        .HasColumnType("text[]");
 
                     b.Property<int>("CheckHistoryDays")
                         .HasColumnType("integer");
@@ -2662,6 +2727,9 @@ namespace Cybereyes.Core.Persistence.Migrations
 
                     b.Property<string>("SmtpUsername")
                         .HasColumnType("text");
+
+                    b.Property<bool>("TicketRotationEnabled")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("TimeZone")
                         .IsRequired()
@@ -3931,6 +3999,9 @@ namespace Cybereyes.Core.Persistence.Migrations
                     b.Property<int>("AssistantTurns")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("AutoAssigned")
+                        .HasColumnType("boolean");
+
                     b.Property<int?>("ClientId")
                         .HasColumnType("integer");
 
@@ -4177,6 +4248,29 @@ namespace Cybereyes.Core.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("ticket_queues", (string)null);
+                });
+
+            modelBuilder.Entity("Cybereyes.Core.Tickets.TicketRotationMember", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset?>("LastAssignedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer");
+
+                    b.PrimitiveCollection<List<int>>("QueueIds")
+                        .IsRequired()
+                        .HasColumnType("integer[]");
+
+                    b.HasKey("UserId");
+
+                    b.ToTable("ticket_rotation_members", (string)null);
                 });
 
             modelBuilder.Entity("Cybereyes.Core.Tickets.TimeEntry", b =>
@@ -4452,6 +4546,15 @@ namespace Cybereyes.Core.Persistence.Migrations
                     b.HasOne("Cybereyes.Core.Apps.WebApp", null)
                         .WithMany()
                         .HasForeignKey("WebAppId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Cybereyes.Core.Assistant.AssistantSession", b =>
+                {
+                    b.HasOne("Cybereyes.Core.Identity.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
@@ -5092,6 +5195,15 @@ namespace Cybereyes.Core.Persistence.Migrations
                     b.HasOne("Cybereyes.Core.Tickets.Ticket", null)
                         .WithMany()
                         .HasForeignKey("TicketId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Cybereyes.Core.Tickets.TicketRotationMember", b =>
+                {
+                    b.HasOne("Cybereyes.Core.Identity.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

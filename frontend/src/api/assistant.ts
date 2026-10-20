@@ -2,6 +2,8 @@ import { api } from './client';
 import type {
   AssistantAgentDto,
   AssistantSettingsDto,
+  ConsoleExecutorDto,
+  ConsoleSessionDto,
   FaqDraftDto,
   FaqDraftRequest,
   FaqEntryDto,
@@ -26,6 +28,16 @@ export const assistantApi = {
   insights: () => api.get<LogInsightListDto>('/api/assistant/insights'),
   insight: (id: number) => api.get<LogInsightDetailDto>(`/api/assistant/insights/${id}`),
   runInsights: () => api.post('/api/assistant/insights/run'),
+};
+
+/** Menu Agente de IA: o técnico pede, o agente executa com as ferramentas da plataforma. */
+export const consoleAgentApi = {
+  executors: () => api.get<ConsoleExecutorDto[]>('/api/assistant/console/executors'),
+  sessions: () => api.get<ConsoleSessionDto[]>('/api/assistant/console/sessions'),
+  session: (id: string) => api.get<ConsoleSessionDto>(`/api/assistant/console/sessions/${id}`),
+  start: (executor: string, message: string) => api.post<ConsoleSessionDto>('/api/assistant/console/sessions', { executor, message }),
+  send: (id: string, message: string) => api.post<ConsoleSessionDto>(`/api/assistant/console/sessions/${id}/messages`, { message }),
+  approve: (id: string, approve: boolean) => api.post<ConsoleSessionDto>(`/api/assistant/console/sessions/${id}/approval`, { approve }),
 };
 
 export const faqApi = {

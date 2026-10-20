@@ -286,6 +286,9 @@ public sealed class CoreSettings
     public string IncidentPriority { get; set; } = "high";
     public int? IncidentQueueId { get; set; }
     public bool IncidentResolveWithAlert { get; set; } = true;
+
+    /// <summary>Chamado aberto sem tecnico recebe um pelo rodizio da fila de atendimento (aba Fila em Usuarios).</summary>
+    public bool TicketRotationEnabled { get; set; } = true;
     public bool SelfServiceEnabled { get; set; }
     public List<string> SelfServiceTasks { get; set; } = [];
     public bool LogsEnabled { get; set; } = true;
@@ -322,6 +325,12 @@ public sealed class CoreSettings
 
     /// <summary>Instrucoes do agente nativo (tom, horario, regras da empresa), escritas no console.</summary>
     public string? AssistantInstructions { get; set; }
+
+    /// <summary>O que o agente nativo pode fazer quando um tecnico pede acoes no console (somado as permissoes do tecnico).</summary>
+    public List<string> AssistantNativePermissions { get; set; } = [.. Assistant.AssistantExecutors.DefaultPermissions];
+
+    /// <summary>O que o agente vinculado da Anthropic pode fazer quando um tecnico pede acoes no console.</summary>
+    public List<string> AssistantAgentPermissions { get; set; } = [.. Assistant.AssistantExecutors.DefaultPermissions];
 
     public string AssistantChatEffort { get; set; } = "low";
     public string AssistantLogEffort { get; set; } = "medium";

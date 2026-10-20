@@ -24,7 +24,8 @@ public sealed record TrayTicketDto(int Id, string Title, string Status, string P
     string? AssignedToName, bool ChatEnabled, DateTimeOffset? LastMessageAt);
 
 /// <summary>Regras de negocio dos chamados: SLA, status, atribuicao, mensagens e avisos em tempo real.</summary>
-public sealed class TicketService(CybereyesDbContext db, IHubContext<ConsoleHub> console, IHubContext<TrayHub> tray, PushOutbox push, TimeProvider time)
+public sealed class TicketService(
+    CybereyesDbContext db, IHubContext<ConsoleHub> console, IHubContext<TrayHub> tray, PushOutbox push, TicketRotation rotation, TimeProvider time)
 {
     public static string ConsoleGroup(int ticketId) => $"ticket:{ticketId}";
 
@@ -34,6 +35,12 @@ public sealed class TicketService(CybereyesDbContext db, IHubContext<ConsoleHub>
     {
         var now = time.GetUtcNow();
         var queueId = request.QueueId ?? await DefaultQueueIdAsync(ct);
+        var place = request.AgentId is { } agentId
+            ? await db.Agents.AsNoTracking().Where(a => a.Id == agentId).Select(a => new { a.SiteId, a.Site!.ClientId }).FirstOrDefaultAsync(ct)
+            : null;
+        // Sem tecnico escolhido por quem abriu, o agente atribui pelo rodizio da fila de atendimento.
+        var pick = request.AssignedToId is null ? await rotation.PickAsync(queueId, place?.ClientId, now, ct) : null;
+        var assignedToId = request.AssignedToId ?? pick?.UserId;
         var ticket = new Ticket
         {
             Title = request.Title.Trim(),
@@ -45,24 +52,25 @@ public sealed class TicketService(CybereyesDbContext db, IHubContext<ConsoleHub>
             RequesterName = request.RequesterName,
             RequesterUsername = request.RequesterUsername?.ToLowerInvariant(),
             RequesterEmail = request.RequesterEmail,
-            AssignedToId = request.AssignedToId,
+            AssignedToId = assignedToId,
+            AutoAssigned = pick is not null,
+            SiteId = place?.SiteId,
+            ClientId = place?.ClientId,
             AlertId = request.AlertId,
             Source = request.Source,
             CreatedById = request.CreatedById,
             CreatedAt = now,
             UpdatedAt = now,
-            Status = request.AssignedToId is null ? TicketStatus.New : TicketStatus.InProgress,
+            Status = assignedToId is null ? TicketStatus.New : TicketStatus.InProgress,
         };
-        if (request.AgentId is { } agentId)
-        {
-            var place = await db.Agents.AsNoTracking().Where(a => a.Id == agentId)
-                .Select(a => new { a.SiteId, a.Site!.ClientId }).FirstOrDefaultAsync(ct);
-            ticket.SiteId = place?.SiteId;
-            ticket.ClientId = place?.ClientId;
-        }
         await ApplySlaAsync(ticket, ct);
         db.Tickets.Add(ticket);
         await db.SaveChangesAsync(ct);
+        if (pick is not null)
+        {
+            var queue = await db.TicketQueues.AsNoTracking().Where(q => q.Id == queueId).Select(q => q.Name).FirstAsync(ct);
+            await SystemMessageAsync(ticket, $"{pick.Actor} atribuiu o chamado a {pick.UserName} pelo rodizio da fila {queue}", ct);
+        }
         await TicketsChangedAsync(ticket.Id, ct);
         push.Ticket(TicketPushKind.Opened, ticket.Id);
         return ticket;
@@ -123,7 +131,9 @@ public sealed class TicketService(CybereyesDbContext db, IHubContext<ConsoleHub>
         {
             await NotifyTrayTicketAsync(ticket, ct);
         }
-        if (authorType != MessageAuthor.System)
+        // Enquanto o assistente conversa, o tecnico do rodizio nao recebe cada mensagem do chat; o encaminhamento chega.
+        var assistantChat = ticket.AssistantState == AssistantStates.Active && authorType is MessageAuthor.Requester or MessageAuthor.Assistant;
+        if (authorType != MessageAuthor.System && !(assistantChat && ticket.AssignedToId is not null))
         {
             push.Ticket(TicketPushKind.Message, ticket.Id, authorType, authorName, body, isInternal);
         }
@@ -165,6 +175,7 @@ public sealed class TicketService(CybereyesDbContext db, IHubContext<ConsoleHub>
             return;
         }
         ticket.AssignedToId = userId;
+        ticket.AutoAssigned = false;
         if (userId is not null && ticket.Status == TicketStatus.New)
         {
             SetStatus(ticket, TicketStatus.InProgress, time.GetUtcNow());

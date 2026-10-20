@@ -101,10 +101,26 @@ O papel padrao "Tecnico" recebe as duas em instalacoes novas.
 - `GET /api/tickets/sla` -> `[{ priority, firstResponseMinutes, resolutionMinutes }]`; `PUT /api/tickets/sla` com a lista completa.
 - `GET/PUT /api/tickets/incident-settings` -> `{ enabled, severities: string[], priority, queueId, resolveWithAlert }`. Padrao: ativo, severidade `error`, prioridade `high`, fila padrao, `resolveWithAlert` verdadeiro.
 
+### Fila de atendimento e rodizio (aba Fila em Usuarios)
+Todo chamado aberto sem tecnico (console, app EYES, incidente de alerta, procedimento, MCP) recebe um tecnico pelo rodizio, na hora:
+- Entram na conta os membros ativos (`active`) que podem receber chamados (`tickets.manage` ou superusuario), atendem a fila do
+  chamado (`queueIds` vazio = todas) e veem o cliente dele (sem cliente, qualquer um).
+- Vai para quem nunca recebeu, depois para quem recebeu ha mais tempo (`lastAssignedAt`); empate pela ordem da lista.
+- Uma trava no Postgres (`pg_advisory_xact_lock`) impede as duas replicas de escolherem o mesmo tecnico ao mesmo tempo.
+- O chamado ja nasce `in_progress`, marcado como atribuido pelo rodizio, e a conversa registra "<nome do assistente> atribuiu o chamado a <tecnico>
+  pelo rodizio da fila <fila>". O push "Novo chamado atribuido a voce" vai so para ele.
+- Quem escolhe o tecnico ao abrir (`assignedToId`) nao passa pelo rodizio. Atribuir depois (`PUT /assign`) tira essa marca.
+- Com o rodizio desligado ou sem ninguem que possa atender, o chamado fica sem tecnico, como antes.
+
+| Metodo | Rota | Permissao | Corpo / resposta |
+|---|---|---|---|
+| GET | `/api/ticket-rotation` | `users.view` | `{ enabled, nextUserId, members: [{ userId, name, active, queueIds, lastAssignedAt, openTickets }], candidates: [{ id, name }], queues: [{ id, name }] }` |
+| PUT | `/api/ticket-rotation` | `users.manage` | `{ enabled, members: [{ userId, active, queueIds }] }` na ordem da lista; 400 para quem nao pode receber chamados, repetido ou fila inexistente |
+
 ## 4. Incidentes a partir de alertas
 - Quando um alerta e criado com severidade em `severities`, nasce um chamado `type: "incident"`, `source: "alert"`, vinculado ao alerta e ao agente, titulo `"[hostname] mensagem do alerta"`.
 - No maximo um incidente aberto por alerta; um alerta repetido do mesmo check reaproveita o incidente aberto e recebe mensagem `system`.
-- Quando o alerta e resolvido (automaticamente ou no console), o incidente recebe mensagem `system`; com `resolveWithAlert`, passa a `resolved` se ainda nao tiver tecnico atribuido.
+- Quando o alerta e resolvido (automaticamente ou no console), o incidente recebe mensagem `system`; com `resolveWithAlert`, passa a `resolved` se ainda nao tiver tecnico atribuido por uma pessoa (o do rodizio nao conta).
 
 ## 5. Tempo real no console (hub `/hubs/console`)
 | Metodo do hub | Parametros |
