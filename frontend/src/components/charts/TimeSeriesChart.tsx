@@ -28,13 +28,17 @@ interface TimeSeriesChartProps {
   /** Rotulo acessivel do grafico. */
   label: string;
   thresholds?: ChartThreshold[];
+  /** Texto do instante no eixo e na dica (padrão: hora ou dia do relógio, conforme a janela). */
+  formatTime?: (ms: number) => string;
+  /** Texto dos valores no eixo Y (padrão: formatValue), para caber quando a unidade é longa. */
+  formatTick?: (value: number) => string;
 }
 
 /**
  * Linhas no tempo com um unico eixo Y comecando em zero, linha guia e dica ao passar o mouse
  * (ou com as setas do teclado). A legenda fica com quem chama quando ha mais de uma serie.
  */
-export function TimeSeriesChart({ series, formatValue, label, thresholds = [] }: TimeSeriesChartProps) {
+export function TimeSeriesChart({ series, formatValue, label, thresholds = [], formatTime, formatTick = formatValue }: TimeSeriesChartProps) {
   const { ref, width } = useElementSize();
   const [active, setActive] = useState<number | null>(null);
 
@@ -90,7 +94,7 @@ export function TimeSeriesChart({ series, formatValue, label, thresholds = [] }:
             <g key={f}>
               <line x1={PAD.left} x2={width - PAD.right} y1={y(f * yMax)} y2={y(f * yMax)} stroke="var(--mantine-color-default-border)" strokeWidth={1} />
               <text x={PAD.left - 8} y={y(f * yMax)} dy="0.32em" textAnchor="end" fontSize={11} fill="var(--mantine-color-dimmed)" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                {formatValue(f * yMax)}
+                {formatTick(f * yMax)}
               </text>
             </g>
           ))}
@@ -103,7 +107,7 @@ export function TimeSeriesChart({ series, formatValue, label, thresholds = [] }:
               fontSize={11}
               fill="var(--mantine-color-dimmed)"
             >
-              {tickFormat.format(new Date(t))}
+              {formatTime ? formatTime(t) : tickFormat.format(new Date(t))}
             </text>
           ))}
           {thresholds.map((th) => (
@@ -166,7 +170,7 @@ export function TimeSeriesChart({ series, formatValue, label, thresholds = [] }:
           }}
         >
           <Text size="xs" c="dimmed" mb={4}>
-            {fullFormat.format(new Date(activeTime))}
+            {formatTime ? formatTime(activeTime) : fullFormat.format(new Date(activeTime))}
           </Text>
           {series.map((s, i) => {
             const v = byTime[i]?.get(activeTime);

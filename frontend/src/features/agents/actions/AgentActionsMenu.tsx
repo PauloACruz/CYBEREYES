@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button, Group, Loader, Menu, Modal, Stack, Text, TextInput } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { IconArrowsExchange, IconChevronDown, IconCloudDownload, IconExternalLink, IconPlugConnected, IconPower, IconRefresh, IconRocket, IconRotateClockwise } from '@tabler/icons-react';
+import { IconArrowsExchange, IconChevronDown, IconCloudDownload, IconExternalLink, IconGauge, IconPlugConnected, IconPower, IconRefresh, IconRocket, IconRotateClockwise } from '@tabler/icons-react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 import { agentActionsApi } from '../../../api/agentActions';
@@ -11,6 +11,7 @@ import { urlActionsApi } from '../../../api/settings';
 import type { AgentDetail, UrlActionDto } from '../../../api/types';
 import { agentPath } from '../../../app/paths';
 import { confirmAction, notifySuccess } from '../../../lib/feedback';
+import { SpeedTestModal } from '../speedtest/SpeedTestModal';
 import { isWindows } from './shells';
 
 const BLOCKED_SCHEMES = /^\s*(javascript|data|vbscript):/i;
@@ -26,6 +27,7 @@ export function AgentActionsMenu({ agent, canControl, onMove }: AgentActionsMenu
   const [opened, setOpened] = useState(false);
   const navigate = useNavigate();
   const [shutdownOpen, setShutdownOpen] = useState(false);
+  const [speedTestOpen, setSpeedTestOpen] = useState(false);
   const urlActions = useQuery({ queryKey: queryKeys.urlActions, queryFn: urlActionsApi.list, enabled: opened, staleTime: 60_000 });
 
   const reboot = useMutation({
@@ -106,6 +108,11 @@ export function AgentActionsMenu({ agent, canControl, onMove }: AgentActionsMenu
               Mudar cliente ou site
             </Menu.Item>
           )}
+          <Menu.Divider />
+          <Menu.Label>Rede</Menu.Label>
+          <Menu.Item leftSection={<IconGauge size={16} />} onClick={() => setSpeedTestOpen(true)}>
+            Teste de velocidade
+          </Menu.Item>
           {canControl && (
             <>
               <Menu.Divider />
@@ -152,6 +159,7 @@ export function AgentActionsMenu({ agent, canControl, onMove }: AgentActionsMenu
         </Menu.Dropdown>
       </Menu>
       {canControl && <ShutdownModal agent={agent} opened={shutdownOpen} onClose={() => setShutdownOpen(false)} />}
+      <SpeedTestModal agent={agent} opened={speedTestOpen} canStart={canControl} onClose={() => setSpeedTestOpen(false)} />
     </>
   );
 }

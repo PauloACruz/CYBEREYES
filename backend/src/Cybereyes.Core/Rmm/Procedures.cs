@@ -21,9 +21,11 @@ public static class ProcedureKind
     public const string Wake = "wake";
     public const string AgentUpdate = "agent_update";
     public const string Startup = "startup";
+    public const string SpeedTest = "speedtest";
 
     public static readonly string[] All =
-        [Remote, Files, Care, Command, Script, Terminal, Rename, Reboot, Shutdown, Service, Process, Registry, Software, Updates, Task, Wake, AgentUpdate, Startup];
+        [Remote, Files, Care, Command, Script, Terminal, Rename, Reboot, Shutdown, Service, Process, Registry, Software, Updates, Task, Wake, AgentUpdate, Startup,
+            SpeedTest];
 }
 
 public static class ProcedureStatus
@@ -53,6 +55,7 @@ public static class ProcedureRef
     public const string PendingAction = "pending_action";
     public const string Terminal = "terminal";
     public const string Task = "task";
+    public const string SpeedTest = "speed_test";
 }
 
 /// <summary>

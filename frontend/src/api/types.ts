@@ -2807,7 +2807,8 @@ export type ProcedureKind =
   | 'task'
   | 'wake'
   | 'agent_update'
-  | 'startup';
+  | 'startup'
+  | 'speedtest';
 
 export type ProcedureStatus = 'running' | 'ok' | 'warning' | 'error' | 'cancelled' | 'timeout';
 
@@ -3227,4 +3228,146 @@ export interface LogInsightDetailDto extends LogInsightSummaryDto {
   outputTokens: number;
   items: LogInsightItem[];
   suggestions: LogInsightSuggestion[];
+}
+
+// Teste de velocidade (EYES 3.4.0+)
+
+export type SpeedTestMode = 'full' | 'quick';
+export type SpeedTestStatus = 'pending' | 'running' | 'completed' | 'failed';
+export type SpeedTestPhase = 'network' | 'latency' | 'download' | 'upload' | 'finishing';
+
+export interface SpeedTestSummary {
+  id: number;
+  mode: SpeedTestMode;
+  status: SpeedTestStatus;
+  phase: SpeedTestPhase | null;
+  progress: number;
+  liveMbps: number | null;
+  requestedBy: string;
+  createdAt: string;
+  finishedAt: string | null;
+  downloadMbps: number | null;
+  uploadMbps: number | null;
+  latencyMs: number | null;
+  jitterMs: number | null;
+  lossPct: number | null;
+  planDownloadMbps: number | null;
+  planUploadMbps: number | null;
+  error: string | null;
+}
+
+export interface StartSpeedTestRequest {
+  mode: SpeedTestMode;
+  planDownloadMbps?: number | null;
+  planUploadMbps?: number | null;
+}
+
+export interface SpeedTestStats {
+  samples: number;
+  minMs: number;
+  medianMs: number;
+  avgMs: number;
+  p90Ms: number;
+  maxMs: number;
+  jitterMs: number;
+}
+
+export interface SpeedTestTarget {
+  /** gateway (rede local), internet (DNS públicos) ou server (Cybereyes). */
+  kind: string;
+  name: string;
+  host: string;
+  /** icmp ou http. */
+  method: string;
+  sent: number;
+  received: number;
+  lossPct: number;
+  stats: SpeedTestStats;
+  error: string;
+}
+
+export interface SpeedTestStage {
+  bytes: number;
+  count: number;
+  medianMbps: number;
+  maxMbps: number;
+  medianMs: number;
+}
+
+export interface SpeedTestDirection {
+  mbps: number;
+  singleMbps: number;
+  multiMbps: number;
+  streams: number;
+  stages: SpeedTestStage[];
+  timeline: number[];
+  timelineStepMs: number;
+  loaded: SpeedTestStats;
+  retransPct: number;
+  bytes: number;
+  durationMs: number;
+  error: string;
+}
+
+export interface SpeedTestWifi {
+  ssid: string;
+  bssid: string;
+  signalPct: number;
+  rssiDbm: number;
+  noiseDbm: number;
+  channel: number;
+  band: string;
+  radio: string;
+  rxMbps: number;
+  txMbps: number;
+}
+
+export interface SpeedTestReport {
+  mode: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  server: { provider: string; host: string; colo: string; dnsMs: number; connectMs: number; tlsMs: number; tcpRttMs: number };
+  connection: { publicIp: string; asn: number; city: string; region: string; country: string; timezone: string; proxy: boolean };
+  network: {
+    interface: string;
+    description: string;
+    type: 'ethernet' | 'wifi' | 'other' | '';
+    localIp: string;
+    mac: string;
+    mtu: number;
+    linkMbps: number;
+    gateway: string;
+    dnsServers: string[];
+    wifi: SpeedTestWifi | null;
+  };
+  latency: { idle: SpeedTestStats; targets: SpeedTestTarget[] };
+  dns: { host: string; ms: number; addresses: string[]; error: string }[];
+  download: SpeedTestDirection;
+  upload: SpeedTestDirection;
+  bytesUsed: number;
+  warnings: string[];
+}
+
+export type SpeedTestSeverity = 'critical' | 'warning' | 'info' | 'ok';
+
+export interface SpeedTestAnalysis {
+  quality: 'excellent' | 'good' | 'fair' | 'poor';
+  latencyMs: number | null;
+  jitterMs: number | null;
+  lossPct: number | null;
+  serverLatencyMs: number | null;
+  downloadBloat: { loadedMs: number; addedMs: number; grade: string } | null;
+  uploadBloat: { loadedMs: number; addedMs: number; grade: string } | null;
+  bloatGrade: string | null;
+  planDownloadPct: number | null;
+  planUploadPct: number | null;
+  usage: { key: string; label: string; rating: 'great' | 'good' | 'poor'; detail: string }[];
+  findings: { severity: SpeedTestSeverity; title: string; detail: string }[];
+}
+
+export interface SpeedTestDetail {
+  test: SpeedTestSummary;
+  agent: { id: number; hostname: string; clientName: string; siteName: string; plat: string; version: string };
+  report: SpeedTestReport | null;
+  analysis: SpeedTestAnalysis | null;
 }

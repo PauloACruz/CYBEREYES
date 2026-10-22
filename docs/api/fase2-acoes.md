@@ -113,6 +113,31 @@ ambiente. 400 para escopo, local ou nome invalidos; 409 com a linha `RESULTADO` 
 que saiu da sessao). A alteracao entra no historico do agente, na auditoria (`agent.startup`) e em Procedimentos (`startup`); a
 listagem nao. O teste `backend/tests/scripts/win-conf-inicializacao.Tests.ps1` roda o script num Windows real no CI.
 
+## Teste de velocidade (EYES 3.4.0+)
+| Metodo | Rota | Permissao | Corpo / resposta |
+|---|---|---|---|
+| POST | `/api/agents/{id}/speedtests` | `agents.control` | `{ mode: "full" \| "quick", planDownloadMbps?, planUploadMbps? }` -> 201 `SpeedTestSummary` |
+| GET | `/api/agents/{id}/speedtests?limit=50` | `agents.view` | `SpeedTestSummary[]`, mais recente primeiro |
+| GET | `/api/agents/{id}/speedtests/{testId}` | `agents.view` | `{ test: SpeedTestSummary, agent, report, analysis }` (`report` e `analysis` nulos ate o resultado) |
+| GET | `/api/agents/{id}/speedtests/{testId}/pdf` | `agents.view` | relatorio completo em PDF (409 enquanto o teste nao termina ou se falhou sem relatorio) |
+
+`SpeedTestSummary`: `{ id, mode, status: pending|running|completed|failed, phase, progress, liveMbps, requestedBy, createdAt, finishedAt,
+downloadMbps, uploadMbps, latencyMs, jitterMs, lossPct, planDownloadMbps, planUploadMbps, error }`.
+
+O EYES mede contra a infraestrutura de teste da Cloudflare (`speed.cloudflare.com`): rede local (interface, tipo, velocidade do link,
+gateway, DNS e, no Wi-Fi, SSID, sinal, canal, banda, padrao e taxas), latencia ociosa por HTTP, ping ICMP ao gateway, a 1.1.1.1 e a
+8.8.8.8 (perda e jitter), latencia HTTP ate o servidor Cybereyes, tempo de resolucao de nomes e download e upload com uma conexao em
+tamanhos crescentes (sobe ate uma transferencia passar de 1 s). O modo `full` acrescenta 7 s com 6 conexoes simultaneas em cada
+sentido, a vazao a cada 500 ms (em janelas de 1 s) e a latencia sob carga (bufferbloat); o `quick` transfere menos dados. `analysis` e calculada pela API
+a cada leitura (`SpeedTestAnalyzer`): qualidade geral (`excellent|good|fair|poor`), nota de bufferbloat (A+ a F), adequacao por uso
+(navegacao, videochamadas, streaming, jogos, acesso remoto e backup), percentual entregue do plano informado e o diagnostico em
+texto (`findings` com `severity` `critical|warning|info|ok`).
+
+Regras: 400 com EYES abaixo de 3.4.0 ou modo invalido; 409 com outro teste em andamento na maquina ou quando o agente nao confirma o
+pedido em 10 s (maquina offline). Sem noticia do agente por 60 s (pendente) ou 120 s (em andamento) o teste vira `failed`. Ficam os
+100 testes mais recentes por maquina. O pedido entra na auditoria (`agent.speedtest`) e em Procedimentos (`speedtest`), concluido
+com download, upload e latencia.
+
 ## Terminal (SignalR, hub `/hubs/console`, `agents.run`)
 | Metodo do hub | Parametros | Retorno |
 |---|---|---|
