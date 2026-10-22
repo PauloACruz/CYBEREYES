@@ -175,6 +175,13 @@ func TestWinAdapter(t *testing.T) {
 	if n.Type != "wifi" || n.LinkMbps != 866.7 || n.Gateway != "" {
 		t.Errorf("wifi = %+v", n)
 	}
+	// Adaptador do Hyper-V: midia "Unspecified" fica sem tipo para collectNetwork deduzir pelo nome.
+	var virt Network
+	a, _ = parseWinAdapter(`{"name":"Ethernet 3","media":"Unspecified","rx_bps":100000000000}`)
+	applyWinAdapter(&virt, a)
+	if virt.Type != "" || guessType(virt.Interface) != "ethernet" || virt.LinkMbps != 100000 {
+		t.Errorf("hyper-v = %+v", virt)
+	}
 	if _, err := parseWinAdapter("Get-NetAdapter : erro"); err == nil {
 		t.Error("saida sem JSON deve dar erro")
 	}

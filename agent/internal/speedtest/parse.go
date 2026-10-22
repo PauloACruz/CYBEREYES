@@ -45,13 +45,12 @@ func applyWinAdapter(n *Network, a winAdapter) {
 	if a.MAC != "" {
 		n.MAC = strings.ToUpper(strings.ReplaceAll(a.MAC, "-", ":"))
 	}
+	// Midia nao reconhecida (adaptador virtual informa "Unspecified"): o tipo sai do nome, em guessType.
 	switch m := strings.ToLower(a.Media); {
 	case strings.Contains(m, "802.11") || strings.Contains(m, "wireless"):
 		n.Type = "wifi"
 	case strings.Contains(m, "802.3"):
 		n.Type = "ethernet"
-	case m != "":
-		n.Type = "other"
 	}
 	if a.RxBps > 0 {
 		n.LinkMbps = round1(float64(a.RxBps) / 1e6)
