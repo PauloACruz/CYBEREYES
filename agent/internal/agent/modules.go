@@ -11,6 +11,7 @@ import (
 	"github.com/pauloacruz/cybereyes/agent/internal/rdp"
 	"github.com/pauloacruz/cybereyes/agent/internal/remote"
 	"github.com/pauloacruz/cybereyes/agent/internal/snmp"
+	"github.com/pauloacruz/cybereyes/agent/internal/speedtest"
 	"github.com/pauloacruz/cybereyes/agent/internal/tasks"
 	"github.com/pauloacruz/cybereyes/agent/internal/terminal"
 	"github.com/pauloacruz/cybereyes/agent/internal/tray"
@@ -30,6 +31,7 @@ func init() {
 		choco.Register,
 		winget.Register,
 		uninstall.Register,
+		speedtest.Register,
 		checks.Register,
 		tasks.Register,
 		logs.Register,

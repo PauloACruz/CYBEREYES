@@ -659,6 +659,11 @@ Fluxo:
   - ambos: `reboot`.
   - O servidor so aceita a rota para acoes desses dois tipos do proprio agente, guarda os campos conhecidos e marca `completed` (`ok`) ou `failed`. Sempre `"ok"`.
 
+- `PATCH /api/v4/{agent_id}/{speedtest_pk}/speedtest/` (EYES 3.4.0+): andamento e resultado do `speedtest` (4.3), mesma ordem de `agent_id` e `pk`. Corpo:
+  - andamento: `{ status: "running", phase: "network"|"latency"|"download"|"upload"|"finishing", progress: 0-99, live_mbps? }`, na troca de fase e no maximo uma vez por segundo durante as transferencias;
+  - resultado: `{ status: "completed"|"failed", progress: 100, error?, report? }`. `report` em snake_case: `mode`, `started_at`, `finished_at`, `server { provider, host, colo, dns_ms, connect_ms, tls_ms, tcp_rtt_ms }`, `connection { public_ip, asn, city, region, country, timezone, proxy }`, `network { interface, description, type, local_ip, mac, mtu, link_mbps, gateway, dns_servers, wifi { ssid, bssid, signal_pct, rssi_dbm, noise_dbm, channel, band, radio, rx_mbps, tx_mbps } }`, `latency { idle, targets[] }` (`targets`: `{ kind: gateway|internet|server, name, host, method: icmp|http, sent, received, loss_pct, stats, error }`), `dns[] { host, ms, addresses, error }`, `download` e `upload` (`{ mbps, single_mbps, multi_mbps, streams, stages[] { bytes, count, median_mbps, max_mbps, median_ms }, timeline[], timeline_step_ms, loaded, retrans_pct, bytes, duration_ms, error }`), `bytes_used`, `warnings[]`. `stats`, `idle` e `loaded`: `{ samples, min_ms, median_ms, avg_ms, p90_ms, max_ms, jitter_ms }`.
+  - O servidor so aceita testes pendentes ou em andamento do proprio agente, guarda os campos conhecidos (cortando textos e listas) e ignora andamento que chega depois do resultado. Sempre `"ok"`.
+
 ### 3.9 `histresult`
 
 `PATCH /api/v3/{history_id}/{agent_id}/histresult/` (`AgentProtocolEndpoints.cs:193-217`). Corpo em uma de duas formas:
@@ -811,6 +816,7 @@ O coletor escuta UDP em `trap_port`, que e 162 e exige privilegio. **PROPOSTA**:
 | `softwareuninstall` (Windows, 3.3.0+) | publish | | `AlertsPatchesEndpoints.cs`, `UninstallSoftwareAsync` |
 | `softwarecleanup` (Windows, 3.3.0+) | publish | | `AlertsPatchesEndpoints.cs`, `CleanupSoftwareAsync` |
 | `softwarelist` | request | 60 s | `AlertsPatchesEndpoints.cs:423` |
+| `speedtest` (3.4.0+) | request (o agente confirma e mede em segundo plano) | 10 s | `Api/Rmm/SpeedTest/SpeedTestEndpoints.cs` |
 | `recover` (substituido na fase 12.8, ver ADR-023): o servidor nao envia mais e o EYES nao trata | request | 60 s | `MeshServices.cs:239` |
 | `snmp_test` | request | `min(120, timeout*(retries+1)+10)` s | `SnmpEndpoints.cs:357-361` |
 | `wincare_catalog` | request | 20 s | `Api/Rmm/Maintenance/CareService.cs:36-37` |
@@ -1018,6 +1024,16 @@ Todos com `payload` de str (`SystemEndpoints.cs:50-66,253-277`):
 - O agente confere cada item com as mesmas regras da varredura (o que nao passa e recusado), remove servicos e tarefas antes, depois valores, chaves, atalhos e pastas. Chaves, valores (a chave `Run` inteira), servicos e tarefas sao copiados antes para `%ProgramData%\Cybereyes\EYES\desinstalacao\<data> <programa>\`; arquivos em uso ficam para o proximo reinicio (`MoveFileEx`).
 - Resultado por `PATCH .../softwareresult/` (3.8).
 
+#### `speedtest` (EYES 3.4.0+, todos os sistemas)
+- Pedido: `{ func: "speedtest", speedtest_pk: int, mode: "full"|"quick" }` (modo desconhecido vira `full`).
+- Resposta: `"ok"` na hora (ou `"error: speedtest_pk invalido"`); o teste segue em segundo plano, um por vez (um segundo pedido simultaneo falha com `failed`), com limite de 4 min. Andamento e resultado por `PATCH .../speedtest/` (3.8).
+- Medicao (`agent/internal/speedtest`), contra `https://speed.cloudflare.com`, por HTTP/1.1 sem compressao e pelo proxy do agente, se houver:
+  - rede local: interface de saida (UDP para 1.1.1.1 sem enviar nada), MAC, MTU e, por sistema, tipo, velocidade do link, gateway, DNS e Wi-Fi (Windows: `Get-NetAdapter`/`Get-NetIPConfiguration` e `netsh wlan show interfaces` em qualquer idioma; Linux: `/sys/class/net`, `/proc/net/route`, `iw` ou `/proc/net/wireless`, `resolv.conf`; macOS: `route`, `networksetup`, `ifconfig` e `system_profiler SPAirPortDataType`);
+  - latencia: `GET /__down?bytes=0` (a primeira abre a conexao e mede DNS, TCP e TLS), tempo ate o primeiro byte menos o `Server-Timing` de processamento; `cfL4` da o RTT do TCP e as retransmissoes; ICMP (pro-bing) ao gateway, a 1.1.1.1 e a 8.8.8.8; `GET /` do servidor Cybereyes com as opcoes TLS e proxy do agente; resolucao de quatro nomes;
+  - download (`/__down?bytes=N`) e upload (`POST /__up`): degraus de 100 kB a 100 MB (upload ate 50 MB), parando ao passar de 1 s por transferencia ou do tempo da fase; resultado de uma conexao = mediana das transferencias de 1 s ou mais (ou o percentil 90, como a Cloudflare, se nenhuma passou de 1 s); no upload a duracao e a que o servidor informa em `cfSpeedWorker` (o lado do agente so ve os buffers);
+  - modo `full`: mais 7 s com 6 conexoes em cada sentido (vazao a cada 500 ms em janelas de 1 s; o resultado descarta os 2 s iniciais) e latencia sob carga numa conexao a parte, a cada 300 ms.
+- ICMP sem permissao, Wi-Fi sem detalhes ou servidor Cybereyes fora do ar entram em `warnings`/`error` do destino; o teste so falha quando o servidor de teste nao responde ou nenhuma transferencia conclui.
+
 #### `softwarelist`
 - Pedido: `{ func: "softwarelist" }`.
 - Resposta: **lista de mapas** com os itens da secao 3.4, todos str. O servidor grava como inventario (`AlertsPatchesEndpoints.cs:414-442`).
@@ -1177,6 +1193,7 @@ Referencias: `Api/Tickets/Tray.cs:120-130`, `Api/Rmm/Maintenance/CareEndpoints.c
 | Cartao do coletor SNMP no console | `>= 2.13.0` (frontend, `MIN_COLLECTOR_VERSION`) | `front/features/snmp/snmpFormat.ts:58`; `SnmpCollectorCard.tsx:27` |
 | Logs (`logconfig`, `logs`) | 2.13.0 pela documentacao (`docs/api/fase8-logs-snmp.md:3`); o servidor nao confere | |
 | Desinstalacao avancada (`softwareuninstall`, `softwarecleanup`) | `>= 3.3.0` (servidor) | `Api/Rmm/Monitoring/SoftwareUninstall.cs` (`MinimumAgent`) |
+| Teste de velocidade (`speedtest`) | `>= 3.4.0` (servidor e console) | `Api/Rmm/SpeedTest/SpeedTestEndpoints.cs` (`MinimumAgent`); `front/api/speedTests.ts` (`SPEED_TEST_MIN_VERSION`) |
 
 **PROPOSTA**:
 - O EYES informa versao **`3.0.0` ou maior**, que passa em todas as travas e se distingue do agente Go.

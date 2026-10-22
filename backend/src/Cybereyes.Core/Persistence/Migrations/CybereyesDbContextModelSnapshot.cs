@@ -1982,6 +1982,86 @@ namespace Cybereyes.Core.Persistence.Migrations
                     b.ToTable("agent_software", (string)null);
                 });
 
+            modelBuilder.Entity("Cybereyes.Core.Rmm.AgentSpeedTest", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("AgentId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<double?>("DownloadMbps")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("Error")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTimeOffset?>("FinishedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<double?>("JitterMs")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("LatencyMs")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("LiveMbps")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("LossPct")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("Mode")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("Phase")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<double?>("PlanDownloadMbps")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("PlanUploadMbps")
+                        .HasColumnType("double precision");
+
+                    b.Property<int>("Progress")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Report")
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("RequestedBy")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<double?>("UploadMbps")
+                        .HasColumnType("double precision");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AgentId", "CreatedAt");
+
+                    b.ToTable("agent_speed_tests", (string)null);
+                });
+
             modelBuilder.Entity("Cybereyes.Core.Rmm.Alert", b =>
                 {
                     b.Property<long>("Id")
@@ -4881,6 +4961,15 @@ namespace Cybereyes.Core.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Agent");
+                });
+
+            modelBuilder.Entity("Cybereyes.Core.Rmm.AgentSpeedTest", b =>
+                {
+                    b.HasOne("Cybereyes.Core.Rmm.Agent", null)
+                        .WithMany()
+                        .HasForeignKey("AgentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Cybereyes.Core.Rmm.Alert", b =>

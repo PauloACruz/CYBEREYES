@@ -4,6 +4,7 @@ import {
   IconCode,
   IconDeviceDesktopShare,
   IconFolders,
+  IconGauge,
   IconHeartRateMonitor,
   IconListCheck,
   IconPackage,
@@ -41,6 +42,7 @@ export const PROCEDURE_KIND_INFO: Record<ProcedureKind, { label: string; icon: I
   wake: { label: 'Wake-on-LAN', icon: IconWifi, color: 'cyan' },
   agent_update: { label: 'Atualização do EYES', icon: IconAppWindow, color: 'gray' },
   startup: { label: 'Inicialização', icon: IconRocket, color: 'orange' },
+  speedtest: { label: 'Teste de velocidade', icon: IconGauge, color: 'teal' },
 };
 
 export const PROCEDURE_KINDS = Object.keys(PROCEDURE_KIND_INFO) as ProcedureKind[];

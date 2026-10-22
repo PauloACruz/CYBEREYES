@@ -51,6 +51,8 @@ export const queryKeys = {
   agentPatchPolicy: (id: number) => ['agent-monitoring', id, 'patch-policy'] as const,
   agentSoftware: (id: number) => ['agent-monitoring', id, 'software'] as const,
   agentPendingActions: (id: number) => ['agent-monitoring', id, 'pending-actions'] as const,
+  agentSpeedTests: (id: number) => ['agent-speedtests', id] as const,
+  agentSpeedTest: (id: number, testId: number) => ['agent-speedtests', id, testId] as const,
   softwareCatalog: (source: string, q: string) => ['software-catalog', source, q] as const,
   policies: ['policies'] as const,
   policy: (id: number) => ['policies', 'detail', id] as const,

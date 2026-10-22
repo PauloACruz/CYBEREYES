@@ -139,6 +139,11 @@ jobs:
       - name: Captura de tela (Windows)
         if: runner.os == 'Windows'
         run: go test -count=1 -v -run 'TestWindowsGrab|TestDXGIMatchesGDI|TestLoopbackOpensOrExplains' ./internal/remote/capture/ ./internal/remote/audio/
+      # Teste de velocidade de verdade (Cloudflare) e a coleta da rede local de cada sistema (PowerShell, iw, networksetup).
+      - name: Teste de velocidade e rede local
+        env:
+          EYES_SPEEDTEST_LIVE: quick
+        run: go test -count=1 -v -run 'TestLive|TestCollectNetwork' ./internal/speedtest/
       # Desinstalacao avancada de verdade num programa de mentira (registro, Program Files, servico e tarefa).
       - name: Desinstalacao e inventario (Windows, administrador)
         if: runner.os == 'Windows'

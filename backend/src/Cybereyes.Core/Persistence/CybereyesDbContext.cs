@@ -42,6 +42,7 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
     public DbSet<WinUpdate> WinUpdates => Set<WinUpdate>();
     public DbSet<PatchPolicy> PatchPolicies => Set<PatchPolicy>();
     public DbSet<PendingAction> PendingActions => Set<PendingAction>();
+    public DbSet<AgentSpeedTest> AgentSpeedTests => Set<AgentSpeedTest>();
     public DbSet<CoreSettings> CoreSettings => Set<CoreSettings>();
     public DbSet<TicketQueue> TicketQueues => Set<TicketQueue>();
     public DbSet<Ticket> Tickets => Set<Ticket>();
@@ -294,6 +295,7 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
         builder.Entity<TaskResult>().HasQueryFilter(x => scopeClientIds == null || Agents.Any(a => a.Id == x.AgentId));
         builder.Entity<WinUpdate>().HasQueryFilter(x => scopeClientIds == null || Agents.Any(a => a.Id == x.AgentId));
         builder.Entity<PendingAction>().HasQueryFilter(x => scopeClientIds == null || Agents.Any(a => a.Id == x.AgentId));
+        builder.Entity<AgentSpeedTest>().HasQueryFilter(x => scopeClientIds == null || Agents.Any(a => a.Id == x.AgentId));
         builder.Entity<CareRun>().HasQueryFilter(x => scopeClientIds == null || Agents.Any(a => a.Id == x.AgentId));
         builder.Entity<RemoteSession>().HasQueryFilter(x => scopeClientIds == null || Agents.Any(a => a.Id == x.AgentId));
         builder.Entity<RemoteTransfer>().HasQueryFilter(x => scopeClientIds == null || Agents.Any(a => a.Id == x.AgentId));
@@ -607,6 +609,19 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
             e.Property(x => x.Status).HasMaxLength(16);
             e.Property(x => x.Details).HasColumnType("jsonb");
             e.HasIndex(x => new { x.AgentId, x.Status });
+            e.HasOne<Agent>().WithMany().HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<AgentSpeedTest>(e =>
+        {
+            e.ToTable("agent_speed_tests");
+            e.Property(x => x.Mode).HasMaxLength(16);
+            e.Property(x => x.Status).HasMaxLength(16);
+            e.Property(x => x.Phase).HasMaxLength(16);
+            e.Property(x => x.RequestedBy).HasMaxLength(200);
+            e.Property(x => x.Report).HasColumnType("jsonb");
+            e.Property(x => x.Error).HasMaxLength(1000);
+            e.HasIndex(x => new { x.AgentId, x.CreatedAt });
             e.HasOne<Agent>().WithMany().HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.Cascade);
         });
 
