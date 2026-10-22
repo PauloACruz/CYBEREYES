@@ -42,11 +42,13 @@ public static class SpeedTestAnalyzer
         var up = r.Upload.Mbps;
         double? latency = r.Latency.Idle.Samples > 0 ? r.Latency.Idle.MedianMs : null;
         double? jitter = r.Latency.Idle.Samples > 0 ? r.Latency.Idle.JitterMs : null;
-        var internet = r.Latency.Targets.Where(t => t.Kind == "internet" && t.Sent > 0 && t.Error.Length == 0).ToList();
+        // Destino que nao respondeu a nenhum ping e firewall bloqueando ICMP (as transferencias funcionaram), nao perda: fica fora da conta.
+        var pinged = r.Latency.Targets.Where(t => t.Kind is "gateway" or "internet" && t.Sent > 0 && t.Error.Length == 0).ToList();
+        var internet = pinged.Where(t => t.Kind == "internet" && t.Received > 0).ToList();
         double? loss = internet.Count > 0 ? Math.Round(internet.Average(t => t.LossPct), 2) : null;
         var server = r.Latency.Targets.FirstOrDefault(t => t.Kind == "server" && t.Received > 0);
         double? serverLatency = server?.Stats.MedianMs;
-        var gateway = r.Latency.Targets.FirstOrDefault(t => t.Kind == "gateway" && t.Sent > 0 && t.Error.Length == 0);
+        var gateway = pinged.FirstOrDefault(t => t.Kind == "gateway" && t.Received > 0);
 
         var downBloat = Bloat(r.Download.Loaded, latency);
         var upBloat = Bloat(r.Upload.Loaded, latency);
@@ -81,6 +83,14 @@ public static class SpeedTestAnalyzer
         };
 
         var findings = Findings(r, latency, jitter, loss, serverLatency, gateway, worstBloat, planDown, planUp, planDownload, planUpload);
+        var blocked = pinged.Where(t => t.Received == 0).ToList();
+        if (blocked.Count > 0)
+        {
+            findings.Insert(findings.FindIndex(x => x.Severity is "info" or "ok") is var i and >= 0 ? i : findings.Count,
+                new("info", $"Sem resposta ao ping: {string.Join(", ", blocked.Select(t => t.Host))}",
+                    "Nenhum pacote voltou, o que costuma ser firewall bloqueando ICMP e não perda real (as transferências funcionaram). " +
+                    "A perda de pacotes considera só os destinos que responderam."));
+        }
         var quality = down >= 50 && up >= 10 && lat <= 50 && los <= 0.5 && worstBloat?.Grade is null or "A+" or "A" or "B" ? "excellent"
             : down >= 10 && up >= 3 && lat <= 100 && los <= 1 ? "good"
             : down >= 3 && up >= 1 && lat <= 200 && los <= 3 ? "fair"
