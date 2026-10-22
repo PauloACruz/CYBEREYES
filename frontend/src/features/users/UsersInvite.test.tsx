@@ -16,6 +16,7 @@ function makeUser(overrides: Partial<UserDto> = {}): UserDto {
     lastLoginAt: null,
     createdAt: '2026-10-05T12:00:00Z',
     invitePending: false,
+    rolesRestrictClients: false,
     allClients: true,
     clients: [],
     ...overrides,
@@ -104,6 +105,14 @@ describe('convite de usuarios', () => {
     expect(await screen.findByText('Acme')).toBeInTheDocument();
     expect(screen.getByText('Globex')).toBeInTheDocument();
     expect(screen.getByText('+1')).toBeInTheDocument();
+  });
+
+  it('lista avisa quando os papeis restringem os clientes do usuario', async () => {
+    usersApiMock([makeUser({ roles: [{ id: 'r1', name: 'Parceiro' }], rolesRestrictClients: true })]);
+    renderApp('/usuarios');
+
+    expect(await screen.findByText('Pelos papéis')).toBeInTheDocument();
+    expect(screen.queryByText('Todos')).not.toBeInTheDocument();
   });
 
   it('opcao "Definir senha agora" exige e envia a senha inicial', async () => {

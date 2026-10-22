@@ -80,6 +80,7 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
     public DbSet<RemotePolicy> RemotePolicies => Set<RemotePolicy>();
     public DbSet<AgentProcedure> AgentProcedures => Set<AgentProcedure>();
     public DbSet<UserClient> UserClients => Set<UserClient>();
+    public DbSet<RoleClient> RoleClients => Set<RoleClient>();
     public DbSet<AppServer> AppServers => Set<AppServer>();
     public DbSet<WebApp> WebApps => Set<WebApp>();
     public DbSet<WebAppCheck> WebAppChecks => Set<WebAppCheck>();
@@ -172,6 +173,15 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
             e.HasKey(x => new { x.UserId, x.ClientId });
             e.HasIndex(x => x.ClientId);
             e.HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<Client>().WithMany().HasForeignKey(x => x.ClientId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<RoleClient>(e =>
+        {
+            e.ToTable("role_clients");
+            e.HasKey(x => new { x.RoleId, x.ClientId });
+            e.HasIndex(x => x.ClientId);
+            e.HasOne<AppRole>().WithMany().HasForeignKey(x => x.RoleId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne<Client>().WithMany().HasForeignKey(x => x.ClientId).OnDelete(DeleteBehavior.Cascade);
         });
 

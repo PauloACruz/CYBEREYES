@@ -50,6 +50,8 @@ public sealed record UserDto(Guid Id, string Username, string? Email, string Ful
     public IReadOnlyList<SsoLoginRef>? SsoLogins { get; init; }
     public bool? HasPassword { get; init; }
     public bool InvitePending { get; init; }
+    /// <summary>Todos os papeis do usuario sao restritos: ele ve so os clientes deles (cruzados com <see cref="Clients"/>, se restrito).</summary>
+    public bool RolesRestrictClients { get; init; }
     /// <summary>Preenchido so na criacao com convite, quando o usuario foi criado mas o e-mail nao saiu.</summary>
     public string? InviteError { get; init; }
 }
@@ -93,12 +95,17 @@ public sealed record UpdateUserRequest(
 
 public sealed record ResetPasswordRequest([property: Required, StringLength(256)] string NewPassword);
 
-public sealed record RoleDto(Guid Id, string Name, bool IsSuperuser, IReadOnlyList<string> Permissions, int UserCount);
+/// <summary><see cref="AllClients"/> falso: quem so tem papeis restritos ve apenas a soma dos <see cref="Clients"/> deles.</summary>
+public sealed record RoleDto(Guid Id, string Name, bool IsSuperuser, IReadOnlyList<string> Permissions, int UserCount, bool AllClients,
+    IReadOnlyList<ClientRef> Clients);
 
+/// <summary>Sem <see cref="AllClients"/> e <see cref="ClientIds"/>, o acesso a clientes fica como esta (papel novo: todos).</summary>
 public sealed record SaveRoleRequest(
     [property: Required, StringLength(100, MinimumLength = 2)] string Name,
     bool IsSuperuser,
-    IReadOnlyList<string>? Permissions);
+    IReadOnlyList<string>? Permissions,
+    bool? AllClients = null,
+    IReadOnlyList<int>? ClientIds = null);
 
 public sealed record ApiKeyDto(Guid Id, string Name, string Prefix, string Username, DateTimeOffset? ExpiresAt,
     DateTimeOffset CreatedAt, DateTimeOffset? LastUsedAt);

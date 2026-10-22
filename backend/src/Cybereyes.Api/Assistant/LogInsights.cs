@@ -448,15 +448,16 @@ public sealed partial class LogInsightRunner(
     /// <summary>Usuarios ativos que veem os logs de todos os clientes: superusuarios ou com logs.view e acesso a todos os clientes.</summary>
     public static async Task<List<Recipient>> RecipientsAsync(CybereyesDbContext db, CancellationToken ct)
     {
-        var users = await db.Users.AsNoTracking().Where(u => u.IsActive).Select(u => new { u.Id, u.Email, u.AllClients }).ToListAsync(ct);
+        var users = await db.Users.AsNoTracking().Where(u => u.IsActive).Select(u => new { u.Id, u.Email }).ToListAsync(ct);
         var roles = await (
             from ur in db.UserRoles.AsNoTracking()
             join r in db.Roles.AsNoTracking() on ur.RoleId equals r.Id
             select new { ur.UserId, r.IsSuperuser, r.Permissions }).ToListAsync(ct);
+        var scopes = await ClientAccess.ScopesAsync(db, users.Select(u => u.Id).ToList(), ct);
         return users.Where(u =>
         {
             var mine = roles.Where(r => r.UserId == u.Id).ToList();
-            return mine.Any(r => r.IsSuperuser) || (u.AllClients && mine.Any(r => r.Permissions.Contains(Permissions.LogsView)));
+            return mine.Any(r => r.IsSuperuser) || (scopes.GetValueOrDefault(u.Id) is null && mine.Any(r => r.Permissions.Contains(Permissions.LogsView)));
         }).Select(u => new Recipient(u.Id, u.Email)).ToList();
     }
 

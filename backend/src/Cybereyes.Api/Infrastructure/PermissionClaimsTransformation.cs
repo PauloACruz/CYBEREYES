@@ -32,17 +32,16 @@ public sealed class PermissionClaimsTransformation(CybereyesDbContext db) : ICla
             from ur in db.UserRoles.AsNoTracking()
             join r in db.Roles.AsNoTracking() on ur.RoleId equals r.Id
             where ur.UserId == userId
-            select new { r.IsSuperuser, r.Permissions }).ToListAsync();
+            select new { r.Id, r.Name, r.IsSuperuser, r.AllClients, r.Permissions }).ToListAsync();
 
         var claims = new List<Claim> { new(CybereyesClaims.Enriched, "1") };
-        var superuser = roles.Any(r => r.IsSuperuser);
-        if (superuser)
+        if (roles.Any(r => r.IsSuperuser))
         {
             claims.Add(new Claim(CybereyesClaims.Superuser, "1"));
         }
-        else if (!user.AllClients)
+        else if (await ClientAccess.ScopeAsync(db, userId.Value, user.AllClients,
+                     roles.Select(r => new RoleScope(r.Id, r.Name ?? string.Empty, r.IsSuperuser, r.AllClients)).ToList(), CancellationToken.None) is { } clientIds)
         {
-            var clientIds = await db.UserClients.AsNoTracking().Where(uc => uc.UserId == userId).Select(uc => uc.ClientId).ToListAsync();
             claims.Add(new Claim(CybereyesClaims.ClientScope, "1"));
             claims.AddRange(clientIds.Select(id => new Claim(CybereyesClaims.Client, id.ToString(CultureInfo.InvariantCulture))));
         }

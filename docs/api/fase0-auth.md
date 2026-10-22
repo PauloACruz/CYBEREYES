@@ -92,7 +92,7 @@ invalida todos os aparelhos lembrados. Decisao em `docs/adrs/ADR-027-biometria-e
 | POST | `/api/users/{id}/reset-2fa` | | 204 |
 | DELETE | `/api/users/{id}` | | 204 |
 
-`UserDto`: `{ id, username, email, fullName, isActive, twoFactorEnabled, roles: [{ id, name }], lastLoginAt, createdAt, allClients, clients: [{ id, name }] }`
+`UserDto`: `{ id, username, email, fullName, isActive, twoFactorEnabled, roles: [{ id, name }], lastLoginAt, createdAt, allClients, clients: [{ id, name }], rolesRestrictClients }`
 
 Clientes visiveis: com `allClients = false` o usuario so ve os clientes de `clientIds` (ao menos um). A restricao vale para
 tudo que pertence a um cliente (sites, agentes, checks, alertas, chamados, inventario, documentacao, logs, SNMP e relatorios),
@@ -102,6 +102,12 @@ por filtro global do EF aplicado a cada requisicao; o que fica fora do escopo re
 fica como esta. Cliente criado por usuario restrito entra no escopo dele. Agendamento de relatorio de usuario restrito
 precisa de `params.clientId`; relatorio gerado sem cliente so aparece para quem o gerou. Chamado sem cliente (aberto sem
 maquina) aparece para quem abriu e para o responsavel.
+
+Os papeis tambem restringem (ver Papeis): o usuario ve o que a restricao dele e a dos papeis liberam juntas. Os papeis se
+somam como as permissoes, entao a restricao deles so vale quando todos os papeis do usuario sao restritos, e ai ele ve a
+soma dos clientes desses papeis; `rolesRestrictClients` indica esse caso. Quem edita e e restrito tambem nao libera
+clientes pelos papeis: o PUT/POST responde 400 em `roleIds` quando os papeis pedidos fariam o usuario ver um cliente que
+quem edita nao ve (ex.: um papel sem restricao, ou de superusuario, a quem so via os clientes do papel antigo).
 `Paged<T>`: `{ items: T[], total, page, pageSize }`
 
 ### Papeis (permissao `roles.manage`)
@@ -110,11 +116,19 @@ maquina) aparece para quem abriu e para o responsavel.
 | GET | `/api/roles` | | 200 `RoleDto[]` |
 | GET | `/api/roles/permissions` | | 200 `[{ key, group, description }]` |
 | GET | `/api/roles/options` | | 200 `[{ id, name }]` (permissao `users.manage`, usado no cadastro de usuarios) |
-| POST | `/api/roles` | `{ name, isSuperuser, permissions: string[] }` | 201 `RoleDto` |
-| PUT | `/api/roles/{id}` | `{ name, isSuperuser, permissions: string[] }` | 200 `RoleDto` |
+| GET | `/api/roles/client-options` | | 200 `[{ id, name }]` (clientes que quem edita enxerga) |
+| POST | `/api/roles` | `{ name, isSuperuser, permissions: string[], allClients = true, clientIds: number[] }` | 201 `RoleDto` |
+| PUT | `/api/roles/{id}` | `{ name, isSuperuser, permissions: string[], allClients?, clientIds? }` | 200 `RoleDto` |
 | DELETE | `/api/roles/{id}` | | 204 |
 
-`RoleDto`: `{ id, name, isSuperuser, permissions: string[], userCount }`
+`RoleDto`: `{ id, name, isSuperuser, permissions: string[], userCount, allClients, clients: [{ id, name }] }`
+
+Clientes do papel: com `allClients = false`, quem so tem papeis restritos ve apenas a soma dos `clientIds` deles (ao menos
+um), cruzada com a restricao do proprio usuario, se houver. As validacoes sao as dos usuarios: quem edita e e restrito so
+libera os proprios clientes, nao da `allClients` nem cria (ou transforma em) papel de superusuario, e no PUT os clientes
+fora do escopo dele sao mantidos. Sem `allClients` e `clientIds` no PUT, o acesso fica como esta. Em papel de superusuario
+os dois campos sao ignorados. Cliente criado por usuario restrito pelos papeis entra nesses papeis (a auditoria registra
+quais). Papeis existentes antes da Fase 25 ficam com `allClients = true`.
 
 ### Chaves de API (permissao `apikeys.manage`)
 | Metodo | Rota | Corpo | Resposta |

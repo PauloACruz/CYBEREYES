@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using ModelContextProtocol;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
+using Cybereyes.Api.Infrastructure;
 using Cybereyes.Api.Mcp;
 using Cybereyes.Api.Rmm.Monitoring;
 using Cybereyes.Core.Assistant;
@@ -133,15 +134,14 @@ public sealed partial class ConsoleAgent(
             from ur in db.UserRoles.AsNoTracking()
             join r in db.Roles.AsNoTracking() on ur.RoleId equals r.Id
             where ur.UserId == userId
-            select new { r.IsSuperuser, r.Permissions }).ToListAsync(ct);
+            select new { r.Id, r.Name, r.IsSuperuser, r.AllClients, r.Permissions }).ToListAsync(ct);
         var superuser = roles.Any(r => r.IsSuperuser);
         var own = roles.SelectMany(r => r.Permissions).ToHashSet(StringComparer.Ordinal);
         var permissions = agentPermissions.Where(p => Permissions.IsKnown(p) && (superuser || own.Contains(p)))
             .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
-        var clientIds = superuser || user.AllClients
-            ? null
-            : await db.UserClients.AsNoTracking().Where(uc => uc.UserId == userId).Select(uc => uc.ClientId).ToListAsync(ct);
-        return (permissions, clientIds, superuser || own.Contains(Permissions.AssistantUse));
+        var scope = await ClientAccess.ScopeAsync(db, userId, user.AllClients,
+            roles.Select(r => new RoleScope(r.Id, r.Name ?? string.Empty, r.IsSuperuser, r.AllClients)).ToList(), ct);
+        return (permissions, scope?.ToList(), superuser || own.Contains(Permissions.AssistantUse));
     }
 
     public async Task RunAsync(Guid sessionId, string? ip, CancellationToken ct)

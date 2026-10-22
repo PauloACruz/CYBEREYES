@@ -260,20 +260,17 @@ public sealed partial class PushDispatcher(PushOutbox queue, IServiceScopeFactor
         }
 
         var userIds = subscriptions.Select(s => s.UserId).Distinct().ToList();
-        var users = await db.Users.AsNoTracking().Where(u => userIds.Contains(u.Id) && u.IsActive)
-            .Select(u => new { u.Id, u.AllClients }).ToDictionaryAsync(u => u.Id, u => u.AllClients, ct);
+        var active = await db.Users.AsNoTracking().Where(u => userIds.Contains(u.Id) && u.IsActive).Select(u => u.Id).ToListAsync(ct);
         var roles = await (
             from ur in db.UserRoles.AsNoTracking()
             join r in db.Roles.AsNoTracking() on ur.RoleId equals r.Id
             where userIds.Contains(ur.UserId)
             select new { ur.UserId, r.IsSuperuser, r.Permissions }).ToListAsync(ct);
-        var withClient = ticket.ClientId is { } clientId
-            ? (await db.UserClients.AsNoTracking().Where(uc => userIds.Contains(uc.UserId) && uc.ClientId == clientId).Select(uc => uc.UserId).ToListAsync(ct)).ToHashSet()
-            : [];
+        var scopes = await ClientAccess.ScopesAsync(db, active, ct);
 
         bool CanSee(Guid userId)
         {
-            if (!users.TryGetValue(userId, out var allClients))
+            if (!scopes.TryGetValue(userId, out var scope))
             {
                 return false;
             }
@@ -287,7 +284,7 @@ public sealed partial class PushDispatcher(PushOutbox queue, IServiceScopeFactor
                 return false;
             }
             // Mesma regra do filtro de chamados do DbContext para quem ve so alguns clientes.
-            return allClients || (ticket.ClientId is not null ? withClient.Contains(userId) : ticket.CreatedById == userId || ticket.AssignedToId == userId);
+            return scope is null || (ticket.ClientId is { } clientId ? scope.Contains(clientId) : ticket.CreatedById == userId || ticket.AssignedToId == userId);
         }
 
         return subscriptions.Where(s => CanSee(s.UserId)).ToList();

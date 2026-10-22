@@ -197,6 +197,8 @@ export interface UserDto {
   hasPassword?: boolean;
   /** Criado por convite e ainda sem senha nem acesso. */
   invitePending: boolean;
+  /** Todos os papéis do usuário são restritos: ele só vê os clientes deles (cruzados com `clients`, se restrito). */
+  rolesRestrictClients: boolean;
   /** So na criacao com convite: o usuario foi criado, mas o e-mail nao saiu. */
   inviteError?: string | null;
 }
@@ -268,6 +270,9 @@ export interface RoleDto {
   isSuperuser: boolean;
   permissions: string[];
   userCount: number;
+  /** Falso: quem só tem papéis restritos vê apenas a soma dos `clients` deles. Superusuário ignora. */
+  allClients: boolean;
+  clients: ClientRef[];
 }
 
 export interface PermissionDto {
@@ -280,6 +285,9 @@ export interface SaveRoleRequest {
   name: string;
   isSuperuser: boolean;
   permissions: string[];
+  /** Omitidos, o acesso a clientes fica como está (papel novo: todos). */
+  allClients?: boolean;
+  clientIds?: number[];
 }
 
 // Chaves de API

@@ -4,12 +4,13 @@ import { IconPencil, IconPlus, IconTrash } from '@tabler/icons-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { rolesApi } from '../../api/roles';
 import type { RoleDto } from '../../api/types';
+import { ClientBadges } from '../../components/ClientBadges';
 import { PageHeader } from '../../components/PageHeader';
 import { EmptyRow, LoadError, LoadingRows } from '../../components/TableStates';
 import { confirmAction, notifySuccess } from '../../lib/feedback';
 import { RoleFormModal } from './RoleFormModal';
 
-const COLUMNS = 5;
+const COLUMNS = 6;
 
 export function RolesPage() {
   const queryClient = useQueryClient();
@@ -40,7 +41,7 @@ export function RolesPage() {
     <>
       <PageHeader
         title="Papéis"
-        description="Conjuntos de permissões atribuídos aos usuários."
+        description="Conjuntos de permissões, e dos clientes visíveis, atribuídos aos usuários."
         actions={
           <Button leftSection={<IconPlus size={16} />} onClick={() => setFormState({ opened: true, role: null })}>
             Novo papel
@@ -49,13 +50,14 @@ export function RolesPage() {
       />
       {roles.isError && <LoadError error={roles.error} onRetry={() => void roles.refetch()} />}
       <Paper withBorder>
-        <Table.ScrollContainer minWidth={640}>
+        <Table.ScrollContainer minWidth={760}>
           <Table striped highlightOnHover verticalSpacing="sm">
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>Nome</Table.Th>
                 <Table.Th>Tipo</Table.Th>
                 <Table.Th>Permissões</Table.Th>
+                <Table.Th>Clientes</Table.Th>
                 <Table.Th>Usuários</Table.Th>
                 <Table.Th w={100}>
                   <span className="mantine-visually-hidden">Ações</span>
@@ -81,6 +83,9 @@ export function RolesPage() {
                   </Table.Td>
                   <Table.Td>
                     <Text size="sm">{role.isSuperuser ? 'Todas' : role.permissions.length}</Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <ClientBadges clients={role.isSuperuser || role.allClients ? null : role.clients} />
                   </Table.Td>
                   <Table.Td>{role.userCount}</Table.Td>
                   <Table.Td>

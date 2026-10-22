@@ -87,9 +87,13 @@ public static class UserEndpoints
         {
             return Problems.Validation("roleIds", "Um ou mais papeis nao existem");
         }
-        if (await ValidateClientAccessAsync(db, request.AllClients, request.ClientIds, ct) is { } clientError)
+        if (await ClientAccess.ValidateGrantAsync(db, request.AllClients, request.ClientIds, ct) is { } clientError)
         {
             return clientError;
+        }
+        if (await ClientAccess.ValidateUserScopeAsync(db, null, request.AllClients, request.ClientIds ?? [], request.RoleIds ?? [], ct) is { } scopeError)
+        {
+            return scopeError;
         }
 
         var user = new AppUser
@@ -186,10 +190,16 @@ public static class UserEndpoints
             // Quem ve so alguns clientes nao pode liberar todos; manter "todos" em quem ja tinha e permitido.
             var keepsAll = allClients && user.AllClients;
             var clientIds = request.ClientIds ?? (allClients ? null : await CurrentClientIdsAsync(db, id, ct));
-            if (!keepsAll && await ValidateClientAccessAsync(db, allClients, clientIds, ct) is { } clientError)
+            if (!keepsAll && await ClientAccess.ValidateGrantAsync(db, allClients, clientIds, ct) is { } clientError)
             {
                 return clientError;
             }
+        }
+        // Quem edita restrito tambem nao libera clientes pelos papeis (ex.: um papel sem restricao a quem so via os do papel antigo).
+        if (db.IsClientRestricted && await ClientAccess.ValidateUserScopeAsync(db, id, allClients,
+                allClients ? [] : request.ClientIds ?? await CurrentClientIdsAsync(db, id, ct), request.RoleIds ?? [], ct) is { } scopeError)
+        {
+            return scopeError;
         }
 
         var wasSuperuser = await SuperuserGuard.IsSuperuserAsync(db, id, ct);
@@ -308,23 +318,6 @@ public static class UserEndpoints
         return names.Count == ids.Count ? names : null;
     }
 
-    /// <summary>Nulo quando o pedido e valido; os clientes passam pelo escopo de quem edita.</summary>
-    private static async Task<IResult?> ValidateClientAccessAsync(CybereyesDbContext db, bool allClients, IReadOnlyList<int>? clientIds, CancellationToken ct)
-    {
-        if (allClients)
-        {
-            return db.IsClientRestricted ? Problems.Validation("allClients", "Voce so pode liberar os clientes que tem acesso") : null;
-        }
-        var ids = (clientIds ?? []).Distinct().ToList();
-        if (ids.Count == 0)
-        {
-            return Problems.Validation("clientIds", "Selecione ao menos um cliente");
-        }
-        return await db.Clients.CountAsync(c => ids.Contains(c.Id), ct) == ids.Count
-            ? null
-            : Problems.Validation("clientIds", "Um ou mais clientes nao existem");
-    }
-
     private static Task<List<int>> CurrentClientIdsAsync(CybereyesDbContext db, Guid userId, CancellationToken ct) =>
         db.UserClients.Where(uc => uc.UserId == userId && db.Clients.Any(c => c.Id == uc.ClientId)).Select(uc => uc.ClientId).ToListAsync(ct);
 
@@ -350,21 +343,22 @@ public static class UserEndpoints
         return rows.ToLookup(r => r.UserId, r => new ClientRef(r.Id, r.Name));
     }
 
-    private static async Task<ILookup<Guid, RoleRef>> LoadRolesAsync(CybereyesDbContext db, List<Guid> userIds, CancellationToken ct)
+    private static async Task<ILookup<Guid, RoleScope>> LoadRolesAsync(CybereyesDbContext db, List<Guid> userIds, CancellationToken ct)
     {
         var rows = await (
             from ur in db.UserRoles.AsNoTracking()
             join r in db.Roles.AsNoTracking() on ur.RoleId equals r.Id
             where userIds.Contains(ur.UserId)
-            select new { ur.UserId, r.Id, r.Name }).ToListAsync(ct);
-        return rows.ToLookup(r => r.UserId, r => new RoleRef(r.Id, r.Name ?? string.Empty));
+            select new { ur.UserId, r.Id, r.Name, r.IsSuperuser, r.AllClients }).ToListAsync(ct);
+        return rows.ToLookup(r => r.UserId, r => new RoleScope(r.Id, r.Name ?? string.Empty, r.IsSuperuser, r.AllClients));
     }
 
-    private static UserDto ToDto(AppUser user, ILookup<Guid, RoleRef> roles, ILookup<Guid, ClientRef> clients) =>
+    private static UserDto ToDto(AppUser user, ILookup<Guid, RoleScope> roles, ILookup<Guid, ClientRef> clients) =>
         new(user.Id, user.UserName ?? string.Empty, user.Email, user.FullName, user.IsActive, user.TwoFactorEnabled,
-            roles[user.Id].OrderBy(r => r.Name, StringComparer.Ordinal).ToList(), user.LastLoginAt, user.CreatedAt,
+            roles[user.Id].Select(r => new RoleRef(r.Id, r.Name)).OrderBy(r => r.Name, StringComparer.Ordinal).ToList(), user.LastLoginAt, user.CreatedAt,
             user.AllClients, user.AllClients ? [] : clients[user.Id].OrderBy(c => c.Name, StringComparer.CurrentCultureIgnoreCase).ToList())
         {
             InvitePending = IsInvitePending(user),
+            RolesRestrictClients = ClientAccess.RolesRestrict(roles[user.Id].ToList()),
         };
 }
