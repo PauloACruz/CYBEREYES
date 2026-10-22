@@ -224,6 +224,20 @@ public sealed partial class AgentTests
         Assert.All(a.Usage, u => Assert.Equal("great", u.Rating));
         Assert.Equal(96.0, a.PlanDownloadPct);
 
+        // Firewall que bloqueia ICMP: nenhum ping volta, mas nao e perda de pacotes.
+        var blockedIcmp = report with
+        {
+            Latency = report.Latency with
+            {
+                Targets = report.Latency.Targets.Select(t => t.Kind == "server" ? t : t with { Received = 0, LossPct = 100, Stats = new SpeedTestStats() }).ToList(),
+            },
+        };
+        var icmp = SpeedTestAnalyzer.Analyze(blockedIcmp, null, null);
+        Assert.Null(icmp.LossPct);
+        Assert.Equal("excellent", icmp.Quality);
+        Assert.DoesNotContain(icmp.Findings, f => f.Severity is "critical" or "warning");
+        Assert.Contains(icmp.Findings, f => f.Severity == "info" && f.Title.StartsWith("Sem resposta ao ping", StringComparison.Ordinal));
+
         // A mesma maquina num cabo de 100 Mbit/s: o link vira o gargalo.
         var slowLink = report with { Network = report.Network with { LinkMbps = 100 }, Download = report.Download with { Mbps = 94 } };
         var finding = Assert.Single(SpeedTestAnalyzer.Analyze(slowLink, null, null).Findings);
