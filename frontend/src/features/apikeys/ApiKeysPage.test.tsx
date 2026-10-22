@@ -17,6 +17,7 @@ const agentUser: UserDto = {
   allClients: true,
   clients: [],
   invitePending: false,
+  rolesRestrictClients: false,
 };
 
 describe('chaves de API', () => {

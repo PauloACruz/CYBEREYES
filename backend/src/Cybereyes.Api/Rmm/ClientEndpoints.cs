@@ -4,7 +4,6 @@ using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using Cybereyes.Api.Infrastructure;
 using Cybereyes.Core.Audit;
-using Cybereyes.Core.Identity;
 using Cybereyes.Core.Persistence;
 using Cybereyes.Core.Rmm;
 using Cybereyes.Core.Security;
@@ -66,13 +65,10 @@ public static class ClientEndpoints
         var client = new Client { Name = name, Sites = [new Site { Name = request.SiteName.Trim() }] };
         db.Clients.Add(client);
         await db.SaveChangesAsync(ct);
-        if (db.IsClientRestricted && principal.UserId() is { } userId)
-        {
-            // Quem ve so alguns clientes passa a ver tambem o que acabou de criar.
-            db.UserClients.Add(new UserClient { UserId = userId, ClientId = client.Id });
-            await db.SaveChangesAsync(ct);
-        }
-        await audit.LogAsync("client.created", "client", Id(client.Id), $"Cliente {name} criado", cancellationToken: ct);
+        // Quem ve so alguns clientes passa a ver tambem o que acabou de criar.
+        var roles = db.IsClientRestricted && principal.UserId() is { } userId ? await ClientAccess.GrantCreatedClientAsync(db, userId, client.Id, ct) : [];
+        await audit.LogAsync("client.created", "client", Id(client.Id),
+            roles.Count == 0 ? $"Cliente {name} criado" : $"Cliente {name} criado e liberado nos papeis {string.Join(", ", roles)}", cancellationToken: ct);
         var site = client.Sites[0];
         return TypedResults.Created($"/api/clients/{client.Id}",
             new ClientDto(client.Id, client.Name, 0, [new SiteDto(site.Id, client.Id, site.Name, 0)]));

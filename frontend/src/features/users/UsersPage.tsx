@@ -19,6 +19,7 @@ import { usersApi } from '../../api/users';
 import { PERMISSIONS, type UserDto } from '../../api/types';
 import { hasPermission } from '../../auth/permissions';
 import { useMe } from '../../auth/useMe';
+import { ClientBadges } from '../../components/ClientBadges';
 import { PageHeader } from '../../components/PageHeader';
 import { EmptyRow, LoadError, LoadingRows } from '../../components/TableStates';
 import { confirmAction, notifySuccess } from '../../lib/feedback';
@@ -280,31 +281,15 @@ export function UsersPage() {
   );
 }
 
-const CLIENTS_SHOWN = 2;
-
 function UserClients({ user }: { user: UserDto }) {
-  if (user.allClients) {
+  if (user.allClients && user.rolesRestrictClients) {
     return (
-      <Text size="sm" c="dimmed">
-        Todos
-      </Text>
+      <Tooltip label="Vê só os clientes liberados nos papéis dele." withArrow>
+        <Text size="sm" c="dimmed">
+          Pelos papéis
+        </Text>
+      </Tooltip>
     );
   }
-  const extra = user.clients.slice(CLIENTS_SHOWN);
-  return (
-    <Group gap={4}>
-      {user.clients.slice(0, CLIENTS_SHOWN).map((c) => (
-        <Badge key={c.id} variant="outline" size="sm">
-          {c.name}
-        </Badge>
-      ))}
-      {extra.length > 0 && (
-        <Tooltip label={extra.map((c) => c.name).join(', ')} withArrow multiline maw={320}>
-          <Badge variant="outline" color="gray" size="sm">
-            +{extra.length}
-          </Badge>
-        </Tooltip>
-      )}
-    </Group>
-  );
+  return <ClientBadges clients={user.allClients ? null : user.clients} />;
 }

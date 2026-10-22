@@ -724,6 +724,9 @@ namespace Cybereyes.Core.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("AllClients")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
                         .HasColumnType("text");
@@ -901,6 +904,21 @@ namespace Cybereyes.Core.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("oidc_providers", (string)null);
+                });
+
+            modelBuilder.Entity("Cybereyes.Core.Identity.RoleClient", b =>
+                {
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("ClientId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("RoleId", "ClientId");
+
+                    b.HasIndex("ClientId");
+
+                    b.ToTable("role_clients", (string)null);
                 });
 
             modelBuilder.Entity("Cybereyes.Core.Identity.UserClient", b =>
@@ -4589,6 +4607,21 @@ namespace Cybereyes.Core.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("DefaultRoleId")
                         .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("Cybereyes.Core.Identity.RoleClient", b =>
+                {
+                    b.HasOne("Cybereyes.Core.Rmm.Client", null)
+                        .WithMany()
+                        .HasForeignKey("ClientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Cybereyes.Core.Identity.AppRole", null)
+                        .WithMany()
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Cybereyes.Core.Identity.UserClient", b =>

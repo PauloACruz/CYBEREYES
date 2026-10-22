@@ -25,7 +25,7 @@ public sealed record SaveRotationRequest(bool Enabled, IReadOnlyList<RotationMem
 public sealed record RotationPick(Guid UserId, string UserName, string Actor);
 
 /// <summary>Quem pode receber chamados: usuario ativo com <c>tickets.manage</c> ou superusuario.</summary>
-public sealed record TicketAssignee(Guid Id, string Name, bool Superuser, bool AllClients);
+public sealed record TicketAssignee(Guid Id, string Name);
 
 /// <summary>
 /// Fila de atendimento: o chamado aberto sem tecnico vai para o tecnico da fila que esta ha mais tempo sem receber um, entre os
@@ -40,11 +40,10 @@ public sealed class TicketRotation(CybereyesDbContext db)
             where u.IsActive
             join ur in db.UserRoles.AsNoTracking() on u.Id equals ur.UserId
             join r in db.Roles.AsNoTracking() on ur.RoleId equals r.Id
-            select new { u.Id, u.FullName, u.UserName, u.AllClients, r.IsSuperuser, r.Permissions }).ToListAsync(ct);
+            select new { u.Id, u.FullName, u.UserName, r.IsSuperuser, r.Permissions }).ToListAsync(ct);
         return rows.Where(r => r.IsSuperuser || r.Permissions.Contains(Permissions.TicketsManage))
             .GroupBy(r => r.Id)
-            .Select(g => new TicketAssignee(g.Key, string.IsNullOrEmpty(g.First().FullName) ? g.First().UserName! : g.First().FullName,
-                g.Any(r => r.IsSuperuser), g.First().AllClients))
+            .Select(g => new TicketAssignee(g.Key, string.IsNullOrEmpty(g.First().FullName) ? g.First().UserName! : g.First().FullName))
             .OrderBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
     }
 
@@ -57,15 +56,13 @@ public sealed class TicketRotation(CybereyesDbContext db)
             return null;
         }
         var assignees = (await AssigneesAsync(db, ct)).ToDictionary(a => a.Id);
-        var withClient = clientId is { } id
-            ? (await db.UserClients.AsNoTracking().Where(uc => uc.ClientId == id).Select(uc => uc.UserId).ToListAsync(ct)).ToHashSet()
-            : [];
+        var scopes = clientId is null ? new Dictionary<Guid, IReadOnlySet<int>?>() : await ClientAccess.ScopesAsync(db, assignees.Keys.ToList(), ct);
 
         bool CanTake(TicketRotationMember m) =>
-            assignees.TryGetValue(m.UserId, out var a)
+            assignees.ContainsKey(m.UserId)
             && (m.QueueIds.Count == 0 || m.QueueIds.Contains(queueId))
             // Mesma regra do filtro de chamados: sem cliente, o tecnico atribuido sempre ve o chamado.
-            && (a.Superuser || a.AllClients || clientId is null || withClient.Contains(m.UserId));
+            && (clientId is not { } id || (scopes.TryGetValue(m.UserId, out var scope) && scope.Sees(id)));
 
         var own = db.Database.CurrentTransaction is null ? await db.Database.BeginTransactionAsync(ct) : null;
         try

@@ -156,7 +156,7 @@ function UserForm({ user, onDone }: { user: UserDto | null; onDone: () => void }
         <Stack gap={6}>
           <Switch
             label="Acesso a todos os clientes"
-            description="Desligue para escolher quais clientes o usuário pode ver. Papéis de administrador veem todos."
+            description="Desligue para escolher quais clientes o usuário pode ver. Os papéis dele também podem restringir os clientes, e aí vale o que os dois liberam. Papéis de superusuário veem todos."
             {...form.getInputProps('allClients', { type: 'checkbox' })}
           />
           {!form.values.allClients && (
