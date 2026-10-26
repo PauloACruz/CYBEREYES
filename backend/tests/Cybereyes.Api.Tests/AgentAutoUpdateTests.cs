@@ -88,6 +88,58 @@ public sealed partial class AgentTests
     }
 
     [Fact]
+    public void AutoUpdate_IsDue_DownloadFailuresRetrySoonAndCountOnlyAfterMaxTransient()
+    {
+        var now = DateTimeOffset.UtcNow;
+        (DateTimeOffset, bool) Attempt(TimeSpan ago, bool transient) => (now - ago, transient);
+
+        Assert.True(AgentAutoUpdater.IsDue([], now));
+        // Falha de download: volta na rodada seguinte (30 min); falha de verdade espera RetryAfter.
+        Assert.True(AgentAutoUpdater.IsDue([Attempt(TimeSpan.FromMinutes(30), true)], now));
+        Assert.False(AgentAutoUpdater.IsDue([Attempt(TimeSpan.FromMinutes(10), true)], now));
+        Assert.False(AgentAutoUpdater.IsDue([Attempt(TimeSpan.FromMinutes(30), false)], now));
+        // As passageiras nao gastam as MaxAttempts...
+        var transient = Enumerable.Range(1, AgentAutoUpdater.MaxTransient).Select(i => Attempt(TimeSpan.FromHours(i), true)).ToList();
+        Assert.True(AgentAutoUpdater.IsDue([.. transient, Attempt(TimeSpan.FromHours(7), false), Attempt(TimeSpan.FromHours(8), false)], now));
+        // ...ate passarem de MaxTransient; e MaxAttempts falhas de verdade encerram.
+        Assert.False(AgentAutoUpdater.IsDue([.. transient, Attempt(TimeSpan.FromHours(7), true), Attempt(TimeSpan.FromHours(8), false),
+            Attempt(TimeSpan.FromHours(9), false)], now));
+        Assert.False(AgentAutoUpdater.IsDue(Enumerable.Range(1, AgentAutoUpdater.MaxAttempts).Select(i => Attempt(TimeSpan.FromDays(i), false)).ToList(), now));
+    }
+
+    [Fact]
+    public async Task AutoUpdate_DownloadFailure_RetriesOnTheNextRound()
+    {
+        var (_, pk, agent) = await FakeAgentAsync("Cliente download passageiro", "linux",
+            r => r.GetString("func") == AgentUpdates.Func ? "error: download: HTTP 502: Bad Gateway" : null);
+        await using var _ = agent;
+        using (var scope = fixture.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CybereyesDbContext>();
+            var row = await db.Agents.SingleAsync(a => a.Id == pk);
+            row.Version = "3.78.0";
+            row.GoArch = "loong64";
+            row.Status = AgentStatus.Online;
+            row.LastSeen = DateTimeOffset.UtcNow;
+            await db.SaveChangesAsync();
+        }
+        var binaries = Directory.CreateTempSubdirectory("eyes-auto-update").FullName;
+        await File.WriteAllTextAsync(Path.Combine(binaries, "eyes-v3.78.1-linux-loong64"), "binario");
+        var clock = new ShiftedClock();
+        var updater = new AgentAutoUpdater(fixture.Services.GetRequiredService<IServiceScopeFactory>(),
+            Options.Create(new AgentSettings { LatestVersion = "3.78.1", BinariesPath = binaries }), fixture.Services.GetRequiredService<IAgentRpc>(),
+            clock, NullLogger<AgentAutoUpdater>.Instance);
+
+        Assert.Equal(1, await updater.RunOnceAsync(CancellationToken.None));
+        clock.Offset = TimeSpan.FromMinutes(30);
+        Assert.Equal(1, await updater.RunOnceAsync(CancellationToken.None));
+        lock (agent.Received)
+        {
+            Assert.Equal(2, agent.Received.Count(r => r.GetString("func") == AgentUpdates.Func));
+        }
+    }
+
+    [Fact]
     public async Task AutoUpdate_FailedOnOldWindowsAgent_RestoresEyesExeFromOld()
     {
         const string error = "error: rename eyes.exe.update eyes.exe: The process cannot access the file because it is being used by another process.";
