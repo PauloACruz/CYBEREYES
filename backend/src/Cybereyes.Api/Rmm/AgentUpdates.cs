@@ -199,24 +199,49 @@ public static partial class AgentUpdates
 /// A escolha roda sob lock consultivo do PostgreSQL e grava as tentativas na mesma transacao: a outra replica, que roda
 /// logo depois (o lock solta no commit), ja enxerga as tentativas e nao manda de novo. Um agente so recebe outra tentativa
 /// da mesma versao depois de <see cref="RetryAfter"/> e no maximo <see cref="MaxAttempts"/> vezes; depois disso fica para
-/// o "Atualizar EYES" do console, que mostra o erro na hora. O proprio agente ainda confere a versao a cada 6 horas.
+/// o "Atualizar EYES" do console, que mostra o erro na hora. Falha no download (502 da troca de versao do servidor, rede da
+/// maquina) e passageira: tenta de novo na rodada seguinte e so conta depois de <see cref="MaxTransient"/> vezes. O proprio
+/// agente ainda confere a versao a cada 6 horas.
 /// </summary>
 public sealed partial class AgentAutoUpdater(IServiceScopeFactory scopes, IOptions<AgentSettings> options, IAgentRpc rpc, TimeProvider time,
     ILogger<AgentAutoUpdater> logger) : BackgroundService
 {
     public const int BatchSize = 25;
     public const int MaxAttempts = 3;
+    public const int MaxTransient = 6;
+    public const string TransientPrefix = "error: download:";
     public static readonly TimeSpan RetryAfter = TimeSpan.FromHours(6);
+    public static readonly TimeSpan TransientRetryAfter = TimeSpan.FromMinutes(25);
+
+    /// <summary>
+    /// Espera antes da primeira rodada. Os agentes baixam o binario pelo nginx assim que recebem o "agentupdate"; logo depois
+    /// de um deploy, o nginx ainda responde 502 (no live upstreams) por cerca de um minuto, e as 50 primeiras tentativas da
+    /// 3.4.1 falharam todas assim.
+    /// </summary>
+    public static readonly TimeSpan StartupDelay = TimeSpan.FromMinutes(3);
 
     /// <summary>O agente desiste de baixar, conferir e trocar o binario em 15 minutos.</summary>
     public static readonly TimeSpan ReplyTimeout = TimeSpan.FromMinutes(15);
 
-    /// <summary>Se o agente pode receber mais uma tentativa da versao, pelo horario das tentativas anteriores.</summary>
-    public static bool IsDue(IReadOnlyCollection<DateTimeOffset> attempts, DateTimeOffset now) =>
-        attempts.Count < MaxAttempts && (attempts.Count == 0 || attempts.Max() <= now - RetryAfter);
+    /// <summary>Se o agente pode receber mais uma tentativa da versao, pelas tentativas anteriores (horario e se foi passageira).</summary>
+    public static bool IsDue(IReadOnlyCollection<(DateTimeOffset StartedAt, bool Transient)> attempts, DateTimeOffset now)
+    {
+        if (attempts.Count == 0)
+        {
+            return true;
+        }
+        var transient = attempts.Count(a => a.Transient);
+        if (attempts.Count - transient + Math.Max(0, transient - MaxTransient) >= MaxAttempts)
+        {
+            return false;
+        }
+        var last = attempts.MaxBy(a => a.StartedAt);
+        return last.StartedAt <= now - (last.Transient ? TransientRetryAfter : RetryAfter);
+    }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        await Task.Delay(StartupDelay, time, stoppingToken);
         using var timer = new PeriodicTimer(TimeSpan.FromMinutes(30));
         do
         {
@@ -258,8 +283,9 @@ public sealed partial class AgentAutoUpdater(IServiceScopeFactory scopes, IOptio
             var ids = outdated.Select(a => a.Id).ToList();
             var attempts = (await db.AgentProcedures.IgnoreQueryFilters().AsNoTracking()
                     .Where(p => p.RefType == ProcedureRef.AutoUpdate && p.RefId == settings.Version && p.AgentId != null && ids.Contains(p.AgentId.Value))
-                    .Select(p => new { AgentId = p.AgentId!.Value, p.StartedAt }).ToListAsync(ct))
-                .ToLookup(p => p.AgentId, p => p.StartedAt);
+                    .Select(p => new { AgentId = p.AgentId!.Value, p.StartedAt, Transient = p.Detail != null && p.Detail.StartsWith(TransientPrefix) })
+                    .ToListAsync(ct))
+                .ToLookup(p => p.AgentId, p => (p.StartedAt, p.Transient));
             var now = time.GetUtcNow();
             var actor = new ProcedureActor(null, "Atualização automática", ProcedureSource.Console);
             foreach (var a in outdated.Where(a => IsDue(attempts[a.Id].ToList(), now)))

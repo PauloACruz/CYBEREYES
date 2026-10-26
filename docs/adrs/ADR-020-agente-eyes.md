@@ -41,7 +41,7 @@
 8. **Atualizacao remota**:
    - func `agentupdate`: payload com `version` e `sha256`. O agente baixa da propria API, confere o SHA-256 e a versao do binario novo, troca o executavel e reinicia o servico;
    - console: "Atualizar EYES" no agente e "Atualizar agentes" na lista;
-   - automatica a cada 30 min para agentes 3.x desatualizados (`Agent__AutoUpdate`, ligada por padrao), ate 25 por rodada. Cada envio e um procedimento (`ref_type` `auto_update`, `ref_id` = versao) gravado na transacao do lock consultivo, entao a outra replica nao repete o envio; o servidor espera a resposta do agente e guarda o erro. Nova tentativa da mesma versao so depois de 6 h, no maximo 3. O agente aceita uma atualizacao por vez.
+   - automatica a cada 30 min para agentes 3.x desatualizados (`Agent__AutoUpdate`, ligada por padrao), ate 25 por rodada. Cada envio e um procedimento (`ref_type` `auto_update`, `ref_id` = versao) gravado na transacao do lock consultivo, entao a outra replica nao repete o envio; o servidor espera a resposta do agente e guarda o erro. Nova tentativa da mesma versao so depois de 6 h, no maximo 3; falha no download e passageira (rodada seguinte, conta depois de 6). A primeira rodada espera 3 min depois da partida da API. O agente aceita uma atualizacao por vez.
 9. **Versao minima separada da distribuida**: `Agent:MinimumVersion` (padrao 3.0.0) vale para o registro, e `Agent:LatestVersion` (vazio = versao embutida) e a versao distribuida. Corrige o papel duplo apontado na especificacao (secao 9, item 12).
 10. **Correcoes no servidor apontadas pela especificacao**:
     - `POST /api/v3/winupdates/` aceita lista vazia;
