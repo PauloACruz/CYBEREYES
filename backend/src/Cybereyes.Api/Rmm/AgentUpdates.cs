@@ -142,10 +142,26 @@ public static partial class AgentUpdates
 
 /// <summary>
 /// Atualiza sozinho, a cada 30 minutos, ate 25 agentes online com versao menor que a distribuida
-/// (Agent:AutoUpdate, ligado por padrao). Uma replica por vez (lock consultivo do PostgreSQL).
+/// (Agent:AutoUpdate, ligado por padrao). Cada envio vira um procedimento "Atualizacao do EYES" com a resposta do agente.
+/// A escolha roda sob lock consultivo do PostgreSQL e grava as tentativas na mesma transacao: a outra replica, que roda
+/// logo depois (o lock solta no commit), ja enxerga as tentativas e nao manda de novo. Um agente so recebe outra tentativa
+/// da mesma versao depois de <see cref="RetryAfter"/> e no maximo <see cref="MaxAttempts"/> vezes; depois disso fica para
+/// o "Atualizar EYES" do console, que mostra o erro na hora. O proprio agente ainda confere a versao a cada 6 horas.
 /// </summary>
-public sealed partial class AgentAutoUpdater(IServiceScopeFactory scopes, IOptions<AgentSettings> options, ILogger<AgentAutoUpdater> logger) : BackgroundService
+public sealed partial class AgentAutoUpdater(IServiceScopeFactory scopes, IOptions<AgentSettings> options, IAgentRpc rpc, TimeProvider time,
+    ILogger<AgentAutoUpdater> logger) : BackgroundService
 {
+    public const int BatchSize = 25;
+    public const int MaxAttempts = 3;
+    public static readonly TimeSpan RetryAfter = TimeSpan.FromHours(6);
+
+    /// <summary>O agente desiste de baixar, conferir e trocar o binario em 15 minutos.</summary>
+    public static readonly TimeSpan ReplyTimeout = TimeSpan.FromMinutes(15);
+
+    /// <summary>Se o agente pode receber mais uma tentativa da versao, pelo horario das tentativas anteriores.</summary>
+    public static bool IsDue(IReadOnlyCollection<DateTimeOffset> attempts, DateTimeOffset now) =>
+        attempts.Count < MaxAttempts && (attempts.Count == 0 || attempts.Max() <= now - RetryAfter);
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         using var timer = new PeriodicTimer(TimeSpan.FromMinutes(30));
@@ -172,36 +188,89 @@ public sealed partial class AgentAutoUpdater(IServiceScopeFactory scopes, IOptio
         }
         await using var scope = scopes.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<CybereyesDbContext>();
-        var rpc = scope.ServiceProvider.GetRequiredService<IAgentRpc>();
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
-        var locked = await db.Database.SqlQueryRaw<bool>("SELECT pg_try_advisory_xact_lock(hashtext('cybereyes-agent-update')) AS \"Value\"").SingleAsync(ct);
-        if (!locked)
+        var procedures = scope.ServiceProvider.GetRequiredService<ProcedureLog>();
+        var sends = new List<(AgentProcedure Procedure, string AgentId, Dictionary<string, object?> Message)>();
+        await using (var tx = await db.Database.BeginTransactionAsync(ct))
+        {
+            var locked = await db.Database.SqlQueryRaw<bool>("SELECT pg_try_advisory_xact_lock(hashtext('cybereyes-agent-update')) AS \"Value\"").SingleAsync(ct);
+            if (!locked)
+            {
+                return 0;
+            }
+            var agents = await db.Agents.AsNoTracking().Where(a => a.Status == AgentStatus.Online)
+                .Select(a => new { a.Id, a.AgentId, a.Plat, a.GoArch, a.Version }).ToListAsync(ct);
+            // Agentes anteriores ao EYES (2.x) nao entendem "agentupdate": precisam ser reinstalados.
+            var outdated = agents.Where(a => AgentUpdates.IsOutdated(a.Version, settings.Version)
+                && Version.TryParse(a.Version, out var v) && v.Major >= 3).ToList();
+            var ids = outdated.Select(a => a.Id).ToList();
+            var attempts = (await db.AgentProcedures.IgnoreQueryFilters().AsNoTracking()
+                    .Where(p => p.RefType == ProcedureRef.AutoUpdate && p.RefId == settings.Version && p.AgentId != null && ids.Contains(p.AgentId.Value))
+                    .Select(p => new { AgentId = p.AgentId!.Value, p.StartedAt }).ToListAsync(ct))
+                .ToLookup(p => p.AgentId, p => p.StartedAt);
+            var now = time.GetUtcNow();
+            var actor = new ProcedureActor(null, "Atualização automática", ProcedureSource.Console);
+            foreach (var a in outdated.Where(a => IsDue(attempts[a.Id].ToList(), now)))
+            {
+                if (sends.Count == BatchSize)
+                {
+                    break;
+                }
+                if (AgentUpdates.Message(settings, a.Plat, a.GoArch) is not { } message)
+                {
+                    continue;
+                }
+                var procedure = await procedures.StartAsync(a.Id, ProcedureKind.AgentUpdate, $"{a.Version} para {settings.Version}",
+                    refType: ProcedureRef.AutoUpdate, refId: settings.Version, actor: actor, ct: ct);
+                if (procedure is not null)
+                {
+                    sends.Add((procedure, a.AgentId, message));
+                }
+            }
+            await tx.CommitAsync(ct);
+        }
+        if (sends.Count == 0)
         {
             return 0;
         }
-        var agents = await db.Agents.AsNoTracking().Where(a => a.Status == AgentStatus.Online)
-            .Select(a => new { a.AgentId, a.Plat, a.GoArch, a.Version }).ToListAsync(ct);
-        var sent = 0;
-        foreach (var a in agents.Where(a => AgentUpdates.IsOutdated(a.Version, settings.Version)
-                     && Version.TryParse(a.Version, out var v) && v.Major >= 3).Take(25))
+        LogSent(logger, sends.Count, settings.Version);
+        // Os agentes baixam ao mesmo tempo; os resultados sao gravados um a um (o contexto do banco nao aceita uso paralelo).
+        var results = await Task.WhenAll(sends.Select(s => AwaitReplyAsync(s.AgentId, s.Message, ct)));
+        for (var i = 0; i < sends.Count; i++)
         {
-            // Agentes anteriores ao EYES (2.x) nao entendem "agentupdate": precisam ser reinstalados.
-            if (AgentUpdates.Message(settings, a.Plat, a.GoArch) is { } message)
+            var (status, detail) = results[i];
+            await procedures.FinishAsync(sends[i].Procedure, status, detail, CancellationToken.None);
+            if (status != ProcedureStatus.Ok)
             {
-                await rpc.PublishAsync(a.AgentId, message, ct);
-                sent++;
+                LogAgentFailed(logger, sends[i].Procedure.Hostname, settings.Version, detail);
             }
         }
-        await tx.CommitAsync(ct);
-        if (sent > 0)
+        return sends.Count;
+    }
+
+    private async Task<(string Status, string? Detail)> AwaitReplyAsync(string agentId, IReadOnlyDictionary<string, object?> message, CancellationToken ct)
+    {
+        try
         {
-            LogSent(logger, sent, settings.Version);
+            var reply = await rpc.RequestAsync(agentId, message, ReplyTimeout, ct);
+            return reply is string text && (text.StartsWith("error", StringComparison.OrdinalIgnoreCase) || text.Contains("unknown", StringComparison.OrdinalIgnoreCase))
+                ? (ProcedureStatus.Error, text)
+                : (ProcedureStatus.Ok, null);
         }
-        return sent;
+        catch (AgentRpcTimeoutException)
+        {
+            return (ProcedureStatus.Timeout, $"O agente nao respondeu em {ReplyTimeout.TotalMinutes:0} minutos");
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            return (ProcedureStatus.Cancelled, "O servidor reiniciou antes da resposta do agente");
+        }
     }
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Atualizacao automatica do EYES {Version} enviada a {Count} agente(s)")]
     private static partial void LogSent(ILogger logger, int count, string version);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Atualizacao automatica do EYES {Version} falhou em {Hostname}: {Detail}")]
+    private static partial void LogAgentFailed(ILogger logger, string hostname, string version, string? detail);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Falha na atualizacao automatica dos agentes")]
     private static partial void LogFailed(ILogger logger, Exception ex);
