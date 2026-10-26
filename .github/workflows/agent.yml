@@ -159,3 +159,7 @@ jobs:
         env:
           EYES_WINDOWS_UNINSTALL: "1"
         run: go test -count=1 -v ./internal/uninstall/ ./internal/inventory/
+      # Troca do executavel com a imagem em execucao de verdade e o arquivo novo preso (como pelo antivirus).
+      - name: Troca do binario (Windows)
+        if: runner.os == 'Windows'
+        run: go test -count=1 -v ./internal/binswap/

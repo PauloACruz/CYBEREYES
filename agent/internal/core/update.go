@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/pauloacruz/cybereyes/agent/internal/binswap"
 	"github.com/pauloacruz/cybereyes/agent/internal/config"
 	"github.com/pauloacruz/cybereyes/agent/internal/env"
 	"github.com/pauloacruz/cybereyes/agent/internal/rpc"
@@ -65,15 +66,8 @@ func update(ctx context.Context, e *env.Env, req rpc.Request) any {
 		os.Remove(tmp)
 		return fmt.Sprintf("error: binario baixado invalido ou de outra versao (%s)", strings.TrimSpace(string(out)))
 	}
-	if runtime.GOOS == "windows" {
-		old := dest + ".old"
-		_ = os.Remove(old)
-		if err := os.Rename(dest, old); err != nil {
-			os.Remove(tmp)
-			return "error: " + err.Error()
-		}
-	}
-	if err := os.Rename(tmp, dest); err != nil {
+	if err := binswap.Swap(ctx, tmp, dest, runtime.GOOS == "windows"); err != nil {
+		os.Remove(tmp)
 		return "error: " + err.Error()
 	}
 	e.Log.Info("EYES atualizado; reiniciando", "de", version.Version, "para", want, "binario", filepath.Base(dest))

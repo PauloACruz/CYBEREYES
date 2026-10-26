@@ -58,6 +58,9 @@ jobs:
       - name: Programas da inicializacao
         shell: powershell
         run: .\backend\tests\scripts\win-conf-inicializacao.Tests.ps1
+      - name: Recuperacao do eyes.exe
+        shell: powershell
+        run: .\backend\tests\scripts\win-eyes-restaurar-binario.Tests.ps1
 
   frontend:
     runs-on: ubuntu-latest
