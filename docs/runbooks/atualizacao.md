@@ -61,7 +61,7 @@ O MeshCentral saiu do Cybereyes na fase 12.8 (ADR-023); o acesso remoto agora e 
 ## Versao do agente (EYES)
 - O EYES e compilado junto com a imagem da API a partir de `agent/` (`agent/VERSION`, ver ADR-020). Atualizar a API para um commit com versao nova do EYES ja passa a distribuir a versao nova; `AGENT_VERSION` vazio no `.env` usa a versao embutida.
 - O download em `/api/agent/download/{plat}/{arch}` procura `eyes-v<versao>-<plat>-<arch>[.exe]` primeiro em `infra/docker/agents` (montado em `/agents`) e depois nos binarios embutidos. Sem binario, responde 404; nao ha mais redirecionamento para o GitHub.
-- Agentes instalados (3.x) sao atualizados sozinhos a cada 30 minutos quando estao online com versao menor (`Agent__AutoUpdate=false` desliga). Tambem da para atualizar pelo console: "Atualizar EYES" no menu Acoes do agente ou "Atualizar agentes" na lista. O agente confere o SHA-256 do binario, troca o executavel e reinicia o servico.
+- Agentes instalados (3.x) sao atualizados sozinhos quando estao online com versao menor (`Agent__AutoUpdate=false` desliga): a cada 30 minutos, ate 25 por rodada. Cada tentativa aparece em Procedimentos do agente como "Atualizacao do EYES", com o erro devolvido pelo agente; quem falhou so recebe outra tentativa da mesma versao 6 horas depois, no maximo 3 vezes (depois disso, corrija a causa na maquina e use "Atualizar EYES", que mostra o erro na hora). Tambem da para atualizar pelo console: "Atualizar EYES" no menu Acoes do agente ou "Atualizar agentes" na lista. O agente confere o SHA-256 do binario, troca o executavel e reinicia o servico.
 - Conferir a versao distribuida:
   ```bash
   curl -fsS https://CYBEREYES_HOST/api/agent/download/linux/amd64 -o /tmp/eyes && chmod +x /tmp/eyes && /tmp/eyes version

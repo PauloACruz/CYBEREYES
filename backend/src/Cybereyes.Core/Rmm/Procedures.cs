@@ -56,6 +56,8 @@ public static class ProcedureRef
     public const string Terminal = "terminal";
     public const string Task = "task";
     public const string SpeedTest = "speed_test";
+    /// <summary>Tentativa da atualizacao automatica do EYES; RefId e a versao enviada.</summary>
+    public const string AutoUpdate = "auto_update";
 }
 
 /// <summary>

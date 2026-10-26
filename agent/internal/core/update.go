@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 
 	"github.com/pauloacruz/cybereyes/agent/internal/config"
 	"github.com/pauloacruz/cybereyes/agent/internal/env"
@@ -18,6 +19,10 @@ import (
 	"github.com/pauloacruz/cybereyes/agent/internal/service"
 	"github.com/pauloacruz/cybereyes/agent/internal/version"
 )
+
+// updating deixa uma atualizacao por vez. Cada mensagem do NATS roda na sua goroutine: dois "agentupdate" seguidos
+// (ou um deles junto com a verificacao periodica) gravariam o mesmo arquivo .update ao mesmo tempo.
+var updating sync.Mutex
 
 // update baixa a versao pedida do proprio servidor, confere o SHA-256 (quando informado),
 // valida o binario novo e troca o executavel, reiniciando o servico.
@@ -34,6 +39,10 @@ func update(ctx context.Context, e *env.Env, req rpc.Request) any {
 	if want == version.Version {
 		return "ok"
 	}
+	if !updating.TryLock() {
+		return "error: ja existe uma atualizacao em andamento"
+	}
+	defer updating.Unlock()
 	dest := currentBinary()
 	tmp := dest + ".update"
 	f, err := os.OpenFile(tmp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o755)

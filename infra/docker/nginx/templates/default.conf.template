@@ -66,6 +66,10 @@ server {
     proxy_hide_header Referrer-Policy;
     # Maior upload da API e 10 MB (anexos e arquivos da documentacao); 30M acompanha o limite padrao do Kestrel.
     client_max_body_size 30M;
+    # Resposta maior que os buffers (binario do EYES e app de bandeja, 10 a 13 MB) vai direto ao cliente, sem arquivo temporario:
+    # /var/cache/nginx e tmpfs e conta no mem_limit do conteiner. Com 25 agentes baixando a versao nova juntos, os temporarios
+    # passaram dos 256 MB e o kernel matou os workers, derrubando as conexoes de agentes e consoles que estavam neles.
+    proxy_max_temp_file_size 0;
 
     proxy_set_header Host              $host;
     proxy_set_header X-Real-IP         $remote_addr;

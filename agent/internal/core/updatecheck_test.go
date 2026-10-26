@@ -1,6 +1,21 @@
 package core
 
-import "testing"
+import (
+	"context"
+	"testing"
+
+	"github.com/pauloacruz/cybereyes/agent/internal/rpc"
+)
+
+func TestUpdateRejectsConcurrentRun(t *testing.T) {
+	updating.Lock()
+	defer updating.Unlock()
+	// Com outra atualizacao em andamento, responde antes de tocar no binario (por isso o env pode ser nulo).
+	got := update(context.Background(), nil, rpc.Request{"payload": map[string]any{"version": "99.0.0"}})
+	if got != "error: ja existe uma atualizacao em andamento" {
+		t.Fatalf("update concorrente = %v", got)
+	}
+}
 
 func TestNewer(t *testing.T) {
 	cases := []struct {
