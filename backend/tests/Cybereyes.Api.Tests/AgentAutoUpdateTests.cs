@@ -80,5 +80,53 @@ public sealed partial class AgentTests
         Assert.Equal(0, await Replica().RunOnceAsync(CancellationToken.None));
         Assert.Equal(AgentAutoUpdater.MaxAttempts, Updates());
         Assert.Equal(AgentAutoUpdater.MaxAttempts, (await ProceduresAsync(admin, $"agentId={pk}")).Count);
+        // A conferencia do eyes.exe e so do Windows.
+        lock (agent.Received)
+        {
+            Assert.DoesNotContain(agent.Received, r => r.GetString("func") == "rawcmd");
+        }
+    }
+
+    [Fact]
+    public async Task AutoUpdate_FailedOnOldWindowsAgent_RestoresEyesExeFromOld()
+    {
+        const string error = "error: rename eyes.exe.update eyes.exe: The process cannot access the file because it is being used by another process.";
+        var (admin, pk, agent) = await FakeAgentAsync("Cliente troca do binario", "windows", r => r.GetString("func") switch
+        {
+            AgentUpdates.Func => error,
+            "rawcmd" => "eyes.exe recolocado a partir do .old\r\n",
+            _ => null,
+        });
+        await using var _ = agent;
+        using (var scope = fixture.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CybereyesDbContext>();
+            var row = await db.Agents.SingleAsync(a => a.Id == pk);
+            // Versao com a troca sem rollback; arquitetura que so este agente tem.
+            row.Version = "3.4.0";
+            row.GoArch = "riscv64";
+            row.Status = AgentStatus.Online;
+            row.LastSeen = DateTimeOffset.UtcNow;
+            await db.SaveChangesAsync();
+        }
+        var binaries = Directory.CreateTempSubdirectory("eyes-auto-update").FullName;
+        await File.WriteAllTextAsync(Path.Combine(binaries, "eyes-v3.77.1-windows-riscv64.exe"), "binario");
+        var updater = new AgentAutoUpdater(fixture.Services.GetRequiredService<IServiceScopeFactory>(),
+            Options.Create(new AgentSettings { LatestVersion = "3.77.1", BinariesPath = binaries }), fixture.Services.GetRequiredService<IAgentRpc>(),
+            TimeProvider.System, NullLogger<AgentAutoUpdater>.Instance);
+
+        Assert.Equal(1, await updater.RunOnceAsync(CancellationToken.None));
+
+        IReadOnlyDictionary<string, object?> raw;
+        lock (agent.Received)
+        {
+            raw = Assert.Single(agent.Received, r => r.GetString("func") == "rawcmd");
+        }
+        var payload = (IReadOnlyDictionary<string, object?>)raw["payload"]!;
+        Assert.Equal("cmd", payload.GetString("shell"));
+        Assert.Equal(AgentUpdates.RestoreBinaryCommand, payload.GetString("command"));
+        var procedure = Assert.Single(await ProceduresAsync(admin, $"agentId={pk}"));
+        Assert.Equal(ProcedureStatus.Error, procedure.GetProperty("status").GetString());
+        Assert.Equal($"{error}\nConferencia do eyes.exe: eyes.exe recolocado a partir do .old", procedure.GetProperty("detail").GetString());
     }
 }

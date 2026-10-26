@@ -1194,6 +1194,7 @@ Referencias: `Api/Tickets/Tray.cs:120-130`, `Api/Rmm/Maintenance/CareEndpoints.c
 | Logs (`logconfig`, `logs`) | 2.13.0 pela documentacao (`docs/api/fase8-logs-snmp.md:3`); o servidor nao confere | |
 | Desinstalacao avancada (`softwareuninstall`, `softwarecleanup`) | `>= 3.3.0` (servidor) | `Api/Rmm/Monitoring/SoftwareUninstall.cs` (`MinimumAgent`) |
 | Teste de velocidade (`speedtest`) | `>= 3.4.0` (servidor e console) | `Api/Rmm/SpeedTest/SpeedTestEndpoints.cs` (`MinimumAgent`); `front/api/speedTests.ts` (`SPEED_TEST_MIN_VERSION`) |
+| Troca do binario sem deixar o Windows sem `eyes.exe` (repete o rename, volta o `.old` se o novo nao entra, recoloca o `eyes.exe` ausente a cada hora) | `>= 3.4.1` (agente); abaixo disso, depois de um `agentupdate` com erro no Windows, o servidor manda `rawcmd` que recoloca o `eyes.exe` a partir do `.old` | `agent/internal/binswap`; `Api/Rmm/AgentUpdates.cs` (`SafeSwapVersion`, `win-eyes-restaurar-binario.cmd`) |
 
 **PROPOSTA**:
 - O EYES informa versao **`3.0.0` ou maior**, que passa em todas as travas e se distingue do agente Go.

@@ -64,6 +64,58 @@ public static partial class AgentUpdates
     public static bool IsOutdated(string? current, string target) =>
         Version.TryParse(target, out var t) && (!Version.TryParse(current, out var c) || c < t);
 
+    /// <summary>
+    /// Primeira versao do EYES que nao deixa o Windows sem eyes.exe quando a troca do binario falha no meio. Ate a anterior, a
+    /// troca renomeava eyes.exe para .old e, se o novo nao entrasse no lugar, nao desfazia: o servico seguia rodando pela imagem
+    /// renomeada e nao subia mais no proximo boot (o agente ficava "em atraso" com a maquina ligada).
+    /// </summary>
+    public const string SafeSwapVersion = "3.4.1";
+
+    /// <summary>
+    /// Comando (cmd) que recoloca eyes.exe a partir do .old so quando ele falta e diz o que encontrou. Fica num arquivo para o
+    /// CI rodar o mesmo texto num Windows de verdade (backend/tests/scripts/win-eyes-restaurar-binario.Tests.ps1).
+    /// </summary>
+    public static string RestoreBinaryCommand => RestoreScript.Value;
+
+    private static readonly Lazy<string> RestoreScript = new(() =>
+    {
+        using var stream = typeof(AgentUpdates).Assembly.GetManifestResourceStream("Cybereyes.Scripts.win-eyes-restaurar-binario.cmd")
+            ?? throw new InvalidOperationException("Comando de recuperacao do eyes.exe ausente do assembly");
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd().Trim();
+    });
+
+    /// <summary>
+    /// Depois de uma atualizacao que falhou num agente Windows anterior a <see cref="SafeSwapVersion"/> (a troca e feita pelo
+    /// codigo da versao em execucao), confere o eyes.exe e o recoloca se ele sumiu. Devolve o resultado, ou nulo quando nao se aplica.
+    /// </summary>
+    public static async Task<string?> RestoreBinaryAfterFailureAsync(IAgentRpc rpc, string agentId, string plat, string? version, CancellationToken ct)
+    {
+        if (plat != "windows" || !IsOutdated(version, SafeSwapVersion))
+        {
+            return null;
+        }
+        try
+        {
+            var reply = await rpc.RequestAsync(agentId, new Dictionary<string, object?>
+            {
+                ["func"] = "rawcmd",
+                ["timeout"] = 30,
+                ["payload"] = new Dictionary<string, string> { ["command"] = RestoreBinaryCommand, ["shell"] = "cmd" },
+                ["run_as_user"] = false,
+            }, TimeSpan.FromSeconds(32), ct);
+            return (reply as string)?.Trim();
+        }
+        catch (AgentRpcTimeoutException)
+        {
+            return "o agente nao respondeu a conferencia do eyes.exe";
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            return null;
+        }
+    }
+
     private static string Sha256(string path)
     {
         var modified = File.GetLastWriteTimeUtc(path);
@@ -101,7 +153,8 @@ public static partial class AgentUpdates
         }
         if (reply is string text && text.StartsWith("error", StringComparison.OrdinalIgnoreCase))
         {
-            return Problems.Validation("agent", text);
+            var restore = await RestoreBinaryAfterFailureAsync(rpc, agent.AgentId, agent.Plat, agent.Version, ct);
+            return Problems.Validation("agent", restore is null ? text : $"{text} (conferencia do eyes.exe: {restore})");
         }
         if (reply is string unknown && unknown.Contains("unknown", StringComparison.OrdinalIgnoreCase))
         {
@@ -189,7 +242,7 @@ public sealed partial class AgentAutoUpdater(IServiceScopeFactory scopes, IOptio
         await using var scope = scopes.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<CybereyesDbContext>();
         var procedures = scope.ServiceProvider.GetRequiredService<ProcedureLog>();
-        var sends = new List<(AgentProcedure Procedure, string AgentId, Dictionary<string, object?> Message)>();
+        var sends = new List<(AgentProcedure Procedure, string AgentId, string Plat, string Version, Dictionary<string, object?> Message)>();
         await using (var tx = await db.Database.BeginTransactionAsync(ct))
         {
             var locked = await db.Database.SqlQueryRaw<bool>("SELECT pg_try_advisory_xact_lock(hashtext('cybereyes-agent-update')) AS \"Value\"").SingleAsync(ct);
@@ -223,7 +276,7 @@ public sealed partial class AgentAutoUpdater(IServiceScopeFactory scopes, IOptio
                     refType: ProcedureRef.AutoUpdate, refId: settings.Version, actor: actor, ct: ct);
                 if (procedure is not null)
                 {
-                    sends.Add((procedure, a.AgentId, message));
+                    sends.Add((procedure, a.AgentId, a.Plat, a.Version, message));
                 }
             }
             await tx.CommitAsync(ct);
@@ -238,6 +291,11 @@ public sealed partial class AgentAutoUpdater(IServiceScopeFactory scopes, IOptio
         for (var i = 0; i < sends.Count; i++)
         {
             var (status, detail) = results[i];
+            if (status == ProcedureStatus.Error &&
+                await AgentUpdates.RestoreBinaryAfterFailureAsync(rpc, sends[i].AgentId, sends[i].Plat, sends[i].Version, ct) is { } restore)
+            {
+                detail = $"{detail}\nConferencia do eyes.exe: {restore}";
+            }
             await procedures.FinishAsync(sends[i].Procedure, status, detail, CancellationToken.None);
             if (status != ProcedureStatus.Ok)
             {

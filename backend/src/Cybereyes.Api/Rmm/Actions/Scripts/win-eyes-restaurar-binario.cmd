@@ -1,0 +1,1 @@
+if exist "%ProgramFiles%\Cybereyes\EYES\eyes.exe" (echo eyes.exe ja estava no lugar) else (if exist "%ProgramFiles%\Cybereyes\EYES\eyes.exe.old" (copy /y "%ProgramFiles%\Cybereyes\EYES\eyes.exe.old" "%ProgramFiles%\Cybereyes\EYES\eyes.exe" >nul && echo eyes.exe recolocado a partir do .old) else (echo eyes.exe ausente e sem .old))

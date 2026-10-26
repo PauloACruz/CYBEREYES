@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/pauloacruz/cybereyes/agent/internal/api"
+	"github.com/pauloacruz/cybereyes/agent/internal/binswap"
 	"github.com/pauloacruz/cybereyes/agent/internal/config"
 	"github.com/pauloacruz/cybereyes/agent/internal/mesh"
 	"github.com/pauloacruz/cybereyes/agent/internal/service"
@@ -218,16 +219,9 @@ func copySelf() (string, error) {
 	if err := out.Close(); err != nil {
 		return "", err
 	}
-	if runtime.GOOS == "windows" {
-		// O binario antigo pode estar em uso: renomeia para .old antes de substituir.
-		_ = os.Remove(dest + ".old")
-		if _, err := os.Stat(dest); err == nil {
-			if err := os.Rename(dest, dest+".old"); err != nil {
-				return "", err
-			}
-		}
-	}
-	if err := os.Rename(tmp, dest); err != nil {
+	// No Windows o binario antigo pode estar em uso: vai para .old antes, e volta se o novo nao entrar no lugar.
+	if err := binswap.Swap(context.Background(), tmp, dest, runtime.GOOS == "windows"); err != nil {
+		os.Remove(tmp)
 		return "", err
 	}
 	return dest, nil
