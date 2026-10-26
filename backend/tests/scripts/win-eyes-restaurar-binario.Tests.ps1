@@ -1,15 +1,18 @@
 #Requires -Version 5.1
 <#
-    Teste do win-eyes-restaurar-binario.cmd num Windows de verdade (CI windows-latest): roda o comando como o agente roda
-    (cmd /D /S /C "chcp 65001 >NUL & <comando>"), com %ProgramFiles% numa pasta temporaria com espaco no nome, nos tres
-    casos: eyes.exe no lugar, eyes.exe ausente com o .old e sem nenhum dos dois. Sai com 1 na primeira diferença.
+    Teste do win-eyes-restaurar-binario.cmd num Windows de verdade (CI windows-latest, como administrador): roda o comando como
+    o agente roda (cmd /D /S /C "chcp 65001 >NUL & <comando>") na pasta real do EYES em %ProgramFiles%, nos tres casos: eyes.exe
+    no lugar, eyes.exe ausente com o .old e sem nenhum dos dois. Usa a pasta real porque o Windows recalcula %ProgramFiles% em
+    cada processo novo (uma pasta temporaria passada pelo ambiente nao chega ao cmd). Recusa rodar numa maquina com o EYES
+    instalado. Sai com 1 na primeira diferença.
 #>
 $ErrorActionPreference = 'Stop'
 $comando = (Get-Content -Raw (Join-Path $PSScriptRoot '..\..\src\Cybereyes.Api\Rmm\Actions\Scripts\win-eyes-restaurar-binario.cmd')).Trim()
-$raiz = Join-Path ([IO.Path]::GetTempPath()) ('cybereyes restaurar ' + [Guid]::NewGuid().ToString('N'))
-$pasta = Join-Path $raiz 'Cybereyes\EYES'
+$raiz = Join-Path $env:ProgramFiles 'Cybereyes'
+$pasta = Join-Path $raiz 'EYES'
 $exe = Join-Path $pasta 'eyes.exe'
 $old = "$exe.old"
+if (Test-Path $raiz) { throw "$raiz ja existe: este teste nao roda numa maquina com o EYES instalado" }
 
 function Assert-Igual($esperado, $obtido, [string]$descricao) {
     if ($esperado -ne $obtido) { throw "$descricao`: esperado '$esperado', obtido '$obtido'" }
@@ -22,7 +25,6 @@ function Invoke-Restaurar {
     $psi.Arguments = '/D /S /C "chcp 65001 >NUL & ' + $comando + '"'
     $psi.UseShellExecute = $false
     $psi.RedirectStandardOutput = $true
-    $psi.EnvironmentVariables['ProgramFiles'] = $raiz
     $processo = [Diagnostics.Process]::Start($psi)
     $saida = $processo.StandardOutput.ReadToEnd().Trim()
     $processo.WaitForExit()
