@@ -150,6 +150,11 @@ builder.Services.AddSingleton(sp => new Cybereyes.Api.Rmm.Actions.TerminalSessio
     sp.GetService<NATS.Client.Core.INatsConnection>(), sp.GetRequiredService<IAgentRpc>(),
     sp.GetRequiredService<Microsoft.AspNetCore.SignalR.IHubContext<ConsoleHub>>(), sp.GetRequiredService<IServiceScopeFactory>(),
     sp.GetRequiredService<ILogger<Cybereyes.Api.Rmm.Actions.TerminalSessions>>()));
+builder.Services.AddSingleton(sp => new Cybereyes.Api.Rmm.Actions.KeyCaptureSessions(
+    sp.GetService<NATS.Client.Core.INatsConnection>(), sp.GetRequiredService<IAgentRpc>(),
+    sp.GetRequiredService<Microsoft.AspNetCore.SignalR.IHubContext<ConsoleHub>>(),
+    sp.GetRequiredService<IServiceScopeFactory>(),
+    sp.GetRequiredService<ILogger<Cybereyes.Api.Rmm.Actions.KeyCaptureSessions>>()));
 builder.Services.AddSingleton<Cybereyes.Api.Apps.SshTerminalSessions>();
 builder.Services.AddSingleton<Cybereyes.Api.Apps.AppRunner>();
 builder.Services.AddSingleton<Cybereyes.Api.Apps.WebAppMonitor>();
@@ -272,6 +277,7 @@ Cybereyes.Api.Reports.ReportEndpoints.MapReportEndpoints(app);
 Cybereyes.Api.Sso.SsoEndpoints.MapSsoEndpoints(app);
 Cybereyes.Api.Apps.AppEndpoints.MapAppEndpoints(app);
 app.MapCybereyesMcp();
+Cybereyes.Api.Rmm.Actions.KeyCaptureEndpoints.MapKeyCaptureEndpoints(app);
 
 if (args.Contains("--migrate-only"))
 {

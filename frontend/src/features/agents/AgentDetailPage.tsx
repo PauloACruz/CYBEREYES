@@ -47,6 +47,7 @@ import {
   IconScreenShare,
   IconFolders,
   IconPencil,
+  IconKeyboard,
 } from '@tabler/icons-react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
@@ -87,6 +88,7 @@ import { AgentTicketsTab } from '../tickets/AgentTicketsTab';
 import { AgentAssetButton } from '../inventory/AgentAssetButton';
 import { AgentFilesTab } from '../remote/AgentFilesTab';
 import { RemoteSessionsTable } from '../remote/RemoteSessionsTable';
+import { KeyCaptureTab } from './actions/KeyCaptureTab';
 import { CareTab } from '../care/CareTab';
 import { AgentProceduresTab } from '../procedures/AgentProceduresTab';
 import { CARE_NAME } from '../care/careFormat';
@@ -175,6 +177,14 @@ function AgentDetailView({ agent }: { agent: AgentDetail }) {
           <TerminalTab agent={agent} />
         </Suspense>
       ),
+    });
+  }
+  if (canRun && windows) {
+    tabs.push({
+      value: 'teclado',
+      label: 'Teclado',
+      icon: IconKeyboard,
+      render: () => <KeyCaptureTab agent={agent} />,
     });
   }
   tabs.push({ value: 'processos', label: 'Processos', icon: IconListDetails, render: () => <ProcessesTab agent={agent} canControl={canControl} /> });
