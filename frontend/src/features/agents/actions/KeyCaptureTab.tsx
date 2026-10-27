@@ -73,15 +73,18 @@ export function KeyCaptureTab({ agent }: { agent: AgentDetail }) {
     queryKey: ['keycapture-active', agent.id],
     queryFn: () => keyCaptureApi.active(agent.id),
     refetchOnWindowFocus: false,
+    select: (data) => {
+      if (data.active && data.sessionId) {
+        sessionRef.current = data.sessionId;
+      }
+      return data;
+    },
   });
 
-  // Se ativo, assume a sessao ao montar
-  useEffect(() => {
-    if (activeQuery.data?.active && activeQuery.data.sessionId) {
-      sessionRef.current = activeQuery.data.sessionId;
-      setStatus('capturing');
-    }
-  }, [activeQuery.data]);
+  const activeSessionId = activeQuery.data?.active ? activeQuery.data.sessionId : null;
+  if (activeSessionId && status === 'idle') {
+    setStatus('capturing');
+  }
 
   // Historico: sessoes do dia selecionado
   const dateStr = historyDate ?? undefined;
@@ -128,7 +131,7 @@ export function KeyCaptureTab({ agent }: { agent: AgentDetail }) {
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const viewport = el.querySelector('[data-viewport]') as HTMLElement | null;
+    const viewport = el.querySelector<HTMLElement>('[data-viewport]');
     if (viewport) viewport.scrollTop = viewport.scrollHeight;
   }, [liveEntries]);
 
@@ -181,7 +184,7 @@ export function KeyCaptureTab({ agent }: { agent: AgentDetail }) {
           )}
           <SegmentedControl
             value={view}
-            onChange={(v) => setView(v as View)}
+            onChange={(v) => setView(v)}
             data={[
               { label: 'Ao vivo', value: 'live' },
               { label: 'Histórico', value: 'history' },
