@@ -14,8 +14,8 @@ import (
 
 	"github.com/pauloacruz/cybereyes/agent/internal/agent"
 	"github.com/pauloacruz/cybereyes/agent/internal/install"
-	"github.com/pauloacruz/cybereyes/agent/internal/remote"
 	"github.com/pauloacruz/cybereyes/agent/internal/keylog"
+	"github.com/pauloacruz/cybereyes/agent/internal/remote"
 	"github.com/pauloacruz/cybereyes/agent/internal/remote/audio"
 	"github.com/pauloacruz/cybereyes/agent/internal/service"
 	"github.com/pauloacruz/cybereyes/agent/internal/version"
