@@ -73,6 +73,8 @@ public sealed class TrayHub : Hub
         if (Tray.Session(Context.User!) is { } session)
         {
             await Groups.AddToGroupAsync(Context.ConnectionId, TicketService.TrayGroup(session.AgentId, session.Username));
+            // Pedidos para a maquina, qualquer que seja o usuario logado (teste de perifericos aberto pelo tecnico).
+            await Groups.AddToGroupAsync(Context.ConnectionId, Rmm.Peripherals.PeripheralTestEndpoints.TrayAgentGroup(session.AgentId));
         }
         await base.OnConnectedAsync();
     }

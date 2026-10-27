@@ -2,6 +2,7 @@ package realtime
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -26,7 +27,20 @@ type recorder struct {
 	changed     []string
 	conn        []bool
 	selfService []api.SelfServiceChange
+	peripheral  []string
 	done        chan struct{}
+}
+
+func (r *recorder) PeripheralTestStart(t api.PeripheralTest) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.peripheral = append(r.peripheral, fmt.Sprintf("start %d %s %s", t.TestID, t.Section, t.Technician))
+}
+
+func (r *recorder) PeripheralTestStop(id int64) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.peripheral = append(r.peripheral, fmt.Sprintf("stop %d", id))
 }
 
 func (r *recorder) TicketMessage(id int, m api.Message) {

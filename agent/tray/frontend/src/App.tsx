@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { errorMessage, useBackend } from './lib/backend';
 import { hasUnread } from './lib/seen';
 import { suggestedTicket, type TicketDraft } from './lib/selfService';
-import type { SelfServiceOptions, SelfServiceTask, SessionInfo, Ticket } from './lib/types';
+import type { PeripheralTestInfo, SelfServiceOptions, SelfServiceTask, SessionInfo, Ticket } from './lib/types';
 import { useSelfServiceRun } from './lib/useSelfServiceRun';
 import { AssistantStart } from './components/AssistantStart';
 import { Header } from './components/Header';
@@ -13,6 +13,7 @@ import { TicketDetailView } from './components/TicketDetailView';
 import { TicketList } from './components/TicketList';
 import { Unavailable } from './components/Unavailable';
 import { SelfServicePanel } from './components/SelfServicePanel';
+import { DiagnosticsPanel } from './components/DiagnosticsPanel';
 import { ViewTabs } from './components/ViewTabs';
 
 type View =
@@ -45,6 +46,8 @@ export function App() {
   const [listError, setListError] = useState('');
   const [selfService, setSelfService] = useState<SelfServiceOptions | null>(null);
   const selfRun = useSelfServiceRun(backend);
+  // Teste de periféricos aberto pelo técnico: enquanto existe, a tela de teste toma o lugar das outras.
+  const [peripheral, setPeripheral] = useState<PeripheralTestInfo | null>(null);
 
   const connected = session?.connected === true;
 
@@ -110,6 +113,24 @@ export function App() {
   }, [backend, connected, ticketsKey]);
 
   useEffect(() => {
+    let alive = true;
+    backend.peripheralTest().then(
+      (t) => {
+        if (alive && t) setPeripheral(t);
+      },
+      () => undefined,
+    );
+    const off = backend.onPeripheralTest((e) => {
+      if (e.active && e.section) setPeripheral({ testId: e.testId, section: e.section, technician: e.technician ?? '' });
+      else setPeripheral((p) => (p?.testId === e.testId ? null : p));
+    });
+    return () => {
+      alive = false;
+      off();
+    };
+  }, [backend]);
+
+  useEffect(() => {
     const offs = [
       backend.onTicketChanged((t) => { setTickets((list) => upsert(list, t)); }),
       backend.onTicketMessage((e) => {
@@ -153,13 +174,23 @@ export function App() {
 
   const selfServiceVisible = selfService?.enabled === true || selfRun.run !== null;
   const helpVisible = session?.faqEnabled === true;
-  const showTabs = connected && (selfServiceVisible || helpVisible) && (view.kind === 'list' || view.kind === 'selfService' || view.kind === 'help');
+  const showTabs = connected && !peripheral && (selfServiceVisible || helpVisible) && (view.kind === 'list' || view.kind === 'selfService' || view.kind === 'help');
 
   let body;
   if (!session) {
     body = <p className="muted center">Conectando ao EYES...</p>;
   } else if (!connected) {
     body = <Unavailable message={session.error ?? ''} onRetry={retry} retrying={checking} />;
+  } else if (peripheral) {
+    body = (
+      <DiagnosticsPanel
+        key={peripheral.testId}
+        backend={backend}
+        hostname={session.hostname}
+        test={peripheral}
+        onEnd={() => { setPeripheral(null); }}
+      />
+    );
   } else if (view.kind === 'new' && session.assistantEnabled && !view.draft) {
     body = (
       <AssistantStart

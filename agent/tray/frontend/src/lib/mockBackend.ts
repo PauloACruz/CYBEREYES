@@ -1,5 +1,6 @@
 import type {
   Backend,
+  DeviceInfo,
   FaqEntry,
   Message,
   RemoteEvent,
@@ -46,6 +47,18 @@ function simulateRun(run: SelfServiceRun, final: RunStatus) {
     }
   }, 900);
 }
+
+// Dispositivos de demonstracao: um pendrive entra e sai a cada 8 s para exercitar o teste de USB.
+const mockDevices: DeviceInfo[] = [
+  { id: 'kb1', kind: 'keyboard', name: 'Dispositivo de teclado HID', model: 'USB Receiver', manufacturer: 'Logitech', bus: 'USB', ok: true },
+  { id: 'kb2', kind: 'keyboard', name: 'Teclado PS/2 padrão', bus: 'Interno', ok: true },
+  { id: 'ms1', kind: 'pointer', name: 'Mouse compatível com HID', model: 'USB Receiver', bus: 'USB', ok: true },
+  { id: 'tp1', kind: 'touchpad', name: 'Touchpad HID compatível', bus: 'Interno', ok: true },
+  { id: 'cam1', kind: 'camera', name: 'HP 5MP Camera', bus: 'USB', ok: true },
+  { id: 'usb1', kind: 'usb', name: 'USB Receiver', model: 'Dispositivo Composto USB', manufacturer: 'Logitech', bus: 'USB', ok: true },
+  { id: 'usb2', kind: 'usb', name: 'Leitor de impressão digital', bus: 'USB', ok: false, problem: 'Driver não instalado (código 28)' },
+];
+const mockPendrive: DeviceInfo = { id: 'usb3', kind: 'usb', name: 'SanDisk 3.2Gen1', model: 'Dispositivo de Armazenamento em Massa USB', bus: 'USB', ok: true };
 
 let nextMessageId = 100;
 const tickets: TicketDetail[] = [
@@ -317,5 +330,30 @@ export const mockBackend: Backend = {
   async suggestFaq(question) {
     await delay(300);
     if (question.trim().length < 3) throw new Error('Escreva a sua pergunta.');
+  },
+  async devices() {
+    await delay(80);
+    const plugged = Math.floor(Date.now() / 8000) % 2 === 1;
+    return { supported: true, devices: plugged ? [...mockDevices, mockPendrive] : [...mockDevices] };
+  },
+  async keyboardLayout() {
+    await delay(80);
+    return { id: '00010416', name: 'Português (Brasil ABNT2)', installed: ['Inglês (Estados Unidos)'] };
+  },
+  // No modo de demonstracao, o tecnico abre o teste de teclado logo depois de o app carregar.
+  async peripheralTest() {
+    await delay(50);
+    return null;
+  },
+  onPeripheralTest(cb) {
+    const timer = setTimeout(() => { cb({ active: true, testId: 1, section: 'keyboard', technician: 'Carlos (Suporte)' }); }, 1000);
+    return () => { clearTimeout(timer); };
+  },
+  async reportPeripheralTest(testId, state) {
+    await delay(30);
+    (window as unknown as { __peripheralState?: unknown }).__peripheralState = { testId, state };
+  },
+  async endPeripheralTest() {
+    await delay(100);
   },
 };

@@ -3371,3 +3371,64 @@ export interface SpeedTestDetail {
   report: SpeedTestReport | null;
   analysis: SpeedTestAnalysis | null;
 }
+
+/** Seções do teste de periféricos feito no app de bandeja do EYES. */
+export type PeripheralSection = 'keyboard' | 'pointer' | 'usb' | 'camera';
+
+export type PeripheralTestStatus = 'pending' | 'active' | 'ended';
+
+/** Periférico lido pelo app na sessão do usuário (SetupAPI no Windows, /sys no Linux). */
+export interface PeripheralDevice {
+  id: string;
+  kind: 'keyboard' | 'pointer' | 'touchpad' | 'camera' | 'usb';
+  name: string;
+  model?: string;
+  manufacturer?: string;
+  bus?: string;
+  ok: boolean;
+  problem?: string;
+}
+
+/** Teclado ao vivo, como o app de bandeja manda (agent/tray/frontend/src/lib/diagnostics.ts). */
+export interface PeripheralKeyboardState {
+  layout: { id: string; name: string; installed?: string[]; error?: string } | null;
+  reference: string;
+  typed: string;
+  /** Alinhamento: m igual, s trocado, i a mais, d faltou; e esperado, g escrito. */
+  ops: { t: 'm' | 's' | 'i' | 'd'; e?: string; g?: string }[];
+  verdict: 'pending' | 'ok' | 'mismatch' | 'unknown';
+  message: string;
+  model: string | null;
+  differences: string[];
+  pressed: string[];
+  down: string[];
+  layoutKeys: Record<string, string>;
+  others: string[];
+  tested: number;
+  total: number;
+}
+
+export interface PeripheralState {
+  section: PeripheralSection;
+  hostname: string;
+  devices: PeripheralDevice[];
+  supported: boolean;
+  keyboard: PeripheralKeyboardState | null;
+  results: Record<PeripheralSection, string[] | null>;
+}
+
+export interface PeripheralTest {
+  id: number;
+  agentId: number;
+  section: PeripheralSection;
+  status: PeripheralTestStatus;
+  requestedBy: string;
+  /** Usuário da sessão em que o app respondeu. */
+  username: string | null;
+  createdAt: string;
+  updatedAt: string;
+  connectedAt: string | null;
+  endedAt: string | null;
+  endedBy: string | null;
+  state: PeripheralState | null;
+}

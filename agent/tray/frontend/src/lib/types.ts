@@ -132,6 +132,51 @@ export interface RemoteEvent {
   timeout?: number;
 }
 
+export type DeviceKind = 'keyboard' | 'pointer' | 'touchpad' | 'camera' | 'usb';
+
+/** Periférico presente, lido pelo app na sessão do usuário (SetupAPI no Windows, /sys no Linux). */
+export interface DeviceInfo {
+  id: string;
+  kind: DeviceKind;
+  name: string;
+  model?: string;
+  manufacturer?: string;
+  /** "USB", "Bluetooth" ou "Interno". */
+  bus?: string;
+  ok: boolean;
+  problem?: string;
+}
+
+export interface DeviceSnapshot {
+  /** Falso no sistema em que o app não lê os dispositivos (macOS). */
+  supported: boolean;
+  devices: DeviceInfo[];
+  error?: string;
+}
+
+/** Layout de teclado ativo: KLID no Windows ("00010416"), layout do XKB no Linux ("br"). */
+export interface KeyboardLayoutInfo {
+  id: string;
+  name: string;
+  installed?: string[];
+  error?: string;
+}
+
+/** Teste de periféricos aberto pelo técnico no console (o app abre a tela sozinho). */
+export interface PeripheralTestInfo {
+  testId: number;
+  section: 'keyboard' | 'pointer' | 'usb' | 'camera';
+  technician: string;
+}
+
+/** Payload de tray:peripheralTest: o teste aberto (active) ou o fim dele. */
+export interface PeripheralTestEvent {
+  active: boolean;
+  testId: number;
+  section?: PeripheralTestInfo['section'];
+  technician?: string;
+}
+
 export interface Backend {
   session(): Promise<SessionInfo>;
   listTickets(): Promise<Ticket[]>;
@@ -155,4 +200,12 @@ export interface Backend {
   getFaq(id: number): Promise<FaqEntry>;
   faqFeedback(id: number, helpful: boolean): Promise<void>;
   suggestFaq(question: string): Promise<void>;
+  devices(): Promise<DeviceSnapshot>;
+  keyboardLayout(): Promise<KeyboardLayoutInfo>;
+  /** Teste aberto pelo técnico, para a interface que carrega depois do pedido. */
+  peripheralTest(): Promise<PeripheralTestInfo | null>;
+  onPeripheralTest(cb: (e: PeripheralTestEvent) => void): Unsubscribe;
+  /** Estado da tela de teste, que o técnico vê ao vivo no console. */
+  reportPeripheralTest(testId: number, state: unknown): Promise<void>;
+  endPeripheralTest(testId: number): Promise<void>;
 }

@@ -25,6 +25,8 @@ type Handler interface {
 	TicketMessage(ticketID int, msg api.Message)
 	TicketChanged(ticket api.Ticket)
 	SelfServiceChanged(change api.SelfServiceChange)
+	PeripheralTestStart(test api.PeripheralTest)
+	PeripheralTestStop(testID int64)
 	ConnectionChanged(connected bool)
 }
 
@@ -237,6 +239,22 @@ func (c *Client) dispatch(msg Message) {
 			return
 		}
 		c.Handler.SelfServiceChanged(change)
+	case "peripheralTestStart":
+		var t api.PeripheralTest
+		if len(msg.Arguments) < 1 || json.Unmarshal(msg.Arguments[0], &t) != nil || t.TestID == 0 || t.Section == "" {
+			c.logf("realtime: peripheralTestStart invalido")
+			return
+		}
+		c.Handler.PeripheralTestStart(t)
+	case "peripheralTestStop":
+		var stop struct {
+			TestID int64 `json:"testId"`
+		}
+		if len(msg.Arguments) < 1 || json.Unmarshal(msg.Arguments[0], &stop) != nil || stop.TestID == 0 {
+			c.logf("realtime: peripheralTestStop invalido")
+			return
+		}
+		c.Handler.PeripheralTestStop(stop.TestID)
 	}
 }
 
