@@ -29,6 +29,7 @@ public static class Permissions
     public const string SoftwareManage = "software.manage";
     public const string AgentsRemote = "agents.remote";
     public const string AgentsFiles = "agents.files";
+    public const string AgentsWebcam = "agents.webcam";
     public const string TicketsView = "tickets.view";
     public const string TicketsManage = "tickets.manage";
     public const string InventoryView = "inventory.view";
@@ -73,6 +74,7 @@ public static class Permissions
         new(SoftwareManage, "Software", "Instalar e desinstalar software nos agentes"),
         new(AgentsRemote, "Agentes", "Acesso remoto a tela e area de transferencia"),
         new(AgentsFiles, "Agentes", "Navegar e transferir arquivos das maquinas"),
+        new(AgentsWebcam, "Agentes", "Ver a webcam da maquina ao vivo e capturar imagem"),
         new(TicketsView, "Chamados", "Ver chamados, conversas, anexos e apontamentos"),
         new(TicketsManage, "Chamados", "Criar, atribuir, responder e apontar horas em chamados"),
         new(InventoryView, "Inventario", "Ver ativos, pessoas e fichas das maquinas"),

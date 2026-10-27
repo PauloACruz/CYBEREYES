@@ -226,3 +226,28 @@ public sealed class TerminalFrameTests
         Assert.Equal(3, done.ExitCode);
     }
 }
+
+public sealed class WebcamFrameTests
+{
+    [Fact]
+    public void Decode_KeepsJpegBytes_AndReadsEndMap()
+    {
+        // JPEG falso: SOI + alguns bytes + EOI. O decode nao olha o conteudo, so repassa.
+        var jpeg = new byte[] { 0xFF, 0xD8, 0xFF, 0x00, 0xFF, 0xD9 };
+        var frame = Cybereyes.Api.Rmm.Webcam.WebcamSessions.Decode(MsgPack.Serialize(jpeg));
+        Assert.Equal(jpeg, frame!.Image);
+        Assert.False(frame.Done);
+        Assert.Null(frame.Error);
+
+        var ended = Cybereyes.Api.Rmm.Webcam.WebcamSessions.Decode(
+            MsgPack.Serialize(new Dictionary<string, object?> { ["done"] = true, ["error"] = "USB desconectado" }));
+        Assert.True(ended!.Done);
+        Assert.Equal("USB desconectado", ended.Error);
+        Assert.Null(ended.Image);
+
+        var normal = Cybereyes.Api.Rmm.Webcam.WebcamSessions.Decode(
+            MsgPack.Serialize(new Dictionary<string, object?> { ["done"] = true }));
+        Assert.True(normal!.Done);
+        Assert.Null(normal.Error);
+    }
+}

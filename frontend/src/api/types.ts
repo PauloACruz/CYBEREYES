@@ -699,6 +699,7 @@ export const PERMISSIONS = {
   agentsControl: 'agents.control',
   agentsRemote: 'agents.remote',
   agentsFiles: 'agents.files',
+  agentsWebcam: 'agents.webcam',
   scriptsView: 'scripts.view',
   scriptsManage: 'scripts.manage',
   checksManage: 'checks.manage',

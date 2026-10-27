@@ -142,6 +142,7 @@ function AgentDetailView({ agent }: { agent: AgentDetail }) {
   const canControl = hasPermission(me, PERMISSIONS.agentsControl);
   const canRename = canControl && isWindows(agent.plat);
   const canRemote = hasPermission(me, PERMISSIONS.agentsRemote);
+  const canWebcam = hasPermission(me, PERMISSIONS.agentsWebcam);
   const canViewScripts = hasPermission(me, PERMISSIONS.scriptsView);
   const canViewAlerts = hasPermission(me, PERMISSIONS.alertsView);
   const canViewTickets = hasPermission(me, PERMISSIONS.ticketsView);
@@ -288,7 +289,7 @@ function AgentDetailView({ agent }: { agent: AgentDetail }) {
           </Button>
           {canRemote && <RemoteAccessMenu agent={agent} />}
           {canViewInventory && <AgentAssetButton agentId={agent.id} />}
-          <AgentActionsMenu agent={agent} canControl={canControl} onMove={canManage ? moveModal.open : undefined} />
+          <AgentActionsMenu agent={agent} canControl={canControl} canWebcam={canWebcam} onMove={canManage ? moveModal.open : undefined} />
           {canManage && (
             <Button color="red" variant="light" leftSection={<IconTrash size={16} />} onClick={deleteModal.open}>
               Excluir
