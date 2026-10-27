@@ -94,6 +94,7 @@ public sealed partial class KeyCaptureSessions(
         _ = Task.Run(() => PumpAsync(sessionId, entry, ready));
         await ready.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
+        LogStartSending(logger, sessionId, agentId);
         await rpc.PublishAsync(agentId, new Dictionary<string, object?>
         {
             ["func"] = "keylog_start",
@@ -162,14 +163,21 @@ public sealed partial class KeyCaptureSessions(
     {
         try
         {
-            await using var sub = await nats!.SubscribeCoreAsync($"{session.AgentId}.keylog.{sessionId}",
+            var subject = $"{session.AgentId}.keylog.{sessionId}";
+            LogPumpSubscribing(logger, sessionId, subject);
+            await using var sub = await nats!.SubscribeCoreAsync(subject,
                 serializer: NatsRawSerializer<byte[]>.Default, cancellationToken: session.Cancel.Token);
             ready.TrySetResult();
             await foreach (var msg in sub.Msgs.ReadAllAsync(session.Cancel.Token))
             {
                 if (msg.Data is null) continue;
                 var frame = Decode(msg.Data);
-                if (frame is null) continue;
+                if (frame is null)
+                {
+                    LogPumpBadFrame(logger, sessionId, msg.Data.Length);
+                    continue;
+                }
+                LogPumpFrame(logger, sessionId, frame.Keys?.Length ?? 0, frame.Done);
 
                 if (frame.Done)
                 {
@@ -264,4 +272,16 @@ public sealed partial class KeyCaptureSessions(
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Falha ao limpar sessoes orfas de captura de teclado")]
     private static partial void LogOrphansCleanFailed(ILogger logger, Exception ex);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Captura de teclado: enviando keylog_start sessao={SessionId} agente={AgentId}")]
+    private static partial void LogStartSending(ILogger logger, string sessionId, string agentId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Captura de teclado: pump inscrito em {Subject} sessao={SessionId}")]
+    private static partial void LogPumpSubscribing(ILogger logger, string sessionId, string subject);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Captura de teclado: frame recebido sessao={SessionId} keysLen={KeysLen} done={Done}")]
+    private static partial void LogPumpFrame(ILogger logger, string sessionId, int keysLen, bool done);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Captura de teclado: frame invalido sessao={SessionId} dataLen={DataLen}")]
+    private static partial void LogPumpBadFrame(ILogger logger, string sessionId, int dataLen);
 }
