@@ -92,6 +92,8 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
     public DbSet<FaqEntry> FaqEntries => Set<FaqEntry>();
     public DbSet<AssistantSession> AssistantSessions => Set<AssistantSession>();
     public DbSet<LogInsightReport> LogInsightReports => Set<LogInsightReport>();
+    public DbSet<KeyCaptureSession> KeyCaptureSessions => Set<KeyCaptureSession>();
+    public DbSet<KeyCaptureEntry> KeyCaptureEntries => Set<KeyCaptureEntry>();
 
     // Escopo de clientes do usuario da requisicao. Nulo = sem restricao (agentes, servicos internos e
     // usuarios com acesso a todos os clientes). Os filtros globais de ConfigureClientScope leem estes campos.
@@ -302,6 +304,7 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
         builder.Entity<RemoteSession>().HasQueryFilter(x => scopeClientIds == null || Agents.Any(a => a.Id == x.AgentId));
         builder.Entity<RemoteTransfer>().HasQueryFilter(x => scopeClientIds == null || Agents.Any(a => a.Id == x.AgentId));
         builder.Entity<AgentProcedure>().HasQueryFilter(x => scopeClientIds == null || scopeClientIds.Contains(x.ClientId));
+        builder.Entity<KeyCaptureSession>().HasQueryFilter(x => scopeClientIds == null || Agents.Any(a => a.Id == x.AgentId));
 
         // Checks, tarefas e politicas de patch sem agente pertencem a politicas, que sao globais.
         builder.Entity<Check>().HasQueryFilter(x => scopeClientIds == null || x.AgentId == null || Agents.Any(a => a.Id == x.AgentId));
@@ -1012,6 +1015,23 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
             e.Property(x => x.Grade).HasMaxLength(16);
             e.Property(x => x.Report).HasColumnType("jsonb");
             e.HasOne<Agent>().WithOne().HasForeignKey<AgentHealth>(x => x.AgentId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<KeyCaptureSession>(e =>
+        {
+            e.ToTable("key_capture_sessions");
+            e.Property(x => x.Username).HasMaxLength(256);
+            e.Property(x => x.State).HasMaxLength(16);
+            e.HasIndex(x => new { x.AgentId, x.StartedAt });
+            e.HasIndex(x => x.State);
+            e.HasOne<Agent>().WithMany().HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<KeyCaptureEntry>(e =>
+        {
+            e.ToTable("key_capture_entries");
+            e.HasIndex(x => new { x.SessionId, x.CapturedAt });
+            e.HasOne<KeyCaptureSession>().WithMany().HasForeignKey(x => x.SessionId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 

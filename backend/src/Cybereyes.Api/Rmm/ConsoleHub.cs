@@ -14,8 +14,8 @@ using Cybereyes.Core.Security;
 namespace Cybereyes.Api.Rmm;
 
 [Authorize]
-public sealed class ConsoleHub(TerminalSessions terminals, SshTerminalSessions sshTerminals, CybereyesDbContext db, IAuditService audit, Vault vault,
-    ProcedureLog procedures, TimeProvider time) : Hub
+public sealed class ConsoleHub(TerminalSessions terminals, SshTerminalSessions sshTerminals, KeyCaptureSessions keyCapture,
+    CybereyesDbContext db, IAuditService audit, Vault vault, ProcedureLog procedures, TimeProvider time) : Hub
 {
     private const int MaxSshTerminalsPerConnection = 8;
 
@@ -117,6 +117,33 @@ public sealed class ConsoleHub(TerminalSessions terminals, SshTerminalSessions s
         return terminals.StopAsync(Context.ConnectionId, sessionId);
     }
 
+    public async Task<string> StartKeyCapture(int agentPk)
+    {
+        if (Context.User?.HasPermission(Permissions.AgentsRun) != true)
+            throw new HubException("Sem permissao para capturar teclado");
+
+        db.ApplyClientScope(Context.User);
+        var agent = await AgentRef.FindAsync(db, agentPk, Context.ConnectionAborted) ?? throw new HubException("Agente nao encontrado");
+        var userId = Context.User.UserId() ?? Guid.Empty;
+        var username = Context.User.Identity?.Name ?? "?";
+        var sessionId = await keyCapture.StartAsync(agent.AgentId, userId, username, agent.Id);
+        keyCapture.Subscribe(Context.ConnectionId, sessionId);
+        await audit.LogAsync("agent.keycapture-started", "agent", agent.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            $"Captura de teclado iniciada em {agent.Hostname}", username, Context.ConnectionAborted);
+        return sessionId;
+    }
+
+    public Task StopKeyCapture(string sessionId)
+    {
+        if (Context.User?.HasPermission(Permissions.AgentsRun) != true)
+            throw new HubException("Sem permissao");
+        return keyCapture.StopAsync(sessionId);
+    }
+
+    public void WatchKeyCapture(string sessionId) => keyCapture.Subscribe(Context.ConnectionId, sessionId);
+
+    public void UnwatchKeyCapture(string sessionId) => keyCapture.Unsubscribe(Context.ConnectionId, sessionId);
+
     public async Task JoinAppRun(long runId)
     {
         if (Context.User?.HasPermission(Permissions.AppsView) != true)
@@ -205,6 +232,7 @@ public sealed class ConsoleHub(TerminalSessions terminals, SshTerminalSessions s
     {
         await terminals.StopAllAsync(Context.ConnectionId);
         sshTerminals.StopAll(Context.ConnectionId);
+        keyCapture.RemoveViewer(Context.ConnectionId);
         await base.OnDisconnectedAsync(exception);
     }
 }
