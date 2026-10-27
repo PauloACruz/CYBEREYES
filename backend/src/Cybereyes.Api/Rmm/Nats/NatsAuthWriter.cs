@@ -64,7 +64,7 @@ public sealed partial class NatsAuthWriter(IServiceScopeFactory scopes, IOptions
             var id = Quote(agentId);
             sb.AppendLine(",");
             sb.Append(CultureInfo.InvariantCulture,
-                $"    {{user: {id}, password: {Quote(hash)}, permissions: {{publish: {{allow: [{id}, {Quote(agentId + ".cmdoutput.>")}, {Quote(agentId + ".terminal.>")}, {Quote(agentId + ".keylog.>")}]}}, subscribe: {{allow: [{id}]}}, allow_responses: {{expires: {Quote(settings.ResponseExpiration)}}}}}}}");
+                $"    {{user: {id}, password: {Quote(hash)}, permissions: {{publish: {{allow: [{id}, {Quote(agentId + ".cmdoutput.>")}, {Quote(agentId + ".terminal.>")}, {Quote(agentId + ".keylog.>")}, {Quote(agentId + ".webcam.>")}]}}, subscribe: {{allow: [{id}]}}, allow_responses: {{expires: {Quote(settings.ResponseExpiration)}}}}}}}");
         }
         sb.AppendLine();
         sb.AppendLine("  ]");
