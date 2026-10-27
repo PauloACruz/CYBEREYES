@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -7,7 +7,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Cybereyes.Core.Persistence.Migrations
 {
     /// <inheritdoc />
-    public partial class Fase14CapturaTeclado : Migration
+    public partial class Fase28CapturaTeclado : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -58,6 +58,11 @@ namespace Cybereyes.Core.Persistence.Migrations
                 });
 
             migrationBuilder.CreateIndex(
+                name: "IX_key_capture_entries_SessionId_CapturedAt",
+                table: "key_capture_entries",
+                columns: new[] { "SessionId", "CapturedAt" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_key_capture_sessions_AgentId_StartedAt",
                 table: "key_capture_sessions",
                 columns: new[] { "AgentId", "StartedAt" });
@@ -66,18 +71,16 @@ namespace Cybereyes.Core.Persistence.Migrations
                 name: "IX_key_capture_sessions_State",
                 table: "key_capture_sessions",
                 column: "State");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_key_capture_entries_SessionId_CapturedAt",
-                table: "key_capture_entries",
-                columns: new[] { "SessionId", "CapturedAt" });
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropTable(name: "key_capture_entries");
-            migrationBuilder.DropTable(name: "key_capture_sessions");
+            migrationBuilder.DropTable(
+                name: "key_capture_entries");
+
+            migrationBuilder.DropTable(
+                name: "key_capture_sessions");
         }
     }
 }

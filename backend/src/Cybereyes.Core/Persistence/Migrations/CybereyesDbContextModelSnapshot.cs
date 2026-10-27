@@ -3006,6 +3006,70 @@ namespace Cybereyes.Core.Persistence.Migrations
                     b.ToTable("installer_tokens", (string)null);
                 });
 
+            modelBuilder.Entity("Cybereyes.Core.Rmm.KeyCaptureEntry", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTimeOffset>("CapturedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Keys")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<long>("SessionId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SessionId", "CapturedAt");
+
+                    b.ToTable("key_capture_entries", (string)null);
+                });
+
+            modelBuilder.Entity("Cybereyes.Core.Rmm.KeyCaptureSession", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("AgentId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<DateTimeOffset?>("StoppedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("State");
+
+                    b.HasIndex("AgentId", "StartedAt");
+
+                    b.ToTable("key_capture_sessions", (string)null);
+                });
+
             modelBuilder.Entity("Cybereyes.Core.Rmm.LogAlertRule", b =>
                 {
                     b.Property<int>("Id")
@@ -5166,6 +5230,24 @@ namespace Cybereyes.Core.Persistence.Migrations
                     b.Navigation("InstallerToken");
 
                     b.Navigation("Site");
+                });
+
+            modelBuilder.Entity("Cybereyes.Core.Rmm.KeyCaptureEntry", b =>
+                {
+                    b.HasOne("Cybereyes.Core.Rmm.KeyCaptureSession", null)
+                        .WithMany()
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Cybereyes.Core.Rmm.KeyCaptureSession", b =>
+                {
+                    b.HasOne("Cybereyes.Core.Rmm.Agent", null)
+                        .WithMany()
+                        .HasForeignKey("AgentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Cybereyes.Core.Rmm.LogAlertRule", b =>
