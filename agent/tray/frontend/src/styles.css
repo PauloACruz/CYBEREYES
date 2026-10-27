@@ -218,10 +218,11 @@ button { font: inherit; }
 .composer textarea { flex: 1; resize: none; }
 .chat-locked { margin: 0; padding: 10px; text-align: center; color: var(--muted); background: var(--surface); border: 1px dashed var(--border-strong); border-radius: 4px; font-size: 13px; }
 
-.tabs { display: flex; gap: 4px; padding: 0 12px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.tabs { display: flex; gap: 4px; padding: 0 12px; background: var(--surface); border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
 .tab {
   position: relative; display: inline-flex; align-items: center; gap: 6px; background: none; border: none;
   border-bottom: 2px solid transparent; padding: 10px 8px 8px; color: var(--muted); font-weight: 600; cursor: pointer;
+  white-space: nowrap; flex: none;
 }
 .tab:hover { color: var(--text); }
 .tab-active { color: var(--text); border-bottom-color: var(--accent); }
@@ -326,3 +327,84 @@ button { font: inherit; }
 .help-suggest-title { font-size: 14px; font-weight: 600; }
 .help-ask { margin: 0; font-weight: 600; }
 .help-thanks { margin: 0; color: var(--ok); font-weight: 600; }
+
+/* Testes de periféricos: teclado, mouse e touchpad, USB e câmera. */
+.diag-banner {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 12px;
+  background: var(--attention-soft); border: 1px solid var(--attention); border-radius: var(--radius);
+}
+.diag-banner p { margin: 0; flex: 1; min-width: 200px; font-size: 13px; }
+.diag-banner strong { color: var(--attention-text); }
+.diag-section { display: flex; flex-direction: column; gap: 10px; }
+.diag-section[hidden] { display: none; }
+.diag-section p, .diag-section h4 { margin: 0; }
+.diag-facts { display: flex; flex-direction: column; gap: 2px; }
+.diag-label { font-weight: 600; }
+.diag-devices { display: flex; flex-direction: column; gap: 6px; }
+.diag-device-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.diag-device { display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.diag-device .dot { margin-top: 6px; }
+.diag-device-text { display: flex; flex-direction: column; min-width: 0; }
+.diag-device-name { font-weight: 600; overflow-wrap: anywhere; }
+.diag-device-problem { color: var(--danger); font-size: 12px; font-weight: 600; }
+.diag-select { display: flex; flex-direction: column; gap: 4px; }
+.diag-select select {
+  font: inherit; color: inherit; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 4px; padding: 7px 10px; min-width: 0;
+}
+
+.kb-reference, .kb-typed, .kb-field {
+  font-family: 'JetBrains Mono', ui-monospace, Consolas, monospace; font-size: 14px; letter-spacing: .02em;
+}
+.kb-reference { padding: 8px 10px; background: var(--raised); border: 1px dashed var(--border-strong); border-radius: 4px; white-space: pre-wrap; }
+.kb-field {
+  color: inherit; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 4px; padding: 8px 10px; resize: none; width: 100%;
+}
+.kb-typed-box { display: flex; flex-direction: column; gap: 4px; }
+.kb-typed { white-space: pre-wrap; word-break: break-all; }
+.kb-typed mark { color: inherit; border-radius: 2px; padding: 0 1px; }
+.kb-sub, .kb-ins { background: var(--danger-soft); outline: 1px solid var(--danger); }
+.kb-del { background: var(--attention-soft); color: var(--muted) !important; text-decoration: line-through; }
+.kb-verdict { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: var(--radius); border: 1px solid var(--border); border-left-width: 3px; background: var(--surface); }
+.kb-verdict-ok { border-left-color: var(--ok); }
+.kb-verdict-mismatch { border-left-color: var(--danger); background: var(--danger-soft); }
+.kb-verdict-unknown { border-left-color: var(--attention); }
+.kb-verdict-pending { border-left-color: var(--border-strong); color: var(--muted); }
+.kb-model { font-weight: 600; }
+.kb-diffs { margin: 0; padding-left: 18px; font-size: 13px; }
+
+.kb-map { display: flex; flex-direction: column; gap: 3px; padding: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); user-select: none; }
+.kb-row { display: flex; gap: 3px; }
+.kb-key, .kb-gap { flex-basis: 0; min-width: 0; }
+.kb-key {
+  height: 26px; display: grid; place-items: center; overflow: hidden; white-space: nowrap;
+  font: 600 10px/1 'JetBrains Mono', ui-monospace, Consolas, monospace; color: var(--text);
+  background: var(--raised); border: 1px solid var(--border-strong); border-radius: 3px;
+}
+.kb-key-guess { color: var(--tertiary); }
+.kb-key-tested { background: var(--ok-soft); border-color: var(--ok); }
+.kb-key-down { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+
+.pt-area {
+  position: relative; height: 170px; display: grid; place-items: center; touch-action: none; user-select: none; cursor: crosshair;
+  background: var(--surface); border: 1px dashed var(--border-strong); border-radius: var(--radius);
+}
+.pt-last { color: var(--muted); font-weight: 600; text-align: center; padding: 0 12px; pointer-events: none; }
+.pt-checklist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.pt-mark { display: inline-block; width: 18px; color: var(--tertiary); font-weight: 700; }
+.pt-ok .pt-mark { color: var(--ok); }
+
+.usb-events { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.usb-event { display: flex; flex-wrap: wrap; gap: 4px 8px; padding: 6px 10px; border-radius: 4px; background: var(--surface); border-left: 3px solid var(--border-strong); }
+.usb-event-in { border-left-color: var(--ok); }
+.usb-event-out { border-left-color: var(--muted); color: var(--muted); }
+.usb-event-time { font-family: 'JetBrains Mono', ui-monospace, Consolas, monospace; font-size: 12px; color: var(--tertiary); }
+
+.cam-frame {
+  position: relative; aspect-ratio: 16 / 9; display: grid; place-items: center; overflow: hidden;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+}
+.cam-frame video { width: 100%; height: 100%; object-fit: contain; display: none; }
+.cam-live video { display: block; }
+.cam-placeholder { position: absolute; }
+.cam-result-ok { color: var(--ok); font-weight: 600; }
+.cam-result-dark, .cam-result-flat { color: var(--attention-text); font-weight: 600; }

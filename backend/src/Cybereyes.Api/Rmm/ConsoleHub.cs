@@ -165,6 +165,24 @@ public sealed class ConsoleHub(TerminalSessions terminals, SshTerminalSessions s
 
     public Task LeaveTicket(int ticketId) => Groups.RemoveFromGroupAsync(Context.ConnectionId, Tickets.TicketService.ConsoleGroup(ticketId));
 
+    /// <summary>Recebe ao vivo o teste de perifericos da maquina (o que o usuario digita e clica na tela de teste do app).</summary>
+    public async Task JoinPeripheralTests(int agentPk)
+    {
+        if (Context.User?.HasPermission(Permissions.AgentsView) != true)
+        {
+            throw new HubException("Sem permissao para ver agentes");
+        }
+        db.ApplyClientScope(Context.User);
+        if (!await db.Agents.AnyAsync(a => a.Id == agentPk, Context.ConnectionAborted))
+        {
+            throw new HubException("Agente nao encontrado");
+        }
+        await Groups.AddToGroupAsync(Context.ConnectionId, Peripherals.PeripheralTestEndpoints.ConsoleGroup(agentPk));
+    }
+
+    public Task LeavePeripheralTests(int agentPk) =>
+        Groups.RemoveFromGroupAsync(Context.ConnectionId, Peripherals.PeripheralTestEndpoints.ConsoleGroup(agentPk));
+
     public override async Task OnConnectedAsync()
     {
         // Eventos com dados de um cliente vao so para quem ve todos ou para os grupos dos clientes liberados.

@@ -251,6 +251,7 @@ Cybereyes.Api.Rmm.Actions.SystemEndpoints.MapSystemEndpoints(app);
 Cybereyes.Api.Rmm.Actions.RenameComputerEndpoints.MapRenameComputerEndpoints(app);
 Cybereyes.Api.Rmm.Actions.StartupEndpoints.MapStartupEndpoints(app);
 Cybereyes.Api.Rmm.SpeedTest.SpeedTestEndpoints.MapSpeedTestEndpoints(app);
+Cybereyes.Api.Rmm.Peripherals.PeripheralTestEndpoints.MapPeripheralTestEndpoints(app);
 Cybereyes.Api.Rmm.Actions.LibraryEndpoints.MapLibraryEndpoints(app);
 Cybereyes.Api.Rmm.Monitoring.ChecksTasksEndpoints.MapChecksTasksEndpoints(app);
 Cybereyes.Api.Rmm.Monitoring.AlertsPatchesEndpoints.MapAlertsPatchesEndpoints(app);

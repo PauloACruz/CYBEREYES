@@ -102,6 +102,15 @@ func main() {
 		Hidden:           startHidden,
 		BackgroundColour: application.NewRGB(10, 12, 14),
 		URL:              "/",
+		// Sem politica, o Wails libera tudo no WebView2. So a camera e usada (teste de periferico,
+		// ligada pelo usuario); o resto fica negado.
+		Permissions: map[application.PermissionType]application.Permission{
+			application.PermissionCamera:        application.PermissionAllow,
+			application.PermissionMicrophone:    application.PermissionDeny,
+			application.PermissionGeolocation:   application.PermissionDeny,
+			application.PermissionNotifications: application.PermissionDeny,
+			application.PermissionClipboardRead: application.PermissionDeny,
+		},
 	})
 	svc.window = window
 

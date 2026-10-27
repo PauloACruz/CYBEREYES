@@ -2,10 +2,15 @@ import { Call, Events } from '@wailsio/runtime';
 import type {
   Backend,
   CreateResult,
+  DeviceInfo,
+  DeviceSnapshot,
   FaqEntry,
   FaqItem,
   FaqList,
+  KeyboardLayoutInfo,
   Message,
+  PeripheralTestEvent,
+  PeripheralTestInfo,
   NavigateEvent,
   RemoteEvent,
   SelfServiceEvent,
@@ -66,4 +71,13 @@ export const wailsBackend: Backend = {
   getFaq: (id) => call('GetFaq', id) as Promise<FaqEntry>,
   faqFeedback: async (id, helpful) => { await call('FaqFeedback', id, helpful); },
   suggestFaq: async (question) => { await call('SuggestFaq', question); },
+  devices: async () => {
+    const s = (await call('Devices')) as Omit<DeviceSnapshot, 'devices'> & { devices: DeviceInfo[] | null };
+    return { ...s, devices: s.devices ?? [] };
+  },
+  keyboardLayout: () => call('KeyboardLayout') as Promise<KeyboardLayoutInfo>,
+  peripheralTest: async () => ((await call('PeripheralTest')) as PeripheralTestInfo | null) ?? null,
+  onPeripheralTest: (cb) => on('tray:peripheralTest', (d) => { cb(d as PeripheralTestEvent); }),
+  reportPeripheralTest: async (testId, state) => { await call('PeripheralTestReport', testId, state); },
+  endPeripheralTest: async (testId) => { await call('PeripheralTestEnd', testId); },
 };

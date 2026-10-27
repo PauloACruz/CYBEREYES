@@ -1,6 +1,6 @@
 # eyes-tray
 
-App de bandeja do usuário final do EYES. Roda na sessão do usuário, abre chamados vinculados à máquina (com captura de tela), mostra o andamento e a conversa com o técnico em tempo real e avisa por notificação do sistema.
+App de bandeja do usuário final do EYES. Roda na sessão do usuário, abre chamados vinculados à máquina (com captura de tela), mostra o andamento e a conversa com o técnico em tempo real, avisa por notificação do sistema e abre os testes de teclado, mouse, touchpad, USB e câmera que o técnico pede pelo console.
 
 No Windows e no Linux o serviço do EYES baixa o app da API, mantém na versão do agente e o inicia em cada sessão gráfica (ADR-020 e ADR-022): instalar o agente basta. No macOS o app ainda não é distribuído pelo EYES.
 
@@ -52,6 +52,7 @@ No Linux o supervisor só age em máquinas com ambiente gráfico. A imagem da AP
 | `main.go` | Janela, bandeja, instância única, notificações, `--version` |
 | `service.go` | `TrayService`, o serviço chamado pela interface |
 | `selfservice.go` | Métodos do autoatendimento e notificação ao fim da execução |
+| `diagnostics.go`, `internal/devices` | Teste de periféricos aberto pelo técnico; dispositivos e layout de teclado (SetupAPI no Windows, `/proc` e `/sys` no Linux) |
 | `capture.go`, `notifier.go` | Captura de tela e notificações do sistema |
 | `internal/ipc` | Cliente do canal local (um arquivo por sistema) e renovação do token |
 | `internal/api` | Cliente HTTP das rotas `/api/tray/*` e tipos |
@@ -77,8 +78,26 @@ Chamados por `Call.ByName("main.TrayService.<Método>")` de `@wailsio/runtime` (
 | `SelfServiceOptions()` | `{ enabled, tasks: [{ module, key, label, description }] }` |
 | `RunSelfService(module, key)` | `{ runId }` (403 e 409 `AGENT_BUSY` viram mensagens amigáveis) |
 | `SelfServiceRun(runId)` | `{ runId, status, progress, label, messages }` |
+| `Devices()` | `{ supported, devices: [{ id, kind, name, model?, manufacturer?, bus?, ok, problem? }], error? }` (local, sem a API) |
+| `KeyboardLayout()` | `{ id, name, installed?, error? }`: KLID no Windows (`00010416`), layout do XKB no Linux (`br`) |
+| `PeripheralTest()` | Teste aberto pelo técnico `{ testId, section, technician }` ou `null` |
+| `PeripheralTestReport(testId, state)` | Envia o estado da tela de teste (teste encerrado no servidor fecha a tela) |
+| `PeripheralTestEnd(testId)` | Encerra pelo botão do usuário |
 
-Eventos emitidos: `tray:ticketMessage` `{ ticketId, message }`, `tray:ticketChanged` (TrayTicket), `tray:connection` `{ realtime }`, `tray:navigate` `{ view, id }`, `tray:refresh`, `tray:selfService` `{ runId, status, progress, message }` (evento `selfServiceChanged` do hub).
+Eventos emitidos: `tray:ticketMessage` `{ ticketId, message }`, `tray:ticketChanged` (TrayTicket), `tray:connection` `{ realtime }`, `tray:navigate` `{ view, id }`, `tray:refresh`, `tray:selfService` `{ runId, status, progress, message }` (evento `selfServiceChanged` do hub), `tray:peripheralTest` `{ active, testId, section?, technician? }` (eventos `peripheralTestStart` e `peripheralTestStop` do hub).
+
+### Testes de periféricos (abertos pelo técnico)
+
+O atendimento é por telefone: o técnico abre o teste no console (agente › Ações › "Teste de teclado, mouse, USB e câmera") e a tela de teste aparece sozinha no computador, sem o usuário procurar nada nem enviar o resultado. O app não tem aba de testes.
+
+* O pedido chega pelo hub (`peripheralTestStart` `{ testId, section, technician }`, grupo da máquina, qualquer usuário logado). A janela aparece, fica por cima das outras durante o teste e mostra a faixa "<técnico> está acompanhando este teste ao vivo" com o botão Encerrar teste. Com o teste aberto, um novo pedido só troca a seção. `peripheralTestStop` `{ testId }` fecha a tela. Ao reconectar, o app consulta `GET /api/tray/peripheral-test` para não perder um pedido feito enquanto estava fora.
+* A cada mudança na tela (no máximo a cada 200 ms) o app manda o estado em `PUT /api/tray/peripheral-test/{testId}`: o texto digitado alinhado com o de referência, as teclas pressionadas, o que o sistema escreve em cada tecla, o layout configurado, o veredito, os dispositivos e as linhas de resultado de cada seção. O console recebe ao vivo (`peripheralTestChanged`) e o último teste fica gravado na máquina.
+* **Teclado**: o usuário digita um texto de referência (`Maçã; pé: 1/2? [ok] {sim} \ | 'a' "b"`) olhando para as teclas. Cada caractere esperado diz qual tecla ele procurou e o `KeyboardEvent.code` diz onde ela está, então o modelo físico (ABNT2 ou americano) sai sem depender do layout: a tecla "/?" ao lado do Shift direito (`IntlRo`) só existe no ABNT2. O layout configurado vem do sistema (`KeyboardLayout`: layout ativo na janela em primeiro plano no Windows; GNOME, `setxkbmap` ou `localectl` no Linux). Com os dois, o resultado diz se as teclas batem ou qual layout configurar. O desenho do teclado acende as teclas pressionadas e mostra o que o sistema escreve em cada uma (Keyboard Map API no WebView2; no Linux, conforme as teclas são pressionadas). F1 a F12, Tab no campo e atalhos com Ctrl não fazem a ação padrão; colar é bloqueado.
+* **Mouse e touchpad**: área de teste com lista para cada aparelho (cliques, duplo clique, arrastar, quatro cantos, rolagem vertical e horizontal, pinça, botões laterais).
+* **USB**: a lista é lida a cada 2 s enquanto a seção está aberta; cada aparelho conectado ou desconectado aparece com o horário. Aparelhos com problema mostram o código do Gerenciador de Dispositivos.
+* **Câmera**: liga só quando o usuário clica e desliga ao sair da seção. A imagem fica na tela do usuário; o técnico recebe o nome, a resolução, os quadros por segundo e se a imagem está normal, escura ou uniforme, nunca a foto. A janela libera só a câmera no WebView2 (`Permissions` do Wails); microfone, localização, notificações web e leitura da área de transferência ficam negados.
+
+A lista de dispositivos (`Devices`) vem da SetupAPI no Windows (classes Keyboard, Mouse, Camera e Image, touchpads da HIDClass e os aparelhos ligados a portas USB, sem hubs e sem dispositivos virtuais da área de trabalho remota) e de `/proc/bus/input/devices`, `/sys/class/video4linux` e `/sys/bus/usb/devices` no Linux. No macOS a lista não é lida e os testes funcionam sem ela.
 
 ### Resolver sozinho (autoatendimento)
 

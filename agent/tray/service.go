@@ -92,6 +92,8 @@ type TrayService struct {
 	selfRuns  map[string]string // runId -> rotulo da acao, para a notificacao
 	notified  map[string]bool   // execucoes ja avisadas ao terminar
 	selfTasks []api.SelfServiceTask
+	// peripheral e o teste de perifericos aberto pelo tecnico (nil sem teste).
+	peripheral *api.PeripheralTest
 }
 
 func newTrayService(insecure bool) *TrayService {
@@ -358,6 +360,7 @@ func (s *TrayService) ConnectionChanged(connected bool) {
 			if list, err := s.client.ListTickets(ctx); err == nil {
 				s.remember(list...)
 			}
+			s.resumePeripheralTest(ctx)
 			s.emit(eventRefresh, nil)
 		}()
 	}
