@@ -22,6 +22,22 @@ function friendlyError(err: unknown): string {
 }
 
 export function WebcamModal({ agent, opened, onClose }: WebcamModalProps) {
+  return (
+    <Modal
+      opened={opened}
+      onClose={onClose}
+      title={`Webcam de ${agent.hostname}`}
+      size="lg"
+      centered
+      overlayProps={{ blur: 2 }}
+    >
+      {opened && <WebcamStream agent={agent} onClose={onClose} />}
+    </Modal>
+  );
+}
+
+/** O stream so monta quando o modal abre, entao o estado inicial do React ja e o certo (sem reset num useEffect). */
+function WebcamStream({ agent, onClose }: { agent: AgentDetail; onClose: () => void }) {
   const { connection, connected } = useConsoleHubConnection();
   const [status, setStatus] = useState<Status>('starting');
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -30,15 +46,10 @@ export function WebcamModal({ agent, opened, onClose }: WebcamModalProps) {
   const latestRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!opened || !connection) {
+    if (!connection) {
       return;
     }
     const conn = connection;
-    sessionRef.current = null;
-    latestRef.current = null;
-    setStatus('starting');
-    setImageUrl(null);
-    setMessage(null);
 
     const onFrame = (sessionId: string, base64: string) => {
       if (sessionId !== sessionRef.current) return;
@@ -71,7 +82,7 @@ export function WebcamModal({ agent, opened, onClose }: WebcamModalProps) {
         sessionRef.current = sessionId;
         setStatus('live');
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
         if (cancelled) return;
         setStatus('closed');
         setMessage(friendlyError(err));
@@ -86,7 +97,7 @@ export function WebcamModal({ agent, opened, onClose }: WebcamModalProps) {
       sessionRef.current = null;
       if (id) conn.invoke('StopWebcam', id).catch(() => undefined);
     };
-  }, [opened, connection, agent.id]);
+  }, [connection, agent.id]);
 
   const snapshot = () => {
     const url = latestRef.current;
@@ -105,65 +116,46 @@ export function WebcamModal({ agent, opened, onClose }: WebcamModalProps) {
   const live = status === 'live' && imageUrl != null;
 
   return (
-    <Modal
-      opened={opened}
-      onClose={onClose}
-      title={`Webcam de ${agent.hostname}`}
-      size="lg"
-      centered
-      overlayProps={{ blur: 2 }}
-    >
-      <Stack>
-        <Group justify="space-between" wrap="wrap">
-          <Badge color={status === 'live' ? 'teal' : status === 'starting' ? 'blue' : 'gray'} variant="light">
-            {status === 'live' ? 'Ao vivo' : status === 'starting' ? 'Conectando' : 'Encerrada'}
-          </Badge>
-          <Group gap="sm">
-            <Button
-              leftSection={<IconCamera size={16} />}
-              onClick={snapshot}
-              disabled={!live}
-              variant="light"
-            >
-              Capturar imagem
-            </Button>
-            <Button
-              leftSection={<IconVideoOff size={16} />}
-              color="red"
-              variant="light"
-              onClick={onClose}
-            >
-              Encerrar
-            </Button>
-          </Group>
+    <Stack>
+      <Group justify="space-between" wrap="wrap">
+        <Badge color={status === 'live' ? 'teal' : status === 'starting' ? 'blue' : 'gray'} variant="light">
+          {status === 'live' ? 'Ao vivo' : status === 'starting' ? 'Conectando' : 'Encerrada'}
+        </Badge>
+        <Group gap="sm">
+          <Button leftSection={<IconCamera size={16} />} onClick={snapshot} disabled={!live} variant="light">
+            Capturar imagem
+          </Button>
+          <Button leftSection={<IconVideoOff size={16} />} color="red" variant="light" onClick={onClose}>
+            Encerrar
+          </Button>
         </Group>
-        {!connected && (
-          <Text size="sm" c="dimmed">
-            Aguardando a conexão em tempo real com o servidor.
-          </Text>
-        )}
-        <Box bg="#1a1b1e" style={{ borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 360 }}>
-          {live ? (
-            <Image src={imageUrl!} alt={`Webcam de ${agent.hostname}`} fit="contain" mah={480} />
-          ) : status === 'starting' ? (
-            <Group gap="xs" c="dimmed">
-              <Loader size="sm" />
-              <Text>Abrindo a câmera na máquina...</Text>
-            </Group>
-          ) : (
-            <Text c="dimmed">A transmissão não está ativa.</Text>
-          )}
-        </Box>
-        {status === 'closed' && message && (
-          <Alert color="yellow" icon={<IconAlertTriangle size={18} />} title="Transmissão encerrada">
-            {message}
-          </Alert>
-        )}
-        <Text size="xs" c="dimmed">
-          A câmera da máquina acende o LED enquanto a imagem é transmitida. Toda abertura e cada imagem baixada ficam
-          registradas na auditoria.
+      </Group>
+      {!connected && (
+        <Text size="sm" c="dimmed">
+          Aguardando a conexão em tempo real com o servidor.
         </Text>
-      </Stack>
-    </Modal>
+      )}
+      <Box bg="#1a1b1e" style={{ borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 360 }}>
+        {live && imageUrl ? (
+          <Image src={imageUrl} alt={`Webcam de ${agent.hostname}`} fit="contain" mah={480} />
+        ) : status === 'starting' ? (
+          <Group gap="xs" c="dimmed">
+            <Loader size="sm" />
+            <Text>Abrindo a câmera na máquina...</Text>
+          </Group>
+        ) : (
+          <Text c="dimmed">A transmissão não está ativa.</Text>
+        )}
+      </Box>
+      {status === 'closed' && message && (
+        <Alert color="yellow" icon={<IconAlertTriangle size={18} />} title="Transmissão encerrada">
+          {message}
+        </Alert>
+      )}
+      <Text size="xs" c="dimmed">
+        A câmera da máquina acende o LED enquanto a imagem é transmitida. Toda abertura e cada imagem baixada ficam
+        registradas na auditoria.
+      </Text>
+    </Stack>
   );
 }

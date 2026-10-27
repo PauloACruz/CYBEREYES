@@ -3,14 +3,14 @@
 // Captura da webcam no Windows por Media Foundation em Go puro (nada de CGo).
 //
 // O caminho resumido:
-//   1. CoInitializeEx(MTA) + MFStartup (uma vez por processo).
-//   2. MFEnumDeviceSources com atributo "video capture" devolve IMFActivate[], a primeira camera e
-//      ativada como IMFMediaSource.
-//   3. MFCreateSourceReaderFromMediaSource cria um IMFSourceReader com o atributo
-//      MF_SOURCE_READER_ENABLE_VIDEO_PROCESSING = TRUE: o Media Foundation adiciona os conversores
-//      necessarios para entregar RGB32 na resolucao pedida.
-//   4. Para cada quadro: ReadSample -> ConvertToContiguousBuffer -> Lock devolve os pixels BGRA.
-//      Convertemos para image.RGBA (troca B e R) e codificamos em JPEG com image/jpeg.
+//  1. CoInitializeEx(MTA) + MFStartup (uma vez por processo).
+//  2. MFEnumDeviceSources com atributo "video capture" devolve IMFActivate[], a primeira camera e
+//     ativada como IMFMediaSource.
+//  3. MFCreateSourceReaderFromMediaSource cria um IMFSourceReader com o atributo
+//     MF_SOURCE_READER_ENABLE_VIDEO_PROCESSING = TRUE: o Media Foundation adiciona os conversores
+//     necessarios para entregar RGB32 na resolucao pedida.
+//  4. Para cada quadro: ReadSample -> ConvertToContiguousBuffer -> Lock devolve os pixels BGRA.
+//     Convertemos para image.RGBA (troca B e R) e codificamos em JPEG com image/jpeg.
 //
 // As chamadas COM sao feitas por syscall.SyscallN com os vtbl das interfaces. Toda a thread da
 // camera fica presa a uma OS thread (LockOSThread) porque Media Foundation e sensivel a thread.
@@ -57,16 +57,16 @@ const (
 
 // GUIDs do Media Foundation que precisamos.
 var (
-	guidDevSourceAttributeSourceType      = guid("c60ac5fe-252a-478f-a0ef-bc8fa5f7ca93")
+	guidDevSourceAttributeSourceType       = guid("c60ac5fe-252a-478f-a0ef-bc8fa5f7ca93")
 	guidDevSourceAttributeSourceTypeVidcap = guid("8ac3587a-4ae7-42d8-99e0-0a6013eef90f")
-	guidIidIMFMediaSource                 = guid("279a808d-aec7-40c8-9c6b-a6b492c78a66")
-	guidMtMajorType                       = guid("48eba18e-f8c9-4687-bf11-0a74c9f96a5f")
-	guidMediaTypeVideo                    = guid("73646976-0000-0010-8000-00aa00389b71")
-	guidMtSubtype                         = guid("f7e34c9a-42e8-4714-b74b-cb29d72c35e5")
-	guidVideoFormatRGB32                  = guid("00000016-0000-0010-8000-00aa00389b71")
-	guidMtFrameSize                       = guid("1652c33d-d6b2-4012-b834-72030849a37d")
-	guidMtInterlaceMode                   = guid("c0bb9089-0b8f-4cf6-9c0d-00e73b739bc2")
-	guidSourceReaderEnableVideoProcessing = guid("fb394f3d-ccf1-42ee-bbb3-f9b845d5681d")
+	guidIidIMFMediaSource                  = guid("279a808d-aec7-40c8-9c6b-a6b492c78a66")
+	guidMtMajorType                        = guid("48eba18e-f8c9-4687-bf11-0a74c9f96a5f")
+	guidMediaTypeVideo                     = guid("73646976-0000-0010-8000-00aa00389b71")
+	guidMtSubtype                          = guid("f7e34c9a-42e8-4714-b74b-cb29d72c35e5")
+	guidVideoFormatRGB32                   = guid("00000016-0000-0010-8000-00aa00389b71")
+	guidMtFrameSize                        = guid("1652c33d-d6b2-4012-b834-72030849a37d")
+	guidMtInterlaceMode                    = guid("c0bb9089-0b8f-4cf6-9c0d-00e73b739bc2")
+	guidSourceReaderEnableVideoProcessing  = guid("fb394f3d-ccf1-42ee-bbb3-f9b845d5681d")
 )
 
 // guid converte "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" em windows.GUID.
@@ -114,36 +114,36 @@ func (u *iunknown) release() uintptr {
 
 type imfAttributesVtbl struct {
 	iunknownVtbl
-	GetItem           uintptr
-	GetItemType       uintptr
-	CompareItem       uintptr
-	Compare           uintptr
-	GetUINT32         uintptr
-	GetUINT64         uintptr
-	GetDouble         uintptr
-	GetGUID           uintptr
-	GetStringLength   uintptr
-	GetString         uintptr
+	GetItem            uintptr
+	GetItemType        uintptr
+	CompareItem        uintptr
+	Compare            uintptr
+	GetUINT32          uintptr
+	GetUINT64          uintptr
+	GetDouble          uintptr
+	GetGUID            uintptr
+	GetStringLength    uintptr
+	GetString          uintptr
 	GetAllocatedString uintptr
-	GetBlobSize       uintptr
-	GetBlob           uintptr
-	GetAllocatedBlob  uintptr
-	GetUnknown        uintptr
-	SetItem           uintptr
-	DeleteItem        uintptr
-	DeleteAllItems    uintptr
-	SetUINT32         uintptr
-	SetUINT64         uintptr
-	SetDouble         uintptr
-	SetGUID           uintptr
-	SetString         uintptr
-	SetBlob           uintptr
-	SetUnknown        uintptr
-	LockStore         uintptr
-	UnlockStore       uintptr
-	GetCount          uintptr
-	GetItemByIndex    uintptr
-	CopyAllItems      uintptr
+	GetBlobSize        uintptr
+	GetBlob            uintptr
+	GetAllocatedBlob   uintptr
+	GetUnknown         uintptr
+	SetItem            uintptr
+	DeleteItem         uintptr
+	DeleteAllItems     uintptr
+	SetUINT32          uintptr
+	SetUINT64          uintptr
+	SetDouble          uintptr
+	SetGUID            uintptr
+	SetString          uintptr
+	SetBlob            uintptr
+	SetUnknown         uintptr
+	LockStore          uintptr
+	UnlockStore        uintptr
+	GetCount           uintptr
+	GetItemByIndex     uintptr
+	CopyAllItems       uintptr
 }
 
 type imfAttributes struct {
@@ -188,9 +188,9 @@ func (a *imfAttributes) release() uintptr {
 // IMFActivate herda de IMFAttributes.
 type imfActivateVtbl struct {
 	imfAttributesVtbl
-	ActivateObject       uintptr
-	ShutdownObject       uintptr
-	DetachObject         uintptr
+	ActivateObject uintptr
+	ShutdownObject uintptr
+	DetachObject   uintptr
 }
 
 type imfActivate struct {
@@ -223,17 +223,17 @@ func (a *imfActivate) release() uintptr {
 type imfMediaSourceVtbl struct {
 	iunknownVtbl
 	// IMFMediaEventGenerator
-	GetEvent     uintptr
+	GetEvent      uintptr
 	BeginGetEvent uintptr
 	EndGetEvent   uintptr
 	QueueEvent    uintptr
 	// IMFMediaSource
-	GetCharacteristics uintptr
+	GetCharacteristics           uintptr
 	CreatePresentationDescriptor uintptr
-	Start uintptr
-	Stop uintptr
-	Pause uintptr
-	Shutdown uintptr
+	Start                        uintptr
+	Stop                         uintptr
+	Pause                        uintptr
+	Shutdown                     uintptr
 }
 
 type imfMediaSource struct {
@@ -258,15 +258,15 @@ func (s *imfMediaSource) release() uintptr {
 // IMFSourceReader.
 type imfSourceReaderVtbl struct {
 	iunknownVtbl
-	GetStreamSelection    uintptr
-	SetStreamSelection    uintptr
-	GetNativeMediaType    uintptr
-	GetCurrentMediaType   uintptr
-	SetCurrentMediaType   uintptr
-	SetCurrentPosition    uintptr
-	ReadSample            uintptr
-	Flush                 uintptr
-	GetServiceForStream   uintptr
+	GetStreamSelection       uintptr
+	SetStreamSelection       uintptr
+	GetNativeMediaType       uintptr
+	GetCurrentMediaType      uintptr
+	SetCurrentMediaType      uintptr
+	SetCurrentPosition       uintptr
+	ReadSample               uintptr
+	Flush                    uintptr
+	GetServiceForStream      uintptr
 	GetPresentationAttribute uintptr
 }
 
@@ -325,20 +325,20 @@ func (m *imfMediaType) release() uintptr {
 // IMFSample (herda de IMFAttributes).
 type imfSampleVtbl struct {
 	imfAttributesVtbl
-	GetSampleFlags        uintptr
-	SetSampleFlags        uintptr
-	GetSampleTime         uintptr
-	SetSampleTime         uintptr
-	GetSampleDuration     uintptr
-	SetSampleDuration     uintptr
-	GetBufferCount        uintptr
-	GetBufferByIndex      uintptr
+	GetSampleFlags            uintptr
+	SetSampleFlags            uintptr
+	GetSampleTime             uintptr
+	SetSampleTime             uintptr
+	GetSampleDuration         uintptr
+	SetSampleDuration         uintptr
+	GetBufferCount            uintptr
+	GetBufferByIndex          uintptr
 	ConvertToContiguousBuffer uintptr
-	AddBuffer             uintptr
-	RemoveBufferByIndex   uintptr
-	RemoveAllBuffers      uintptr
-	GetTotalLength        uintptr
-	CopyToBuffer          uintptr
+	AddBuffer                 uintptr
+	RemoveBufferByIndex       uintptr
+	RemoveAllBuffers          uintptr
+	GetTotalLength            uintptr
+	CopyToBuffer              uintptr
 }
 
 type imfSample struct {
