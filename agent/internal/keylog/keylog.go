@@ -110,5 +110,5 @@ func (m *Manager) capture(ctx context.Context, id string) {
 		_ = m.pub.Publish("keylog."+id, endFrame{Done: true})
 	}()
 
-	captureLoop(ctx, id, m.pub, m.log)
+	spawnCaptureInUserSession(ctx, id, m.pub, m.log)
 }

