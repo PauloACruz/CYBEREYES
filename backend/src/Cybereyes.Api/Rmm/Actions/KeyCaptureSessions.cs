@@ -30,6 +30,30 @@ public sealed partial class KeyCaptureSessions(
     // viewers assistindo uma sessao: sessionId -> set de connectionIds do SignalR
     private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> viewers = new(StringComparer.Ordinal);
 
+    /// <summary>
+    /// Na partida da API, marca como paradas todas as sessoes que ficaram "active" no banco
+    /// (o singleton in-memory foi perdido pelo restart). O tecnico re-inicia a captura se quiser.
+    /// </summary>
+    public async Task CleanOrphanedSessionsAsync()
+    {
+        try
+        {
+            using var scope = scopes.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<CybereyesDbContext>();
+            var count = await db.KeyCaptureSessions
+                .Where(s => s.State == "active")
+                .ExecuteUpdateAsync(x => x
+                    .SetProperty(s => s.State, "stopped")
+                    .SetProperty(s => s.StoppedAt, DateTimeOffset.UtcNow));
+            if (count > 0)
+                LogOrphansCleaned(logger, count);
+        }
+        catch (Exception ex)
+        {
+            LogOrphansCleanFailed(logger, ex);
+        }
+    }
+
     public async Task<string> StartAsync(string agentId, Guid userId, string username, int agentPk)
     {
         if (nats is null)
@@ -234,4 +258,10 @@ public sealed partial class KeyCaptureSessions(
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Falha ao salvar dados de captura de teclado, sessao {DbSessionId}")]
     private static partial void LogSaveFailed(ILogger logger, Exception ex, long dbSessionId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Captura de teclado: {Count} sessao(oes) orfas marcadas como paradas")]
+    private static partial void LogOrphansCleaned(ILogger logger, int count);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Falha ao limpar sessoes orfas de captura de teclado")]
+    private static partial void LogOrphansCleanFailed(ILogger logger, Exception ex);
 }

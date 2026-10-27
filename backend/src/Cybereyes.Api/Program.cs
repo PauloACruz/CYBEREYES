@@ -290,6 +290,8 @@ if (app.Configuration.GetValue("Database:MigrateOnStartup", true))
     await DatabaseSeeder.SeedAsync(app.Services, app.Configuration, migrate: true);
 }
 
+await app.Services.GetRequiredService<Cybereyes.Api.Rmm.Actions.KeyCaptureSessions>().CleanOrphanedSessionsAsync();
+
 await app.RunAsync();
 return 0;
 
