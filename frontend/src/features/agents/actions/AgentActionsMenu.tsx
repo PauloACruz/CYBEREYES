@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button, Group, Loader, Menu, Modal, Stack, Text, TextInput } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { IconArrowsExchange, IconChevronDown, IconCloudDownload, IconExternalLink, IconGauge, IconKeyboard, IconPlugConnected, IconPower, IconRefresh, IconRocket, IconRotateClockwise } from '@tabler/icons-react';
+import { IconArrowsExchange, IconCamera, IconChevronDown, IconCloudDownload, IconExternalLink, IconGauge, IconKeyboard, IconPlugConnected, IconPower, IconRefresh, IconRocket, IconRotateClockwise } from '@tabler/icons-react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 import { agentActionsApi } from '../../../api/agentActions';
@@ -14,22 +14,26 @@ import { confirmAction, notifySuccess } from '../../../lib/feedback';
 import { PeripheralTestModal } from '../peripherals/PeripheralTestModal';
 import { SpeedTestModal } from '../speedtest/SpeedTestModal';
 import { isWindows } from './shells';
+import { WebcamModal } from './WebcamModal';
 
 const BLOCKED_SCHEMES = /^\s*(javascript|data|vbscript):/i;
 
 interface AgentActionsMenuProps {
   agent: AgentDetail;
   canControl: boolean;
+  canWebcam?: boolean;
   /** Abre "Mudar cliente ou site" (so com agents.manage). */
   onMove?: () => void;
 }
 
-export function AgentActionsMenu({ agent, canControl, onMove }: AgentActionsMenuProps) {
+export function AgentActionsMenu({ agent, canControl, canWebcam = false, onMove }: AgentActionsMenuProps) {
   const [opened, setOpened] = useState(false);
   const navigate = useNavigate();
   const [shutdownOpen, setShutdownOpen] = useState(false);
   const [speedTestOpen, setSpeedTestOpen] = useState(false);
   const [peripheralOpen, setPeripheralOpen] = useState(false);
+  const [webcamOpen, setWebcamOpen] = useState(false);
+  const webcamAllowed = canWebcam && agent.plat === 'windows';
   const urlActions = useQuery({ queryKey: queryKeys.urlActions, queryFn: urlActionsApi.list, enabled: opened, staleTime: 60_000 });
 
   const reboot = useMutation({
@@ -149,6 +153,15 @@ export function AgentActionsMenu({ agent, canControl, onMove }: AgentActionsMenu
               </Menu.Item>
             </>
           )}
+          {webcamAllowed && (
+            <>
+              <Menu.Divider />
+              <Menu.Label>Câmera</Menu.Label>
+              <Menu.Item leftSection={<IconCamera size={16} />} onClick={() => setWebcamOpen(true)}>
+                Ver webcam
+              </Menu.Item>
+            </>
+          )}
           <Menu.Divider />
           <Menu.Label>URL actions</Menu.Label>
           {urlActions.isPending && (
@@ -168,6 +181,7 @@ export function AgentActionsMenu({ agent, canControl, onMove }: AgentActionsMenu
       {canControl && <ShutdownModal agent={agent} opened={shutdownOpen} onClose={() => setShutdownOpen(false)} />}
       <SpeedTestModal agent={agent} opened={speedTestOpen} canStart={canControl} onClose={() => setSpeedTestOpen(false)} />
       <PeripheralTestModal agent={agent} opened={peripheralOpen} canStart={canControl} onClose={() => setPeripheralOpen(false)} />
+      {webcamAllowed && <WebcamModal agent={agent} opened={webcamOpen} onClose={() => setWebcamOpen(false)} />}
     </>
   );
 }

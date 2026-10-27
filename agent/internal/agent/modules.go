@@ -17,6 +17,7 @@ import (
 	"github.com/pauloacruz/cybereyes/agent/internal/terminal"
 	"github.com/pauloacruz/cybereyes/agent/internal/tray"
 	"github.com/pauloacruz/cybereyes/agent/internal/uninstall"
+	"github.com/pauloacruz/cybereyes/agent/internal/webcam"
 	"github.com/pauloacruz/cybereyes/agent/internal/winget"
 	"github.com/pauloacruz/cybereyes/agent/internal/wua"
 )
@@ -41,5 +42,6 @@ func init() {
 		remote.Register,
 		rdp.Register,
 		keylog.Register,
+		webcam.Register,
 	}
 }

@@ -6,6 +6,7 @@ using Cybereyes.Api.Infrastructure;
 using Cybereyes.Api.Inventory;
 using Cybereyes.Api.Rmm.Actions;
 using Cybereyes.Api.Rmm.Procedures;
+using Cybereyes.Api.Rmm.Webcam;
 using Cybereyes.Core.Audit;
 using Cybereyes.Core.Persistence;
 using Cybereyes.Core.Rmm;
@@ -15,7 +16,7 @@ namespace Cybereyes.Api.Rmm;
 
 [Authorize]
 public sealed class ConsoleHub(TerminalSessions terminals, SshTerminalSessions sshTerminals, KeyCaptureSessions keyCapture,
-    CybereyesDbContext db, IAuditService audit, Vault vault, ProcedureLog procedures, TimeProvider time) : Hub
+    WebcamSessions webcams, CybereyesDbContext db, IAuditService audit, Vault vault, ProcedureLog procedures, TimeProvider time) : Hub
 {
     private const int MaxSshTerminalsPerConnection = 8;
 
@@ -105,6 +106,64 @@ public sealed class ConsoleHub(TerminalSessions terminals, SshTerminalSessions s
             return Task.CompletedTask;
         }
         return terminals.ResizeAsync(Context.ConnectionId, sessionId, cols, rows);
+    }
+
+    public async Task<string> StartWebcam(int agentPk)
+    {
+        if (Context.User?.HasPermission(Permissions.AgentsWebcam) != true)
+        {
+            throw new HubException("Sem permissao para ver a webcam");
+        }
+        db.ApplyClientScope(Context.User);
+        var agent = await AgentRef.FindAsync(db, agentPk, Context.ConnectionAborted) ?? throw new HubException("Agente nao encontrado");
+        if (!agent.IsWindows)
+        {
+            throw new HubException("A webcam ao vivo so e suportada em agentes Windows");
+        }
+        var username = Context.User.Identity?.Name ?? "?";
+        var sessionId = await webcams.StartAsync(Context.ConnectionId, username, agent.AgentId);
+        db.WebcamSessions.Add(new WebcamSessionLog
+        {
+            SessionId = sessionId,
+            AgentId = agent.Id,
+            Username = username,
+            StartedAt = time.GetUtcNow(),
+        });
+        await db.SaveChangesAsync(Context.ConnectionAborted);
+        await audit.LogAsync("agent.webcam-opened", "agent", agent.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            $"Webcam de {agent.Hostname} aberta ao vivo", username, Context.ConnectionAborted);
+        return sessionId;
+    }
+
+    public Task PingWebcam(string sessionId) => webcams.PingAsync(Context.ConnectionId, sessionId);
+
+    public async Task StopWebcam(string sessionId)
+    {
+        await webcams.StopAsync(Context.ConnectionId, sessionId);
+        var log = await db.WebcamSessions.FirstOrDefaultAsync(w => w.SessionId == sessionId && w.EndedAt == null, Context.ConnectionAborted);
+        if (log is not null)
+        {
+            log.EndedAt = time.GetUtcNow();
+            await db.SaveChangesAsync(Context.ConnectionAborted);
+        }
+    }
+
+    public async Task RegisterWebcamSnapshot(string sessionId)
+    {
+        if (Context.User?.HasPermission(Permissions.AgentsWebcam) != true)
+        {
+            return;
+        }
+        var log = await db.WebcamSessions.FirstOrDefaultAsync(w => w.SessionId == sessionId, Context.ConnectionAborted);
+        if (log is null)
+        {
+            return;
+        }
+        log.Snapshots += 1;
+        await db.SaveChangesAsync(Context.ConnectionAborted);
+        var username = Context.User.Identity?.Name ?? "?";
+        await audit.LogAsync("agent.webcam-snapshot", "agent", log.AgentId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            $"Imagem da webcam baixada (sessao {sessionId[..8]})", username, Context.ConnectionAborted);
     }
 
     public Task StopTerminal(string sessionId)
@@ -233,6 +292,7 @@ public sealed class ConsoleHub(TerminalSessions terminals, SshTerminalSessions s
         await terminals.StopAllAsync(Context.ConnectionId);
         sshTerminals.StopAll(Context.ConnectionId);
         keyCapture.RemoveViewer(Context.ConnectionId);
+        await webcams.StopAllAsync(Context.ConnectionId);
         await base.OnDisconnectedAsync(exception);
     }
 }

@@ -4070,6 +4070,46 @@ namespace Cybereyes.Core.Persistence.Migrations
                     b.ToTable("url_actions", (string)null);
                 });
 
+            modelBuilder.Entity("Cybereyes.Core.Rmm.WebcamSessionLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AgentId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("EndedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SessionId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("Snapshots")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SessionId")
+                        .IsUnique();
+
+                    b.HasIndex("AgentId", "StartedAt");
+
+                    b.ToTable("agent_webcam_sessions", (string)null);
+                });
+
             modelBuilder.Entity("Cybereyes.Core.Rmm.WinUpdate", b =>
                 {
                     b.Property<long>("Id")
@@ -5379,6 +5419,17 @@ namespace Cybereyes.Core.Persistence.Migrations
                         .HasForeignKey("TaskId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Cybereyes.Core.Rmm.WebcamSessionLog", b =>
+                {
+                    b.HasOne("Cybereyes.Core.Rmm.Agent", "Agent")
+                        .WithMany()
+                        .HasForeignKey("AgentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Agent");
                 });
 
             modelBuilder.Entity("Cybereyes.Core.Rmm.WinUpdate", b =>

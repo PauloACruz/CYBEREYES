@@ -155,6 +155,10 @@ builder.Services.AddSingleton(sp => new Cybereyes.Api.Rmm.Actions.KeyCaptureSess
     sp.GetRequiredService<Microsoft.AspNetCore.SignalR.IHubContext<ConsoleHub>>(),
     sp.GetRequiredService<IServiceScopeFactory>(),
     sp.GetRequiredService<ILogger<Cybereyes.Api.Rmm.Actions.KeyCaptureSessions>>()));
+builder.Services.AddSingleton(sp => new Cybereyes.Api.Rmm.Webcam.WebcamSessions(
+    sp.GetService<NATS.Client.Core.INatsConnection>(), sp.GetRequiredService<IAgentRpc>(),
+    sp.GetRequiredService<Microsoft.AspNetCore.SignalR.IHubContext<ConsoleHub>>(),
+    sp.GetRequiredService<ILogger<Cybereyes.Api.Rmm.Webcam.WebcamSessions>>()));
 builder.Services.AddSingleton<Cybereyes.Api.Apps.SshTerminalSessions>();
 builder.Services.AddSingleton<Cybereyes.Api.Apps.AppRunner>();
 builder.Services.AddSingleton<Cybereyes.Api.Apps.WebAppMonitor>();

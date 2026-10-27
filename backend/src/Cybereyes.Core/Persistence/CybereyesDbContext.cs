@@ -94,6 +94,7 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
     public DbSet<LogInsightReport> LogInsightReports => Set<LogInsightReport>();
     public DbSet<KeyCaptureSession> KeyCaptureSessions => Set<KeyCaptureSession>();
     public DbSet<KeyCaptureEntry> KeyCaptureEntries => Set<KeyCaptureEntry>();
+    public DbSet<WebcamSessionLog> WebcamSessions => Set<WebcamSessionLog>();
 
     // Escopo de clientes do usuario da requisicao. Nulo = sem restricao (agentes, servicos internos e
     // usuarios com acesso a todos os clientes). Os filtros globais de ConfigureClientScope leem estes campos.
@@ -305,6 +306,7 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
         builder.Entity<RemoteTransfer>().HasQueryFilter(x => scopeClientIds == null || Agents.Any(a => a.Id == x.AgentId));
         builder.Entity<AgentProcedure>().HasQueryFilter(x => scopeClientIds == null || scopeClientIds.Contains(x.ClientId));
         builder.Entity<KeyCaptureSession>().HasQueryFilter(x => scopeClientIds == null || Agents.Any(a => a.Id == x.AgentId));
+        builder.Entity<WebcamSessionLog>().HasQueryFilter(x => scopeClientIds == null || Agents.Any(a => a.Id == x.AgentId));
 
         // Checks, tarefas e politicas de patch sem agente pertencem a politicas, que sao globais.
         builder.Entity<Check>().HasQueryFilter(x => scopeClientIds == null || x.AgentId == null || Agents.Any(a => a.Id == x.AgentId));
@@ -1006,6 +1008,16 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
             e.Property(x => x.Consent).HasMaxLength(16);
             e.Property(x => x.UpdatedBy).HasMaxLength(256);
             e.HasIndex(x => new { x.Scope, x.ScopeId }).IsUnique();
+        });
+
+        builder.Entity<WebcamSessionLog>(e =>
+        {
+            e.ToTable("agent_webcam_sessions");
+            e.Property(x => x.SessionId).HasMaxLength(64);
+            e.Property(x => x.Username).HasMaxLength(256);
+            e.HasIndex(x => x.SessionId).IsUnique();
+            e.HasIndex(x => new { x.AgentId, x.StartedAt });
+            e.HasOne(x => x.Agent).WithMany().HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.Cascade);
         });
 
         builder.Entity<AgentHealth>(e =>
