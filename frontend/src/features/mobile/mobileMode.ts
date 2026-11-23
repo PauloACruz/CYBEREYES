@@ -58,13 +58,13 @@ export function isAppLogin(): boolean {
 export const CONSOLE_STATE = { console: true } as const;
 
 /**
- * Tela do app equivalente a um endereco do console (lista e detalhe de agentes, chamados e aplicacoes), ou null.
+ * Tela do app equivalente a um endereco do console (lista e detalhe de agentes, chamados, aplicacoes e projetos), ou null.
  * Uma aba do console no endereco (?aba=arquivos, ?aba=scripts) so existe no console e fica nele.
  */
 export function appPathFor(pathname: string, search: string, state: unknown): string | null {
   if ((state as { console?: unknown } | null)?.console === true) return null;
   if (new URLSearchParams(search).has('aba')) return null;
-  const match = /^\/(agentes|chamados|aplicacoes)(?:\/(\d+))?\/?$/.exec(pathname);
+  const match = /^\/(agentes|chamados|aplicacoes|projetos)(?:\/(\d+))?\/?$/.exec(pathname);
   if (!match) return null;
   return `${MOBILE_PATHS.root}/${match[1]}${match[2] ? `/${match[2]}` : ''}`;
 }

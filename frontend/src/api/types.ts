@@ -725,6 +725,8 @@ export const PERMISSIONS = {
   appsView: 'apps.view',
   appsManage: 'apps.manage',
   appsRun: 'apps.run',
+  projectsView: 'projects.view',
+  projectsManage: 'projects.manage',
 } as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -2888,6 +2890,8 @@ export interface PushPreferences {
   messages: boolean;
   /** Analises de erros recorrentes nos logs feitas pelo assistente de IA. */
   insights: boolean;
+  /** Projeto ou tarefa atribuidos a mim e o inicio dos ciclos agendados dos meus projetos. */
+  projects: boolean;
 }
 
 export interface PushConfig {

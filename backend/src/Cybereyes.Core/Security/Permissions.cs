@@ -48,6 +48,8 @@ public static class Permissions
     public const string AppsManage = "apps.manage";
     public const string AppsRun = "apps.run";
     public const string AssistantUse = "assistant.use";
+    public const string ProjectsView = "projects.view";
+    public const string ProjectsManage = "projects.manage";
 
     public static IReadOnlyList<PermissionInfo> Catalog { get; } =
     [
@@ -93,6 +95,8 @@ public static class Permissions
         new(AppsManage, "Aplicacoes", "Cadastrar servidores, aplicacoes, acesso SSH, deploy e comandos salvos"),
         new(AppsRun, "Aplicacoes", "Abrir terminal SSH, executar comandos e fazer deploy nos servidores"),
         new(AssistantUse, "Agente de IA", "Pedir acoes ao agente de IA pelo console (limitadas as permissoes do agente)"),
+        new(ProjectsView, "Projetos", "Ver projetos; o responsavel pelo projeto ou por uma tarefa tambem registra o andamento"),
+        new(ProjectsManage, "Projetos", "Criar, editar e excluir projetos, tarefas e estacoes e registrar o andamento de qualquer projeto"),
     ];
 
     private static readonly HashSet<string> Known = Catalog.Select(p => p.Key).ToHashSet(StringComparer.Ordinal);

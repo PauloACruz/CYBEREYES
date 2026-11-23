@@ -14,10 +14,10 @@ public sealed record PushSubscriptionRequest(
     [property: Required, StringLength(200)] string P256dh,
     [property: Required, StringLength(100)] string Auth,
     [property: StringLength(100)] string? Device,
-    bool NewTickets, bool Updates, bool Messages, bool Insights = true);
+    bool NewTickets, bool Updates, bool Messages, bool Insights = true, bool Projects = true);
 
-public sealed record PushSubscriptionDto(string Endpoint, string? Device, bool NewTickets, bool Updates, bool Messages, bool Insights, DateTimeOffset CreatedAt,
-    DateTimeOffset? LastSentAt);
+public sealed record PushSubscriptionDto(string Endpoint, string? Device, bool NewTickets, bool Updates, bool Messages, bool Insights, bool Projects,
+    DateTimeOffset CreatedAt, DateTimeOffset? LastSentAt);
 
 public sealed record PushEndpointRequest([property: Required, StringLength(2000)] string Endpoint);
 
@@ -77,6 +77,7 @@ public static class PushEndpoints
         subscription.Updates = r.Updates;
         subscription.Messages = r.Messages;
         subscription.Insights = r.Insights;
+        subscription.Projects = r.Projects;
         await db.SaveChangesAsync(ct);
         return TypedResults.Ok(ToDto(subscription));
     }
@@ -98,7 +99,7 @@ public static class PushEndpoints
             return Problems.NotFound("Inscricao");
         }
         var result = await transport.SendAsync(subscription,
-            new PushMessage("Notificações ativas", "Este aparelho vai receber os avisos dos chamados.", "/", "teste"), ct);
+            new PushMessage("Notificações ativas", "Este aparelho vai receber os avisos escolhidos.", "/", "teste"), ct);
         if (result.Gone)
         {
             db.PushSubscriptions.Remove(subscription);
@@ -110,5 +111,5 @@ public static class PushEndpoints
     }
 
     private static PushSubscriptionDto ToDto(PushSubscription s) =>
-        new(s.Endpoint, s.Device, s.NewTickets, s.Updates, s.Messages, s.Insights, s.CreatedAt, s.LastSentAt);
+        new(s.Endpoint, s.Device, s.NewTickets, s.Updates, s.Messages, s.Insights, s.Projects, s.CreatedAt, s.LastSentAt);
 }

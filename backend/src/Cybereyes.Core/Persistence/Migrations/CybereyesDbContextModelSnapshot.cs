@@ -18,7 +18,7 @@ namespace Cybereyes.Core.Persistence.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.13")
+                .HasAnnotation("ProductVersion", "10.0.15")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -1471,6 +1471,9 @@ namespace Cybereyes.Core.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<bool>("Projects")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("Updates")
                         .HasColumnType("boolean");
 
@@ -1485,6 +1488,383 @@ namespace Cybereyes.Core.Persistence.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("push_subscriptions", (string)null);
+                });
+
+            modelBuilder.Entity("Cybereyes.Core.Projects.Project", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CreatedByName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("Cycle")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(20000)
+                        .HasColumnType("character varying(20000)");
+
+                    b.Property<DateOnly?>("DueDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid?>("OwnerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Recurrence")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<int>("RecurrenceInterval")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly?>("StartDate")
+                        .HasColumnType("date");
+
+                    b.Property<int?>("StartNotifiedCycle")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedById");
+
+                    b.HasIndex("OwnerId");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("projects", (string)null);
+                });
+
+            modelBuilder.Entity("Cybereyes.Core.Projects.ProjectAgent", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<int?>("AgentId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ClientId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("DoneAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("DoneById")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("DoneByName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Hostname")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int>("ProjectId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AgentId");
+
+                    b.HasIndex("ProjectId", "AgentId")
+                        .IsUnique();
+
+                    b.ToTable("project_agents", (string)null);
+                });
+
+            modelBuilder.Entity("Cybereyes.Core.Projects.ProjectAttachment", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<long?>("NoteId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("ProjectId")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("Size")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("UploadedBy")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NoteId");
+
+                    b.HasIndex("ProjectId");
+
+                    b.ToTable("project_attachments", (string)null);
+                });
+
+            modelBuilder.Entity("Cybereyes.Core.Projects.ProjectAttachmentData", b =>
+                {
+                    b.Property<long>("AttachmentId")
+                        .HasColumnType("bigint");
+
+                    b.Property<byte[]>("Content")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.HasKey("AttachmentId");
+
+                    b.ToTable("project_attachment_data", (string)null);
+                });
+
+            modelBuilder.Entity("Cybereyes.Core.Projects.ProjectClient", b =>
+                {
+                    b.Property<int>("ProjectId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ClientId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("ProjectId", "ClientId");
+
+                    b.HasIndex("ClientId");
+
+                    b.ToTable("project_clients", (string)null);
+                });
+
+            modelBuilder.Entity("Cybereyes.Core.Projects.ProjectCycle", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTimeOffset>("ClosedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ClosedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ClosedByName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateOnly?>("DueDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Items")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<int>("Number")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ProjectId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly?>("StartDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Summary")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjectId", "Number")
+                        .IsUnique();
+
+                    b.ToTable("project_cycles", (string)null);
+                });
+
+            modelBuilder.Entity("Cybereyes.Core.Projects.ProjectNote", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<Guid?>("AuthorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AuthorName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(20000)
+                        .HasColumnType("character varying(20000)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Cycle")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ItemStatus")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<long?>("ProjectAgentId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("ProjectId")
+                        .HasColumnType("integer");
+
+                    b.Property<long?>("ProjectTaskId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Subject")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjectAgentId");
+
+                    b.HasIndex("ProjectTaskId");
+
+                    b.HasIndex("ProjectId", "CreatedAt");
+
+                    b.ToTable("project_notes", (string)null);
+                });
+
+            modelBuilder.Entity("Cybereyes.Core.Projects.ProjectSite", b =>
+                {
+                    b.Property<int>("ProjectId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SiteId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("ProjectId", "SiteId");
+
+                    b.HasIndex("SiteId");
+
+                    b.ToTable("project_sites", (string)null);
+                });
+
+            modelBuilder.Entity("Cybereyes.Core.Projects.ProjectTask", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<Guid?>("AssigneeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<DateTimeOffset?>("DoneAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("DoneById")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("DoneByName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateOnly?>("DueDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ProjectId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssigneeId");
+
+                    b.HasIndex("ProjectId", "Position");
+
+                    b.ToTable("project_tasks", (string)null);
                 });
 
             modelBuilder.Entity("Cybereyes.Core.Reports.ReportDispatch", b =>
@@ -5021,6 +5401,128 @@ namespace Cybereyes.Core.Persistence.Migrations
                     b.HasOne("Cybereyes.Core.Identity.AppUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Cybereyes.Core.Projects.Project", b =>
+                {
+                    b.HasOne("Cybereyes.Core.Identity.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedById")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Cybereyes.Core.Identity.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("Cybereyes.Core.Projects.ProjectAgent", b =>
+                {
+                    b.HasOne("Cybereyes.Core.Rmm.Agent", null)
+                        .WithMany()
+                        .HasForeignKey("AgentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Cybereyes.Core.Projects.Project", null)
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Cybereyes.Core.Projects.ProjectAttachment", b =>
+                {
+                    b.HasOne("Cybereyes.Core.Projects.ProjectNote", null)
+                        .WithMany()
+                        .HasForeignKey("NoteId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("Cybereyes.Core.Projects.Project", null)
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Cybereyes.Core.Projects.ProjectAttachmentData", b =>
+                {
+                    b.HasOne("Cybereyes.Core.Projects.ProjectAttachment", null)
+                        .WithOne()
+                        .HasForeignKey("Cybereyes.Core.Projects.ProjectAttachmentData", "AttachmentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Cybereyes.Core.Projects.ProjectClient", b =>
+                {
+                    b.HasOne("Cybereyes.Core.Rmm.Client", null)
+                        .WithMany()
+                        .HasForeignKey("ClientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Cybereyes.Core.Projects.Project", null)
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Cybereyes.Core.Projects.ProjectCycle", b =>
+                {
+                    b.HasOne("Cybereyes.Core.Projects.Project", null)
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Cybereyes.Core.Projects.ProjectNote", b =>
+                {
+                    b.HasOne("Cybereyes.Core.Projects.ProjectAgent", null)
+                        .WithMany()
+                        .HasForeignKey("ProjectAgentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Cybereyes.Core.Projects.Project", null)
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Cybereyes.Core.Projects.ProjectTask", null)
+                        .WithMany()
+                        .HasForeignKey("ProjectTaskId")
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("Cybereyes.Core.Projects.ProjectSite", b =>
+                {
+                    b.HasOne("Cybereyes.Core.Projects.Project", null)
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Cybereyes.Core.Rmm.Site", null)
+                        .WithMany()
+                        .HasForeignKey("SiteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Cybereyes.Core.Projects.ProjectTask", b =>
+                {
+                    b.HasOne("Cybereyes.Core.Identity.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("AssigneeId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Cybereyes.Core.Projects.Project", null)
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

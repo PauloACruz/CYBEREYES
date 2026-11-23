@@ -32,6 +32,7 @@ export const PATHS = {
   remote: '/acesso-remoto',
   webApps: '/aplicacoes',
   procedures: '/procedimentos',
+  projects: '/projetos',
 } as const;
 
 /** App do tecnico para celular (PWA), com rotas proprias e sem o menu lateral do console. */
@@ -41,6 +42,7 @@ export const MOBILE_PATHS = {
   newTicket: '/app/chamados/novo',
   agents: '/app/agentes',
   webApps: '/app/aplicacoes',
+  projects: '/app/projetos',
   more: '/app/mais',
 } as const;
 
@@ -66,6 +68,10 @@ export function mobileCareRunPath(agentId: number, runId: string): string {
   return `${mobileAgentPath(agentId)}/care/execucoes/${encodeURIComponent(runId)}`;
 }
 
+export function mobileProjectPath(id: number): string {
+  return `${MOBILE_PATHS.projects}/${id}`;
+}
+
 export function mobileWebAppPath(id: number): string {
   return `${MOBILE_PATHS.webApps}/${id}`;
 }
@@ -81,6 +87,10 @@ export function remotePath(agentId: number, options: { viewOnly?: boolean; ticke
 
 export function agentPath(id: number): string {
   return `${PATHS.agents}/${id}`;
+}
+
+export function projectPath(id: number): string {
+  return `${PATHS.projects}/${id}`;
 }
 
 export function policyPath(id: number): string {

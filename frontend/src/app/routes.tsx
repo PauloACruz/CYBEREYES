@@ -41,6 +41,16 @@ export const routes: RouteObject[] = [
           { index: true, lazy: () => import('../features/mobile/MobileLayout').then((m) => ({ Component: m.MobileHome })) },
           { path: 'mais', lazy: () => import('../features/mobile/MobileMorePage').then((m) => ({ Component: m.MobileMorePage })) },
           {
+            element: <RequirePermission permission={PERMISSIONS.projectsView} />,
+            children: [
+              { path: 'projetos', lazy: () => import('../features/mobile/projects/MobileProjectsPage').then((m) => ({ Component: m.MobileProjectsPage })) },
+              {
+                path: 'projetos/:id',
+                lazy: () => import('../features/mobile/projects/MobileProjectDetailPage').then((m) => ({ Component: m.MobileProjectDetailPage })),
+              },
+            ],
+          },
+          {
             element: <RequirePermission permission={PERMISSIONS.ticketsView} />,
             children: [
               { path: 'chamados', lazy: () => import('../features/mobile/tickets/MobileTicketsPage').then((m) => ({ Component: m.MobileTicketsPage })) },
@@ -146,6 +156,19 @@ export const routes: RouteObject[] = [
               {
                 path: PATHS.procedures,
                 lazy: () => import('../features/procedures/ProceduresPage').then((m) => ({ Component: m.ProceduresPage })),
+              },
+            ],
+          },
+          {
+            element: <RequirePermission permission={PERMISSIONS.projectsView} />,
+            children: [
+              {
+                path: PATHS.projects,
+                lazy: () => import('../features/projects/ProjectsPage').then((m) => ({ Component: m.ProjectsPage })),
+              },
+              {
+                path: `${PATHS.projects}/:id`,
+                lazy: () => import('../features/projects/ProjectDetailPage').then((m) => ({ Component: m.ProjectDetailPage })),
               },
             ],
           },

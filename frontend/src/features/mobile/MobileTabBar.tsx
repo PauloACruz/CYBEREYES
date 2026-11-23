@@ -1,7 +1,8 @@
 import { Badge, Box, Text, UnstyledButton } from '@mantine/core';
-import { IconDeviceDesktop, IconDots, IconTicket, IconWorldWww, type Icon } from '@tabler/icons-react';
+import { IconDeviceDesktop, IconDots, IconLayoutKanban, IconTicket, IconWorldWww, type Icon } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { NavLink } from 'react-router';
+import { projectsApi } from '../../api/projects';
 import { queryKeys } from '../../api/queryKeys';
 import { PERMISSIONS } from '../../api/types';
 import { webAppsApi } from '../../api/webapps';
@@ -34,6 +35,15 @@ export function MobileTabBar() {
     staleTime: 30_000,
   });
   const down = apps.data?.apps.filter((a) => a.status === 'down').length ?? 0;
+  const canProjects = hasPermission(me, PERMISSIONS.projectsView);
+  const mineParams = { status: 'open', mine: true } as const;
+  const projects = useQuery({
+    queryKey: queryKeys.projectList(mineParams),
+    queryFn: () => projectsApi.list(mineParams, { silent: true }),
+    enabled: canProjects,
+    staleTime: 60_000,
+  });
+  const myTasks = projects.data?.reduce((sum, p) => sum + p.myOpenTasks, 0) ?? 0;
 
   const tabs: Tab[] = [];
   if (canTickets) {
@@ -41,6 +51,9 @@ export function MobileTabBar() {
   }
   if (canAgents) tabs.push({ to: MOBILE_PATHS.agents, label: 'Agentes', icon: IconDeviceDesktop });
   if (canApps) tabs.push({ to: MOBILE_PATHS.webApps, label: 'Aplicações', icon: IconWorldWww, count: down, countColor: 'red', countLabel: 'fora do ar' });
+  if (canProjects) {
+    tabs.push({ to: MOBILE_PATHS.projects, label: 'Projetos', icon: IconLayoutKanban, count: myTasks, countColor: 'violet', countLabel: 'tarefas suas abertas' });
+  }
   tabs.push({ to: MOBILE_PATHS.more, label: 'Mais', icon: IconDots });
 
   return (

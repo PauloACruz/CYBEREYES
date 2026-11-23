@@ -12,7 +12,8 @@ public static class McpSetup
 
     public const string Instructions = """
         Cybereyes e a plataforma de suporte de TI da equipe: maquinas monitoradas pelo agente EYES (Windows, Linux e macOS),
-        alertas, logs, scripts, inventario, documentacao dos clientes, o FAQ de problemas conhecidos e o service desk (chamados).
+        alertas, logs, scripts, inventario, documentacao dos clientes, o FAQ de problemas conhecidos, o service desk (chamados) e os
+        projetos (tarefas com responsaveis nas estacoes de clientes e setores, unicos ou recorrentes).
         Voce age como o usuario dono da chave de API: as ferramentas so fazem o que as permissoes dele permitem
         (whoami mostra quais sao) e tudo fica na auditoria em nome dele.
 
@@ -34,6 +35,10 @@ public static class McpSetup
            o FAQ nao tem a solucao, registre-a com create_faq (fica como sugestao para a equipe revisar).
         Se nao der para resolver, deixe uma nota interna com o que foi verificado e tire o chamado de voce (assign_ticket "none").
 
+        Projetos: list_projects mine=true mostra o que esta com o usuario da chave; get_project traz as estacoes e tarefas com a
+        situacao no ciclo atual. Registre o andamento com update_project_progress (varias de uma vez) ou add_project_note (com o
+        detalhe), sempre com a observacao do que foi feito. Nao conclua o ciclo (close_project_cycle) sem o pedido do usuario.
+
         As respostas sao o JSON das rotas da API; datas em UTC (ISO 8601). Um erro HTTP 403 quer dizer que falta permissao
         ao usuario da chave; nao tente contornar. api_get le qualquer outra rota GET da API.
         """;
@@ -51,7 +56,8 @@ public static class McpSetup
             .WithTools<TicketTools>()
             .WithTools<AgentTools>()
             .WithTools<PlatformTools>()
-            .WithTools<FaqTools>();
+            .WithTools<FaqTools>()
+            .WithTools<ProjectTools>();
         return services;
     }
 

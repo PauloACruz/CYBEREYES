@@ -108,6 +108,10 @@ builder.Services.AddSingleton<Cybereyes.Api.Notifications.PushOutbox>();
 builder.Services.AddSingleton<Cybereyes.Api.Notifications.IPushTransport, Cybereyes.Api.Notifications.WebPushTransport>();
 builder.Services.AddHttpClient(Cybereyes.Api.Notifications.WebPushTransport.HttpClientName, c => c.Timeout = TimeSpan.FromSeconds(15));
 builder.Services.AddHostedService<Cybereyes.Api.Notifications.PushDispatcher>();
+builder.Services.AddSingleton<Cybereyes.Api.Projects.ProjectPushOutbox>();
+builder.Services.AddHostedService<Cybereyes.Api.Projects.ProjectPushDispatcher>();
+builder.Services.AddSingleton<Cybereyes.Api.Projects.ProjectReminderService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<Cybereyes.Api.Projects.ProjectReminderService>());
 builder.Services.AddScoped<Cybereyes.Api.Tickets.TicketService>();
 builder.Services.AddScoped<Cybereyes.Api.Tickets.TicketRotation>();
 builder.Services.AddScoped<Cybereyes.Api.Tickets.IncidentService>();
@@ -280,6 +284,7 @@ Cybereyes.Api.Snmp.SnmpEndpoints.MapSnmpEndpoints(app);
 Cybereyes.Api.Reports.ReportEndpoints.MapReportEndpoints(app);
 Cybereyes.Api.Sso.SsoEndpoints.MapSsoEndpoints(app);
 Cybereyes.Api.Apps.AppEndpoints.MapAppEndpoints(app);
+Cybereyes.Api.Projects.ProjectEndpoints.MapProjectEndpoints(app);
 app.MapCybereyesMcp();
 Cybereyes.Api.Rmm.Actions.KeyCaptureEndpoints.MapKeyCaptureEndpoints(app);
 

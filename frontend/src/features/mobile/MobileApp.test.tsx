@@ -105,14 +105,15 @@ describe('app do técnico no celular', () => {
     expect(second.router.state.location.pathname).toBe('/');
   });
 
-  it('agentes, chamados e aplicações abertos pelo endereço do console vão para o app', async () => {
+  it('agentes, chamados, aplicações e projetos abertos pelo endereço do console vão para o app', async () => {
     phone();
-    mockFetch({ 'GET /api/auth/me': () => json(makeMe({ permissions: ['agents.view', 'tickets.view', 'apps.view'] })) });
+    mockFetch({ 'GET /api/auth/me': () => json(makeMe({ permissions: ['agents.view', 'tickets.view', 'apps.view', 'projects.view'] })) });
     for (const [from, to] of [
       ['/agentes', '/app/agentes'],
       ['/agentes/7', '/app/agentes/7'],
       ['/chamados/101', '/app/chamados/101'],
       ['/aplicacoes', '/app/aplicacoes'],
+      ['/projetos/7', '/app/projetos/7'],
     ] as const) {
       const { router, unmount } = renderApp(from);
       await waitFor(() => expect(router.state.location.pathname).toBe(to));

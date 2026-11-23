@@ -68,6 +68,14 @@ Ferramentas marcadas com `destructiveHint` mudam a máquina; os clientes MCP cos
 | `update_faq` | `GET` + `PUT /api/faq/{id}` (campos omitidos ficam como estão) | `docs.manage` |
 | `faq_used` | `POST /api/faq/{id}/used` | `docs.view` |
 | `list_assets` | `GET /api/assets` | `inventory.view` |
+| `list_projects`, `get_project` | `GET /api/projects` (`mine=true` para os do usuário), `/api/projects/{id}` (+ `/notes` do ciclo atual com `notes=true`) | `projects.view` |
+| `list_project_options` | `GET /api/projects/options` (responsáveis, clientes com setores e estações) | `projects.view` |
+| `create_project` | `POST /api/projects` (com tarefas; `"me"` como responsável) | `projects.manage` |
+| `add_project_task` | `POST /api/projects/{id}/tasks` | `projects.manage` |
+| `update_project_progress` | `PUT /api/projects/{id}/progress` | `projects.view` + responsável, ou `projects.manage` |
+| `add_project_note` | `POST /api/projects/{id}/notes` | `projects.view` + responsável, ou `projects.manage` |
+| `set_project_status` | `PUT /api/projects/{id}/status` | `projects.manage` |
+| `close_project_cycle` (destrutiva) | `POST /api/projects/{id}/cycles` | `projects.manage` |
 | `api_get` | qualquer `GET /api/...` (só caminho relativo; sem host, `..` ou `//`) | a da rota |
 
 Não há ferramenta para revelar senhas do cofre, gerenciar usuários, papéis, chaves ou configurações; `api_get` só lê.

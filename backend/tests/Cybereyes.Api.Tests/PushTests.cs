@@ -9,16 +9,17 @@ namespace Cybereyes.Api.Tests;
 public sealed partial class AgentTests
 {
     /// <summary>Inscreve um aparelho com chaves de navegador validas e devolve o endereco dele.</summary>
-    private static async Task<string> SubscribeAsync(HttpClient client, string name, bool newTickets = true, bool updates = true, bool messages = true)
+    private static async Task<string> SubscribeAsync(HttpClient client, string name, bool newTickets = true, bool updates = true, bool messages = true,
+        bool projects = true)
     {
         var endpoint = $"https://fcm.googleapis.com/fcm/send/{name}-{Guid.NewGuid():N}";
-        var response = await SubscribeRequestAsync(client, endpoint, $"Chrome ({name})", newTickets, updates, messages);
+        var response = await SubscribeRequestAsync(client, endpoint, $"Chrome ({name})", newTickets, updates, messages, projects);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         return endpoint;
     }
 
     private static Task<HttpResponseMessage> SubscribeRequestAsync(HttpClient client, string endpoint, string? device = null, bool newTickets = true,
-        bool updates = true, bool messages = true)
+        bool updates = true, bool messages = true, bool projects = true)
     {
         using var browser = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
         var q = browser.ExportParameters(false).Q;
@@ -28,7 +29,7 @@ public sealed partial class AgentTests
             p256dh = Base64Url.EncodeToString([4, .. q.X!, .. q.Y!]),
             auth = Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(16)),
             device,
-            newTickets, updates, messages,
+            newTickets, updates, messages, projects,
         });
     }
 
