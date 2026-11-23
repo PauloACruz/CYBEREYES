@@ -72,21 +72,21 @@ public sealed partial class AgentTests
         Assert.True(runCommand.GetProperty("annotations").GetProperty("destructiveHint").GetBoolean());
         Assert.Contains("agentId", runCommand.GetProperty("inputSchema").GetProperty("required").EnumerateArray().Select(r => r.GetString()));
 
-        var created = JsonDocument.Parse(await McpToolAsync(mcp, "create_ticket",
-            new { title = "Outlook nao abre", description = "Trava na tela de carregamento", agentId = pk, requesterName = "Ana" })).RootElement;
+        var created = JsonElement.Parse(await McpToolAsync(mcp, "create_ticket",
+            new { title = "Outlook nao abre", description = "Trava na tela de carregamento", agentId = pk, requesterName = "Ana" }));
         var ticketId = created.GetProperty("id").GetInt32();
         Assert.Equal("Ana", created.GetProperty("requesterName").GetString());
 
         var assigned = JsonElement.Parse(await McpToolAsync(mcp, "assign_ticket", new { ticketId, userId = "me" }));
         Assert.Equal("in_progress", assigned.GetProperty("status").GetString());
 
-        var output = JsonDocument.Parse(await McpToolAsync(mcp, "run_command",
-            new { agentId = pk, shell = "/bin/bash", command = "pgrep outlook || echo Outlook fechado" })).RootElement;
+        var output = JsonElement.Parse(await McpToolAsync(mcp, "run_command",
+            new { agentId = pk, shell = "/bin/bash", command = "pgrep outlook || echo Outlook fechado" }));
         Assert.Equal("Outlook fechado", output.GetProperty("output").GetString());
 
         await McpToolAsync(mcp, "reply_ticket", new { ticketId, body = "Processo travado encerrado", @internal = true });
-        var resolved = JsonDocument.Parse(await McpToolAsync(mcp, "resolve_ticket",
-            new { ticketId, kind = "workaround", resolution = "Abrir o Outlook pelo modo de seguranca ate a atualizacao" })).RootElement;
+        var resolved = JsonElement.Parse(await McpToolAsync(mcp, "resolve_ticket",
+            new { ticketId, kind = "workaround", resolution = "Abrir o Outlook pelo modo de seguranca ate a atualizacao" }));
         Assert.Equal("resolved", resolved.GetProperty("status").GetString());
         Assert.Equal("workaround", resolved.GetProperty("resolutionKind").GetString());
 

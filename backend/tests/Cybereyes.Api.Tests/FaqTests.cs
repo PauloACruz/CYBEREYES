@@ -238,11 +238,11 @@ public sealed partial class AgentTests
         using var admin = await fixture.AdminClientAsync();
         using var mcp = await McpClientAsync(admin, "agente.ia.faq", "docs.view", "docs.manage");
 
-        var created = JsonDocument.Parse(await McpToolAsync(mcp, "create_faq", new
+        var created = JsonElement.Parse(await McpToolAsync(mcp, "create_faq", new
         {
             question = "Teams sem som na chamada (teste do MCP)", answer = "1. Confira o dispositivo de audio\n2. Reinicie o Teams",
             category = "Programas", tags = new[] { "teams" }, guides = true, @public = true,
-        })).RootElement;
+        }));
         var id = created.GetProperty("id").GetInt32();
         Assert.Equal("proposed", created.GetProperty("status").GetString());
         Assert.Equal(new[] { "orientar", "teams" }, created.GetProperty("tags").EnumerateArray().Select(t => t.GetString()));

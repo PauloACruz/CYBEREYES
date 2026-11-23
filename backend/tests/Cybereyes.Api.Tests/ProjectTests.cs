@@ -379,11 +379,11 @@ public sealed partial class AgentTests
         var options = JsonElement.Parse(await McpToolAsync(mcp, "list_project_options", new { }));
         Assert.Contains(options.GetProperty("agents").EnumerateArray(), a => a.GetProperty("id").GetInt32() == pk);
 
-        var created = JsonDocument.Parse(await McpToolAsync(mcp, "create_project", new
+        var created = JsonElement.Parse(await McpToolAsync(mcp, "create_project", new
         {
             name = "Inventario fisico (MCP)", agentIds = new[] { pk }, ownerId = "me",
             tasks = new object[] { new { title = "Etiquetar os equipamentos", assigneeId = "me", dueDate = "2030-01-10" } },
-        })).RootElement;
+        }));
         var id = created.GetProperty("id").GetInt32();
         Assert.Equal("Usuario agente.projetos", created.GetProperty("owner").GetProperty("name").GetString());
         var row = created.GetProperty("agents")[0].GetProperty("id").GetInt64();
