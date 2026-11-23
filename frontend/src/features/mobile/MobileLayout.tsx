@@ -34,6 +34,7 @@ export function MobileHome() {
   if (hasPermission(me, PERMISSIONS.ticketsView)) return <Navigate to={MOBILE_PATHS.tickets} replace />;
   if (hasPermission(me, PERMISSIONS.agentsView)) return <Navigate to={MOBILE_PATHS.agents} replace />;
   if (hasPermission(me, PERMISSIONS.appsView)) return <Navigate to={MOBILE_PATHS.webApps} replace />;
+  if (hasPermission(me, PERMISSIONS.projectsView)) return <Navigate to={MOBILE_PATHS.projects} replace />;
   if (me) return <Navigate to={MOBILE_PATHS.more} replace />;
   return <Navigate to={PATHS.dashboard} replace />;
 }

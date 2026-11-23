@@ -17,6 +17,7 @@ import type {
   ListTicketsParams,
   Severity,
 } from './types';
+import type { ListProjectNotesParams, ListProjectsParams } from './projects';
 
 export const queryKeys = {
   clients: ['clients'] as const,
@@ -123,6 +124,13 @@ export const queryKeys = {
   assistantAgents: ['assistant', 'agents'] as const,
   logInsights: ['assistant', 'insights'] as const,
   logInsight: (id: number) => ['assistant', 'insights', id] as const,
+  projects: ['projects'] as const,
+  projectList: (params: ListProjectsParams) => ['projects', 'list', params] as const,
+  projectOptions: ['projects', 'options'] as const,
+  project: (id: number) => ['projects', 'detail', id] as const,
+  projectNotes: (id: number, params: ListProjectNotesParams) => ['projects', 'detail', id, 'notes', params] as const,
+  projectCycles: (id: number) => ['projects', 'detail', id, 'cycles'] as const,
+  agentProjects: (agentId: number) => ['projects', 'agent', agentId] as const,
   faq: ['faq'] as const,
   faqList: (params: ListFaqParams) => ['faq', 'list', params] as const,
   faqOverview: (clientId?: number) => ['faq', 'overview', clientId ?? null] as const,

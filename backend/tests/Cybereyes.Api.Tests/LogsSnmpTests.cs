@@ -131,7 +131,7 @@ public sealed partial class AgentTests
         };
         var test = await admin.PostAsJsonAsync("/api/snmp/devices/test", body);
         Assert.Equal("sw-core", (await test.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("system").GetProperty("name").GetString());
-        var testTarget = JsonDocument.Parse(Payload(agent.Received.Single(m => m.GetString("func") == "snmp_test"), "target")!).RootElement;
+        var testTarget = JsonElement.Parse(Payload(agent.Received.Single(m => m.GetString("func") == "snmp_test"), "target")!);
         Assert.Equal("comunidade-secreta", testTarget.GetProperty("community").GetString());
 
         var created = await admin.PostAsJsonAsync("/api/snmp/devices", body);

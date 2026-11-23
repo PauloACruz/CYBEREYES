@@ -97,7 +97,7 @@ public sealed partial class AgentTests
         {
             var saved = await admin.GetStringAsync("/api/assistant/settings");
             Assert.DoesNotContain(AnthropicKey, saved, StringComparison.Ordinal);
-            var dto = JsonDocument.Parse(saved).RootElement;
+            var dto = JsonElement.Parse(saved);
             Assert.True(dto.GetProperty("keySet").GetBoolean());
             Assert.Equal("1234", dto.GetProperty("keyHint").GetString());
             Assert.True(dto.GetProperty("chatEnabled").GetBoolean());

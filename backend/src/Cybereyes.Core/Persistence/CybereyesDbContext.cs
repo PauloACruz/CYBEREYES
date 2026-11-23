@@ -7,6 +7,7 @@ using Cybereyes.Core.Audit;
 using Cybereyes.Core.Identity;
 using Cybereyes.Core.Inventory;
 using Cybereyes.Core.Notifications;
+using Cybereyes.Core.Projects;
 using Cybereyes.Core.Reports;
 using Cybereyes.Core.Rmm;
 using Cybereyes.Core.Tickets;
@@ -95,6 +96,15 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
     public DbSet<KeyCaptureSession> KeyCaptureSessions => Set<KeyCaptureSession>();
     public DbSet<KeyCaptureEntry> KeyCaptureEntries => Set<KeyCaptureEntry>();
     public DbSet<WebcamSessionLog> WebcamSessions => Set<WebcamSessionLog>();
+    public DbSet<Project> Projects => Set<Project>();
+    public DbSet<ProjectClient> ProjectClients => Set<ProjectClient>();
+    public DbSet<ProjectSite> ProjectSites => Set<ProjectSite>();
+    public DbSet<ProjectAgent> ProjectAgents => Set<ProjectAgent>();
+    public DbSet<ProjectTask> ProjectTasks => Set<ProjectTask>();
+    public DbSet<ProjectCycle> ProjectCycles => Set<ProjectCycle>();
+    public DbSet<ProjectNote> ProjectNotes => Set<ProjectNote>();
+    public DbSet<ProjectAttachment> ProjectAttachments => Set<ProjectAttachment>();
+    public DbSet<ProjectAttachmentData> ProjectAttachmentData => Set<ProjectAttachmentData>();
 
     // Escopo de clientes do usuario da requisicao. Nulo = sem restricao (agentes, servicos internos e
     // usuarios com acesso a todos os clientes). Os filtros globais de ConfigureClientScope leem estes campos.
@@ -191,7 +201,115 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
         });
 
         ConfigureApps(builder);
+        ConfigureProjects(builder);
         ConfigureClientScope(builder);
+    }
+
+    private static void ConfigureProjects(ModelBuilder builder)
+    {
+        builder.Entity<Project>(e =>
+        {
+            e.ToTable("projects");
+            e.Property(x => x.Name).HasMaxLength(200);
+            e.Property(x => x.Description).HasMaxLength(20000);
+            e.Property(x => x.Status).HasMaxLength(16);
+            e.Property(x => x.Recurrence).HasMaxLength(16);
+            e.Property(x => x.CreatedByName).HasMaxLength(200);
+            e.HasIndex(x => x.Status);
+            e.HasIndex(x => x.OwnerId);
+            e.HasOne<AppUser>().WithMany().HasForeignKey(x => x.OwnerId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne<AppUser>().WithMany().HasForeignKey(x => x.CreatedById).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<ProjectClient>(e =>
+        {
+            e.ToTable("project_clients");
+            e.HasKey(x => new { x.ProjectId, x.ClientId });
+            e.HasIndex(x => x.ClientId);
+            e.HasOne<Project>().WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<Client>().WithMany().HasForeignKey(x => x.ClientId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<ProjectSite>(e =>
+        {
+            e.ToTable("project_sites");
+            e.HasKey(x => new { x.ProjectId, x.SiteId });
+            e.HasIndex(x => x.SiteId);
+            e.HasOne<Project>().WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<Site>().WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<ProjectAgent>(e =>
+        {
+            e.ToTable("project_agents");
+            e.Property(x => x.Hostname).HasMaxLength(255);
+            e.Property(x => x.Status).HasMaxLength(16);
+            e.Property(x => x.Note).HasMaxLength(2000);
+            e.Property(x => x.DoneByName).HasMaxLength(200);
+            e.HasIndex(x => new { x.ProjectId, x.AgentId }).IsUnique();
+            e.HasIndex(x => x.AgentId);
+            e.HasOne<Project>().WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<Agent>().WithMany().HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<ProjectTask>(e =>
+        {
+            e.ToTable("project_tasks");
+            e.Property(x => x.Title).HasMaxLength(300);
+            e.Property(x => x.Description).HasMaxLength(4000);
+            e.Property(x => x.Status).HasMaxLength(16);
+            e.Property(x => x.Note).HasMaxLength(2000);
+            e.Property(x => x.DoneByName).HasMaxLength(200);
+            e.HasIndex(x => new { x.ProjectId, x.Position });
+            e.HasIndex(x => x.AssigneeId);
+            e.HasOne<Project>().WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<AppUser>().WithMany().HasForeignKey(x => x.AssigneeId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<ProjectCycle>(e =>
+        {
+            e.ToTable("project_cycles");
+            e.Property(x => x.ClosedByName).HasMaxLength(200);
+            e.Property(x => x.Summary).HasMaxLength(4000);
+            e.Property(x => x.Items).HasColumnType("jsonb");
+            e.HasIndex(x => new { x.ProjectId, x.Number }).IsUnique();
+            e.HasOne<Project>().WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<ProjectNote>(e =>
+        {
+            e.ToTable("project_notes");
+            e.Property(x => x.Kind).HasMaxLength(16);
+            e.Property(x => x.Subject).HasMaxLength(300);
+            e.Property(x => x.ItemStatus).HasMaxLength(16);
+            e.Property(x => x.Body).HasMaxLength(20000);
+            e.Property(x => x.AuthorName).HasMaxLength(200);
+            e.HasIndex(x => new { x.ProjectId, x.CreatedAt });
+            e.HasIndex(x => x.ProjectAgentId);
+            e.HasIndex(x => x.ProjectTaskId);
+            e.HasOne<Project>().WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<ProjectAgent>().WithMany().HasForeignKey(x => x.ProjectAgentId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne<ProjectTask>().WithMany().HasForeignKey(x => x.ProjectTaskId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<ProjectAttachment>(e =>
+        {
+            e.ToTable("project_attachments");
+            e.Property(x => x.FileName).HasMaxLength(255);
+            e.Property(x => x.ContentType).HasMaxLength(128);
+            e.Property(x => x.UploadedBy).HasMaxLength(200);
+            e.HasIndex(x => x.ProjectId);
+            e.HasIndex(x => x.NoteId);
+            e.HasOne<Project>().WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<ProjectNote>().WithMany().HasForeignKey(x => x.NoteId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<ProjectAttachmentData>(e =>
+        {
+            e.ToTable("project_attachment_data");
+            e.HasKey(x => x.AttachmentId);
+            e.HasOne<ProjectAttachment>().WithOne().HasForeignKey<ProjectAttachmentData>(x => x.AttachmentId).OnDelete(DeleteBehavior.Cascade);
+        });
     }
 
     private static void ConfigureApps(ModelBuilder builder)
@@ -355,6 +473,17 @@ public sealed class CybereyesDbContext(DbContextOptions<CybereyesDbContext> opti
         builder.Entity<ReportRun>().HasQueryFilter(x => scopeClientIds == null ||
             (x.ClientId != null ? scopeClientIds.Contains(x.ClientId.Value) : x.RequestedBy == scopeUsername));
         builder.Entity<ReportSchedule>().HasQueryFilter(x => scopeClientIds == null || (x.ClientId != null && scopeClientIds.Contains(x.ClientId.Value)));
+
+        // Projeto visivel so quando todos os clientes envolvidos estao no escopo; sem cliente, nao expoe dado de cliente e fica visivel.
+        // ProjectClient nao tem filtro: com filtro, o NOT EXISTS abaixo nunca acharia o cliente fora do escopo.
+        builder.Entity<Project>().HasQueryFilter(p => scopeClientIds == null ||
+            !ProjectClients.Any(pc => pc.ProjectId == p.Id && !scopeClientIds.Contains(pc.ClientId)));
+        builder.Entity<ProjectSite>().HasQueryFilter(x => scopeClientIds == null || Projects.Any(p => p.Id == x.ProjectId));
+        builder.Entity<ProjectAgent>().HasQueryFilter(x => scopeClientIds == null || Projects.Any(p => p.Id == x.ProjectId));
+        builder.Entity<ProjectTask>().HasQueryFilter(x => scopeClientIds == null || Projects.Any(p => p.Id == x.ProjectId));
+        builder.Entity<ProjectCycle>().HasQueryFilter(x => scopeClientIds == null || Projects.Any(p => p.Id == x.ProjectId));
+        builder.Entity<ProjectNote>().HasQueryFilter(x => scopeClientIds == null || Projects.Any(p => p.Id == x.ProjectId));
+        builder.Entity<ProjectAttachment>().HasQueryFilter(x => scopeClientIds == null || Projects.Any(p => p.Id == x.ProjectId));
     }
 
     private static void ConfigureRmm(ModelBuilder builder)

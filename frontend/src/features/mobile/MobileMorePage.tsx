@@ -103,7 +103,7 @@ export function MobileMorePage() {
           )}
         </Box>
       </MobileSection>
-      {hasPermission(me, PERMISSIONS.ticketsView) && (
+      {(hasPermission(me, PERMISSIONS.ticketsView) || hasPermission(me, PERMISSIONS.projectsView)) && (
         <MobileSection title="Notificações">
           <Box style={MOBILE_CARD}>
             <NotificationSettings mobile />

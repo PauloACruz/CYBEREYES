@@ -345,7 +345,7 @@ public static class DocsEndpoints
         var d = await db.Diagrams.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
         return d is null
             ? Problems.NotFound("Diagrama")
-            : TypedResults.Ok(new { d.Id, d.ClientId, d.SiteId, d.Name, data = JsonDocument.Parse(d.Data).RootElement, d.UpdatedAt, d.UpdatedBy });
+            : TypedResults.Ok(new { d.Id, d.ClientId, d.SiteId, d.Name, data = JsonElement.Parse(d.Data), d.UpdatedAt, d.UpdatedBy });
     }
 
     private static async Task<IResult> SaveDiagramAsync(int? id, SaveDiagramRequest r, ClaimsPrincipal principal, CybereyesDbContext db, IAuditService audit,

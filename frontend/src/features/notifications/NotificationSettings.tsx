@@ -16,6 +16,7 @@ const OPTIONS: { key: keyof PushPreferences; label: string; description: string 
   { key: 'updates', label: 'Atualizações dos meus chamados', description: 'Chamado atribuído a você e mudanças de status ou prioridade.' },
   { key: 'messages', label: 'Mensagens', description: 'Respostas do solicitante e notas de outros técnicos nos seus chamados.' },
   { key: 'insights', label: 'Análises de logs', description: 'Erros recorrentes nas máquinas analisados pelo assistente de IA.' },
+  { key: 'projects', label: 'Projetos', description: 'Projeto ou tarefa atribuídos a você e o início dos ciclos agendados.' },
 ];
 
 function Notice({ children }: { children: string }) {

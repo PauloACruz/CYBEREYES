@@ -58,7 +58,7 @@ public sealed class WebPushCryptoTests
         var match = System.Text.RegularExpressions.Regex.Match(header, "^vapid t=([^.]+)\\.([^.]+)\\.([^,]+), k=(.+)$");
         Assert.True(match.Success, header);
         Assert.Equal(keys.PublicKey, match.Groups[4].Value);
-        var claims = JsonDocument.Parse(Base64Url.DecodeFromChars(match.Groups[2].Value)).RootElement;
+        var claims = JsonElement.Parse(Base64Url.DecodeFromChars(match.Groups[2].Value));
         Assert.Equal("https://fcm.googleapis.com", claims.GetProperty("aud").GetString());
         Assert.Equal(now.AddHours(12).ToUnixTimeSeconds(), claims.GetProperty("exp").GetInt64());
         Assert.Equal("https://rmm.exemplo.com", claims.GetProperty("sub").GetString());

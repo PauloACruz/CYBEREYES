@@ -422,7 +422,7 @@ public sealed partial class AssistantChat(
         return text.ToString();
     }
 
-    private static readonly JsonElement DecisionSchema = JsonDocument.Parse("""
+    private static readonly JsonElement DecisionSchema = JsonElement.Parse("""
         {
           "type": "object",
           "properties": {
@@ -436,7 +436,7 @@ public sealed partial class AssistantChat(
           "required": ["action", "reply", "faqId", "title", "priority", "summary"],
           "additionalProperties": false
         }
-        """).RootElement;
+        """);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "O assistente nao respondeu o chamado {TicketId}")]
     private static partial void LogModelFailed(ILogger logger, Exception ex, int ticketId);

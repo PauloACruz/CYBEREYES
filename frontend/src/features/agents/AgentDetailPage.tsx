@@ -31,6 +31,7 @@ import {
   IconClipboardList,
   IconHistory,
   IconInfoCircle,
+  IconLayoutKanban,
   IconListDetails,
   IconLogs,
   IconPackage,
@@ -91,6 +92,7 @@ import { RemoteSessionsTable } from '../remote/RemoteSessionsTable';
 import { KeyCaptureTab } from './actions/KeyCaptureTab';
 import { CareTab } from '../care/CareTab';
 import { AgentProceduresTab } from '../procedures/AgentProceduresTab';
+import { AgentProjectsTab } from '../projects/AgentProjectsTab';
 import { CARE_NAME } from '../care/careFormat';
 import { LogsView } from '../logs/LogsView';
 import { SnmpCollectorCard } from '../snmp/SnmpCollectorCard';
@@ -208,6 +210,9 @@ function AgentDetailView({ agent }: { agent: AgentDetail }) {
   }
   if (hasPermission(me, PERMISSIONS.agentsView)) tabs.push({ value: 'care', label: CARE_NAME, icon: IconTool, render: () => <CareTab agent={agent} /> });
   tabs.push({ value: 'procedimentos', label: 'Procedimentos', icon: IconClipboardList, render: () => <AgentProceduresTab agent={agent} /> });
+  if (hasPermission(me, PERMISSIONS.projectsView)) {
+    tabs.push({ value: 'projetos', label: 'Projetos', icon: IconLayoutKanban, render: () => <AgentProjectsTab agent={agent} /> });
+  }
   tabs.push({ value: 'historico', label: 'Histórico', icon: IconHistory, render: () => <HistoryTab agent={agent} /> });
   if (hasPermission(me, PERMISSIONS.agentsFiles) && agent.status === 'online') {
     tabs.push({ value: 'arquivos', label: 'Arquivos', icon: IconFolders, render: () => <AgentFilesTab agentId={agent.id} /> });

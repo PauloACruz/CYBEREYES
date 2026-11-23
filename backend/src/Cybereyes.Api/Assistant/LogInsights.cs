@@ -355,7 +355,7 @@ public sealed partial class LogInsightRunner(
         Seja direto e tecnico; nao invente numeros que nao estao nos dados.
         """;
 
-    private static readonly JsonElement Schema = JsonDocument.Parse("""
+    private static readonly JsonElement Schema = JsonElement.Parse("""
         {
           "type": "object",
           "properties": {
@@ -391,7 +391,7 @@ public sealed partial class LogInsightRunner(
           "required": ["summary", "items", "suggestions"],
           "additionalProperties": false
         }
-        """).RootElement;
+        """);
 
     /// <summary>
     /// Avisa quem ve os logs de todos os clientes (a analise junta as maquinas de todos): push nos aparelhos inscritos e,

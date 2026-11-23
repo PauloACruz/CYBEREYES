@@ -25,6 +25,9 @@ public sealed class PushSubscription
     /// <summary>Analises de erros recorrentes nos logs feitas pelo assistente de IA.</summary>
     public bool Insights { get; set; } = true;
 
+    /// <summary>Projetos e tarefas atribuidos ao usuario e o inicio dos ciclos agendados dos projetos dele.</summary>
+    public bool Projects { get; set; } = true;
+
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? LastSentAt { get; set; }
 }
