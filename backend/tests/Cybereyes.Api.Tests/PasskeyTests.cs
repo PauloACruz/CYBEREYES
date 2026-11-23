@@ -154,7 +154,7 @@ public sealed class PasskeyTests(ApiFixture fixture)
 
         // Sem pedir as opcoes antes nao ha desafio para conferir.
         using var authenticator = new SoftwareAuthenticator(Origin);
-        var options = JsonDocument.Parse("""{"rp":{"id":"rmm.exemplo.com"},"user":{"id":"eA"},"challenge":"AAAA"}""").RootElement;
+        var options = JsonElement.Parse("""{"rp":{"id":"rmm.exemplo.com"},"user":{"id":"eA"},"challenge":"AAAA"}""");
         var stray = await phone.PostAsJsonAsync("/api/auth/passkeys/register", new { credential = authenticator.Create(options) });
         Assert.Equal(HttpStatusCode.BadRequest, stray.StatusCode);
         Assert.Empty((await phone.GetFromJsonAsync<List<JsonElement>>("/api/auth/passkeys"))!);

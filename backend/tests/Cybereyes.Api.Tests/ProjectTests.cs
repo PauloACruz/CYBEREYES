@@ -376,7 +376,7 @@ public sealed partial class AgentTests
         Assert.True(close.GetProperty("annotations").GetProperty("destructiveHint").GetBoolean());
         Assert.Contains(tools, t => t.GetProperty("name").GetString() == "update_project_progress");
 
-        var options = JsonDocument.Parse(await McpToolAsync(mcp, "list_project_options", new { })).RootElement;
+        var options = JsonElement.Parse(await McpToolAsync(mcp, "list_project_options", new { }));
         Assert.Contains(options.GetProperty("agents").EnumerateArray(), a => a.GetProperty("id").GetInt32() == pk);
 
         var created = JsonDocument.Parse(await McpToolAsync(mcp, "create_project", new
@@ -394,15 +394,15 @@ public sealed partial class AgentTests
         await McpToolAsync(mcp, "add_project_note", new { projectId = id, body = "Etiquetas impressas", projectTaskId = taskId, status = "done" });
         await McpToolAsync(mcp, "update_project_progress", new { projectId = id, status = "feito", taskIds = new[] { taskId } }, expectError: true);
 
-        var withNotes = JsonDocument.Parse(await McpToolAsync(mcp, "get_project", new { projectId = id, notes = true })).RootElement;
+        var withNotes = JsonElement.Parse(await McpToolAsync(mcp, "get_project", new { projectId = id, notes = true }));
         Assert.Equal(1, withNotes.GetProperty("project").GetProperty("progress").GetProperty("agentsFinished").GetInt32());
         Assert.Equal(1, withNotes.GetProperty("project").GetProperty("progress").GetProperty("tasksFinished").GetInt32());
         Assert.Contains(withNotes.GetProperty("notes").EnumerateArray(), n => n.GetProperty("body").GetString() == "Etiquetas impressas");
 
-        var mine = JsonDocument.Parse(await McpToolAsync(mcp, "list_projects", new { mine = true })).RootElement;
+        var mine = JsonElement.Parse(await McpToolAsync(mcp, "list_projects", new { mine = true }));
         Assert.Contains(mine.EnumerateArray(), p => p.GetProperty("id").GetInt32() == id);
 
-        var done = JsonDocument.Parse(await McpToolAsync(mcp, "close_project_cycle", new { projectId = id, summary = "Tudo etiquetado" })).RootElement;
+        var done = JsonElement.Parse(await McpToolAsync(mcp, "close_project_cycle", new { projectId = id, summary = "Tudo etiquetado" }));
         Assert.Equal("done", done.GetProperty("status").GetString());
         Assert.Equal(HttpStatusCode.NoContent, (await admin.DeleteAsync($"/api/projects/{id}")).StatusCode);
     }

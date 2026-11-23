@@ -246,5 +246,5 @@ public static class AgentEndpoints
         return TypedResults.Ok(new MoveAgentResult(site.ClientId, site.Client.Name, site.Id, site.Name, movedTickets, clientChanged));
     }
 
-    private static JsonElement? Json(string? raw) => raw is null ? null : JsonDocument.Parse(raw).RootElement.Clone();
+    private static JsonElement? Json(string? raw) => raw is null ? null : JsonElement.Parse(raw);
 }

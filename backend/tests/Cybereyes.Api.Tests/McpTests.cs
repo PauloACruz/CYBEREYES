@@ -77,7 +77,7 @@ public sealed partial class AgentTests
         var ticketId = created.GetProperty("id").GetInt32();
         Assert.Equal("Ana", created.GetProperty("requesterName").GetString());
 
-        var assigned = JsonDocument.Parse(await McpToolAsync(mcp, "assign_ticket", new { ticketId, userId = "me" })).RootElement;
+        var assigned = JsonElement.Parse(await McpToolAsync(mcp, "assign_ticket", new { ticketId, userId = "me" }));
         Assert.Equal("in_progress", assigned.GetProperty("status").GetString());
 
         var output = JsonDocument.Parse(await McpToolAsync(mcp, "run_command",
@@ -90,7 +90,7 @@ public sealed partial class AgentTests
         Assert.Equal("resolved", resolved.GetProperty("status").GetString());
         Assert.Equal("workaround", resolved.GetProperty("resolutionKind").GetString());
 
-        var full = JsonDocument.Parse(await McpToolAsync(mcp, "get_ticket", new { ticketId })).RootElement;
+        var full = JsonElement.Parse(await McpToolAsync(mcp, "get_ticket", new { ticketId }));
         Assert.Equal(pk, full.GetProperty("ticket").GetProperty("agentId").GetInt32());
         Assert.Contains(full.GetProperty("messages").EnumerateArray(),
             m => m.GetProperty("internal").GetBoolean() && m.GetProperty("body").GetString() == "Processo travado encerrado");

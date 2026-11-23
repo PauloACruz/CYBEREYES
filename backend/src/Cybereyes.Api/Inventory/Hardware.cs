@@ -21,7 +21,7 @@ public static class Hardware
         JsonElement root;
         try
         {
-            root = string.IsNullOrWhiteSpace(wmiJson) ? default : JsonDocument.Parse(wmiJson).RootElement;
+            root = string.IsNullOrWhiteSpace(wmiJson) ? default : JsonElement.Parse(wmiJson);
         }
         catch (JsonException)
         {

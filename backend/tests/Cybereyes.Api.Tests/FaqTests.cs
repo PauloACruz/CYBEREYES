@@ -250,7 +250,7 @@ public sealed partial class AgentTests
         Assert.DoesNotContain($"\"id\":{id},", await McpToolAsync(mcp, "search_faq", new { search = "teste do MCP" }), StringComparison.Ordinal);
         Assert.Contains($"\"id\":{id},", await McpToolAsync(mcp, "search_faq", new { search = "teste do MCP", status = "proposed" }), StringComparison.Ordinal);
 
-        var updated = JsonDocument.Parse(await McpToolAsync(mcp, "update_faq", new { faqId = id, status = "published" })).RootElement;
+        var updated = JsonElement.Parse(await McpToolAsync(mcp, "update_faq", new { faqId = id, status = "published" }));
         Assert.Equal("published", updated.GetProperty("status").GetString());
         Assert.Equal("Programas", updated.GetProperty("category").GetString());
         Assert.True(updated.GetProperty("guides").GetBoolean());
@@ -258,6 +258,6 @@ public sealed partial class AgentTests
         Assert.Contains($"\"id\":{id},", await McpToolAsync(mcp, "search_faq", new { search = "teste do MCP" }), StringComparison.Ordinal);
 
         await McpToolAsync(mcp, "faq_used", new { faqId = id });
-        Assert.Equal(1, JsonDocument.Parse(await McpToolAsync(mcp, "get_faq", new { faqId = id })).RootElement.GetProperty("usedCount").GetInt32());
+        Assert.Equal(1, JsonElement.Parse(await McpToolAsync(mcp, "get_faq", new { faqId = id })).GetProperty("usedCount").GetInt32());
     }
 }

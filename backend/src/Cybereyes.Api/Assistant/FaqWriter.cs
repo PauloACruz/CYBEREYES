@@ -284,7 +284,7 @@ public sealed partial class FaqWriter(
         return text.ToString();
     }
 
-    private static readonly JsonElement Schema = JsonDocument.Parse("""
+    private static readonly JsonElement Schema = JsonElement.Parse("""
         {
           "type": "object",
           "properties": {
@@ -302,7 +302,7 @@ public sealed partial class FaqWriter(
           "required": ["action", "reason", "duplicateOf", "question", "answer", "category", "tags", "guides", "public", "clientSpecific"],
           "additionalProperties": false
         }
-        """).RootElement;
+        """);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "O chamado {TicketId} nao virou entrada do FAQ: {Reason}")]
     private static partial void LogSkipped(ILogger logger, int ticketId, string reason);
