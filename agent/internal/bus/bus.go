@@ -45,6 +45,32 @@ type Bus struct {
 	once sync.Once
 }
 
+// Prazos da abertura da conexao.
+var (
+	dialTimeout = 15 * time.Second
+	// handshakeTimeout limita tudo o que vem depois do TCP ate o CONNECT do NATS: tunel do proxy, TLS e upgrade do
+	// WebSocket. O nats.go faz o TLS do wss:// sem prazo e segurando o lock da conexao; quando a resposta do servidor
+	// nao chega (rede que perde pacotes grandes, proxy ou antivirus que segura a conexao), a reconexao trava para
+	// sempre: o agente fica fora do NATS com a maquina ligada e IsConnected, Publish e Close ficam presos junto.
+	// O proprio nats.go retira o prazo ao terminar o CONNECT (processConnectInit).
+	handshakeTimeout = 30 * time.Second
+)
+
+// deadlineDialer abre o TCP e marca o prazo do aperto de mao.
+type deadlineDialer struct{ d net.Dialer }
+
+func (d *deadlineDialer) Dial(network, address string) (net.Conn, error) {
+	conn, err := d.d.Dial(network, address)
+	if err != nil {
+		return nil, err
+	}
+	if err := conn.SetDeadline(time.Now().Add(handshakeTimeout)); err != nil {
+		conn.Close()
+		return nil, err
+	}
+	return conn, nil
+}
+
 // Connect abre a conexao e tenta reconectar para sempre quando ela cai.
 func Connect(ctx context.Context, opt Options, reg *rpc.Registry, log *slog.Logger) (*Bus, error) {
 	b := &Bus{opt: opt, log: log, reg: reg, ctx: ctx}
@@ -59,7 +85,7 @@ func Connect(ctx context.Context, opt Options, reg *rpc.Registry, log *slog.Logg
 		nats.RetryOnFailedConnect(true),
 		nats.PingInterval(30 * time.Second),
 		nats.MaxPingsOutstanding(3),
-		nats.Timeout(15 * time.Second),
+		nats.Timeout(dialTimeout),
 		nats.DisconnectErrHandler(func(_ *nats.Conn, err error) {
 			if err != nil {
 				log.Warn("NATS desconectado", "erro", err)
@@ -77,6 +103,8 @@ func Connect(ctx context.Context, opt Options, reg *rpc.Registry, log *slog.Logg
 			return nil, err
 		}
 		opts = append(opts, nats.SetCustomDialer(d))
+	} else {
+		opts = append(opts, nats.SetCustomDialer(&deadlineDialer{d: net.Dialer{Timeout: dialTimeout}}))
 	}
 	nc, err := nats.Connect(opt.URL, opts...)
 	if err != nil {
@@ -190,12 +218,17 @@ func newProxyDialer(raw string) (*proxyDialer, error) {
 	if err != nil || u.Host == "" {
 		return nil, fmt.Errorf("proxy invalido: %q", raw)
 	}
-	return &proxyDialer{proxy: u, d: net.Dialer{Timeout: 15 * time.Second}}, nil
+	return &proxyDialer{proxy: u, d: net.Dialer{Timeout: dialTimeout}}, nil
 }
 
+// Dial abre o tunel com o mesmo prazo do deadlineDialer, que segue valendo para o TLS e o WebSocket depois dele.
 func (p *proxyDialer) Dial(network, address string) (net.Conn, error) {
 	conn, err := p.d.Dial(network, p.proxy.Host)
 	if err != nil {
+		return nil, err
+	}
+	if err := conn.SetDeadline(time.Now().Add(handshakeTimeout)); err != nil {
+		conn.Close()
 		return nil, err
 	}
 	req := &http.Request{Method: http.MethodConnect, URL: &url.URL{Opaque: address}, Host: address, Header: http.Header{}}

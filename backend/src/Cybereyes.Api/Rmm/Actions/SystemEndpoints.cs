@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Cybereyes.Api.Infrastructure;
 using Cybereyes.Api.Rmm.Nats;
 using Cybereyes.Api.Rmm.Procedures;
@@ -31,6 +32,20 @@ public static partial class SystemEndpoints
 
     [GeneratedRegex(@"^[A-Za-z0-9_.\- ]{1,256}$")]
     private static partial Regex ServiceName();
+
+    /// <summary>Nome do servico Windows do proprio agente.</summary>
+    public const string AgentServiceName = "eyes";
+
+    /// <summary>
+    /// Primeira versao do EYES que reinicia o proprio servico por um processo separado. Antes, o reinicio era parar e depois
+    /// iniciar: o parar encerrava o agente que executaria o iniciar, e a maquina ficava fora do ar ate alguem ligar o servico nela.
+    /// </summary>
+    public const string SelfRestartVersion = "3.5.4";
+
+    private const string SelfStopRefused =
+        "O servico do EYES nao pode ser parado nem desativado pelo console: o agente ficaria sem comunicacao ate alguem liga-lo na maquina. Use Reiniciar.";
+
+    private static bool IsAgentService(string name) => string.Equals(name, AgentServiceName, StringComparison.OrdinalIgnoreCase);
 
     public static void MapSystemEndpoints(this IEndpointRouteBuilder app)
     {
@@ -175,6 +190,24 @@ public static partial class SystemEndpoints
             }
 
             var steps = request.Action == "restart" ? RestartSteps : [request.Action];
+            if (IsAgentService(name) && request.Action != "start")
+            {
+                if (request.Action == "stop")
+                {
+                    return TypedResults.Ok(new { success = false, message = SelfStopRefused });
+                }
+                var version = await d.Db.Agents.AsNoTracking().Where(a => a.Id == id).Select(a => a.Version).FirstOrDefaultAsync(ct);
+                if (AgentUpdates.IsOutdated(version, SelfRestartVersion))
+                {
+                    return TypedResults.Ok(new
+                    {
+                        success = false,
+                        message = $"Reiniciar o EYES pelo console exige a versao {SelfRestartVersion} (a atualizacao e automatica): nesta versao o agente pararia e nao voltaria.",
+                    });
+                }
+                // O agente responde na hora e reinicia por um processo separado alguns segundos depois.
+                steps = ["restart"];
+            }
             var verb = request.Action switch { "start" => "iniciado", "stop" => "parado", _ => "reiniciado" };
             var result = await d.Procedures.TrackAsync(id, ProcedureKind.Service, $"{name} {verb}", null, async () =>
             {
@@ -200,6 +233,10 @@ public static partial class SystemEndpoints
             if (!ServiceName().IsMatch(name) || !StartTypes.Contains(request.StartType))
             {
                 return Problems.BadRequest("Servico ou tipo de inicializacao invalido");
+            }
+            if (IsAgentService(name) && request.StartType is "manual" or "disabled")
+            {
+                return TypedResults.Ok(new { success = false, message = SelfStopRefused });
             }
             var (success, message) = await d.Procedures.TrackAsync(id, ProcedureKind.Service, $"{name}: inicialização {StartTypeName(request.StartType)}", null,
                 async () => SvcResult(await d.Rpc.RequestAsync(agent.AgentId, Message("editwinsvc", new() { ["name"] = name, ["startType"] = request.StartType }),
