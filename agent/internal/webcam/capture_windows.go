@@ -197,12 +197,12 @@ type imfActivate struct {
 	vtbl *imfActivateVtbl
 }
 
-func (a *imfActivate) activateObject(iid *windows.GUID) (uintptr, error) {
-	var obj uintptr
+func (a *imfActivate) activateObject(iid *windows.GUID) (unsafe.Pointer, error) {
+	var obj unsafe.Pointer
 	hr, _, _ := syscall.SyscallN(a.vtbl.ActivateObject, uintptr(unsafe.Pointer(a)),
 		uintptr(unsafe.Pointer(iid)), uintptr(unsafe.Pointer(&obj)))
 	if hr != 0 {
-		return 0, fmt.Errorf("IMFActivate::ActivateObject: 0x%x", hr)
+		return nil, fmt.Errorf("IMFActivate::ActivateObject: 0x%x", hr)
 	}
 	return obj, nil
 }
@@ -378,7 +378,7 @@ type imfMediaBuffer struct {
 }
 
 func (b *imfMediaBuffer) lock() ([]byte, uint32, error) {
-	var ptr uintptr
+	var ptr unsafe.Pointer
 	var maxLen, curLen uint32
 	hr, _, _ := syscall.SyscallN(b.vtbl.Lock, uintptr(unsafe.Pointer(b)),
 		uintptr(unsafe.Pointer(&ptr)), uintptr(unsafe.Pointer(&maxLen)), uintptr(unsafe.Pointer(&curLen)))
@@ -386,7 +386,7 @@ func (b *imfMediaBuffer) lock() ([]byte, uint32, error) {
 		return nil, 0, fmt.Errorf("IMFMediaBuffer::Lock: 0x%x", hr)
 	}
 	// Fatia respaldada na memoria do buffer; valida ate Unlock().
-	data := unsafe.Slice((*byte)(unsafe.Pointer(ptr)), int(curLen))
+	data := unsafe.Slice((*byte)(ptr), int(curLen))
 	return data, curLen, nil
 }
 
@@ -424,7 +424,7 @@ func mfCreateMediaType() (*imfMediaType, error) {
 // mfEnumDeviceSources devolve a lista de IMFActivate das cameras de video. O chamador libera cada
 // uma com Release e o vetor com CoTaskMemFree.
 func mfEnumDeviceSources(attrs *imfAttributes) ([]*imfActivate, uintptr, error) {
-	var arr uintptr
+	var arr unsafe.Pointer
 	var count uint32
 	hr, _, _ := procMFEnumDeviceSources.Call(uintptr(unsafe.Pointer(attrs)),
 		uintptr(unsafe.Pointer(&arr)), uintptr(unsafe.Pointer(&count)))
@@ -432,16 +432,16 @@ func mfEnumDeviceSources(attrs *imfAttributes) ([]*imfActivate, uintptr, error) 
 		return nil, 0, fmt.Errorf("MFEnumDeviceSources: 0x%x", hr)
 	}
 	if count == 0 {
-		if arr != 0 {
-			procCoTaskMemFree.Call(arr)
+		if arr != nil {
+			procCoTaskMemFree.Call(uintptr(arr))
 		}
 		return nil, 0, errors.New("nenhuma camera encontrada")
 	}
 	// arr e um IMFActivate*[]; copiamos os ponteiros para uma fatia Go.
-	ptrs := unsafe.Slice((**imfActivate)(unsafe.Pointer(arr)), int(count))
+	ptrs := unsafe.Slice((**imfActivate)(arr), int(count))
 	out := make([]*imfActivate, count)
 	copy(out, ptrs)
-	return out, arr, nil
+	return out, uintptr(arr), nil
 }
 
 func mfCreateSourceReaderFromMediaSource(src *imfMediaSource, attrs *imfAttributes) (*imfSourceReader, error) {
@@ -581,7 +581,7 @@ func (c *winCamera) initReader() (*imfMediaSource, *imfSourceReader, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	src := (*imfMediaSource)(unsafe.Pointer(srcPtr))
+	src := (*imfMediaSource)(srcPtr)
 
 	// Atributos do leitor: habilita o processamento de video para que o Media Foundation insira os
 	// conversores (YUY2/NV12 -> RGB32) e o escalonamento se a camera nao der o tamanho pedido.
