@@ -40,6 +40,14 @@ const ACTION_LABEL: Record<ServiceAction, { verb: string; done: string }> = {
 
 type StateFilter = 'all' | 'running' | 'stopped';
 
+/** Servico do proprio agente: parar ou desativar deixaria a maquina sem comunicacao ate alguem liga-lo nela. */
+const AGENT_SERVICE = 'eyes';
+const AGENT_SERVICE_HINT = 'O EYES não pode ser parado nem desativado pelo console: o agente ficaria sem comunicação.';
+
+function isAgentService(svc: WindowsServiceDto): boolean {
+  return svc.name.toLowerCase() === AGENT_SERVICE;
+}
+
 function startTypeOf(svc: WindowsServiceDto): string {
   const type = svc.startType.toLowerCase();
   if ((type === 'auto' || type === 'automatic') && svc.autodelay) return 'autodelay';
@@ -94,7 +102,10 @@ export function LiveServicesTab({ agent, canControl }: { agent: AgentDetail; can
   const confirmServiceAction = (svc: WindowsServiceDto, act: ServiceAction) =>
     confirmAction({
       title: `${ACTION_LABEL[act].verb} serviço`,
-      message: `${ACTION_LABEL[act].verb} o serviço ${svc.displayName || svc.name} em ${agent.hostname}?`,
+      message:
+        act === 'restart' && isAgentService(svc)
+          ? `Reiniciar o EYES em ${agent.hostname}? O agente fica alguns segundos sem comunicação e volta sozinho.`
+          : `${ACTION_LABEL[act].verb} o serviço ${svc.displayName || svc.name} em ${agent.hostname}?`,
       confirmLabel: ACTION_LABEL[act].verb,
       danger: act !== 'start',
       onConfirm: () => action.mutate({ svc, act }),
@@ -158,6 +169,7 @@ export function LiveServicesTab({ agent, canControl }: { agent: AgentDetail; can
                 const status = STATUS[svc.status.toLowerCase()];
                 const running = svc.status.toLowerCase() === 'running';
                 const currentType = startTypeOf(svc);
+                const self = isAgentService(svc);
                 return (
                   <Table.Tr key={svc.name}>
                     <Table.Td>
@@ -193,7 +205,12 @@ export function LiveServicesTab({ agent, canControl }: { agent: AgentDetail; can
                             <Menu.Item leftSection={<IconPlayerPlay size={14} />} disabled={running} onClick={() => confirmServiceAction(svc, 'start')}>
                               Iniciar
                             </Menu.Item>
-                            <Menu.Item leftSection={<IconPlayerStop size={14} />} disabled={!running} onClick={() => confirmServiceAction(svc, 'stop')}>
+                            <Menu.Item
+                              leftSection={<IconPlayerStop size={14} />}
+                              disabled={!running || self}
+                              title={self ? AGENT_SERVICE_HINT : undefined}
+                              onClick={() => confirmServiceAction(svc, 'stop')}
+                            >
                               Parar
                             </Menu.Item>
                             <Menu.Item leftSection={<IconRotateClockwise size={14} />} disabled={!running} onClick={() => confirmServiceAction(svc, 'restart')}>
@@ -205,7 +222,8 @@ export function LiveServicesTab({ agent, canControl }: { agent: AgentDetail; can
                               <Menu.Item
                                 key={t.value}
                                 leftSection={<IconSettings size={14} />}
-                                disabled={t.value === currentType}
+                                disabled={t.value === currentType || (self && (t.value === 'manual' || t.value === 'disabled'))}
+                                title={self && (t.value === 'manual' || t.value === 'disabled') ? AGENT_SERVICE_HINT : undefined}
                                 onClick={() => confirmStartType(svc, t.value)}
                               >
                                 {t.label}

@@ -3,12 +3,25 @@ package actions
 import (
 	"context"
 	"errors"
+	"runtime"
 	"strings"
 	"time"
 
 	"github.com/pauloacruz/cybereyes/agent/internal/rpc"
+	"github.com/pauloacruz/cybereyes/agent/internal/service"
 	"github.com/pauloacruz/cybereyes/agent/internal/winsys"
 )
+
+// errSelfStop: parar ou desativar o servico do proprio EYES pelo console derruba o agente, e ninguem o liga de novo
+// ate alguem iniciar o servico na maquina ou reinicia-la (o "reiniciar" do servidor era parar e depois iniciar: o
+// iniciar nunca chegava).
+var errSelfStop = errors.New("o servico do EYES nao pode ser parado nem desativado pelo console: o agente ficaria sem comunicacao ate alguem liga-lo na maquina (use Reiniciar)")
+
+// isSelf informa se o nome e o servico deste agente (trocado nos testes).
+var isSelf = func(name string) bool { return runtime.GOOS == "windows" && strings.EqualFold(name, service.Name) }
+
+// restartSelf reinicia o EYES por um processo separado, que sobrevive ao fim deste (trocado nos testes).
+var restartSelf = service.RestartDetached
 
 // SvcResult e a resposta de winsvcaction e editwinsvc.
 type SvcResult struct {
@@ -88,8 +101,9 @@ func (h *handlers) winsvcdetail(ctx context.Context, req rpc.Request) any {
 	return r.s
 }
 
-// winsvcaction: { payload: { name, action: start|stop } } -> { success, errormsg }, depois de o
-// servico chegar ao estado final (ate 50 s).
+// winsvcaction: { payload: { name, action: start|stop|restart } } -> { success, errormsg }, depois de o
+// servico chegar ao estado final (ate 50 s). No proprio EYES: iniciar ja esta feito, parar e recusado e reiniciar
+// responde na hora e reinicia por um processo separado alguns segundos depois.
 func (h *handlers) winsvcaction(ctx context.Context, req rpc.Request) any {
 	name, err := serviceName(req)
 	if err != nil {
@@ -99,14 +113,31 @@ func (h *handlers) winsvcaction(ctx context.Context, req rpc.Request) any {
 	parent := ctx
 	ctx, cancel := context.WithTimeout(ctx, svcActionLimit)
 	defer cancel()
+	self := isSelf(name)
 	var fn func() error
 	switch action {
 	case "start":
+		if self {
+			return svcResult(nil)
+		}
 		fn = func() error { return winsys.StartService(ctx, name) }
 	case "stop":
+		if self {
+			return svcResult(errSelfStop)
+		}
 		fn = func() error { return winsys.StopService(ctx, name) }
+	case "restart":
+		if self {
+			return svcResult(restartSelf())
+		}
+		fn = func() error {
+			if err := winsys.StopService(ctx, name); err != nil {
+				return err
+			}
+			return winsys.StartService(ctx, name)
+		}
 	default:
-		return svcResult(errors.New("acao invalida: " + action + " (use start ou stop)"))
+		return svcResult(errors.New("acao invalida: " + action + " (use start, stop ou restart)"))
 	}
 	// A espera respeita o ctx; o guard so cobre uma chamada do SCM que trave.
 	res, err := guard(parent, svcActionLimit+2*time.Second, fn)
@@ -125,6 +156,9 @@ func (h *handlers) editwinsvc(ctx context.Context, req rpc.Request) any {
 	startType := strings.ToLower(strings.TrimSpace(req.Payload().Str("startType")))
 	if _, _, err := winsys.ParseStartType(startType); err != nil {
 		return svcResult(err)
+	}
+	if isSelf(name) && (startType == "manual" || startType == "disabled") {
+		return svcResult(errSelfStop)
 	}
 	res, err := guard(ctx, shortTimeout, func() error { return winsys.SetStartType(name, startType) })
 	if err != nil {

@@ -4,9 +4,12 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.AspNetCore.SignalR.Client;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using NATS.Client.Core;
 using Cybereyes.Api.Rmm.Actions;
 using Cybereyes.Api.Rmm.Nats;
+using Cybereyes.Core.Persistence;
 
 namespace Cybereyes.Api.Tests;
 
@@ -143,6 +146,55 @@ public sealed partial class AgentTests
         Assert.Equal(HttpStatusCode.BadRequest, (await admin.GetAsync($"/api/agents/{pk}/services")).StatusCode);
     }
 
+    /// <summary>
+    /// Reiniciar o servico do proprio EYES era parar e depois iniciar: o parar encerrava o agente e o iniciar nunca chegava.
+    /// Agora parar e desativar sao recusados e o reinicio vai num comando so, para agentes que o fazem por um processo separado.
+    /// </summary>
+    [Fact]
+    public async Task AgentOwnService_RefusesStop_AndRestartsInOneStep()
+    {
+        var (admin, pk, agent) = await FakeAgentAsync("Cliente servico eyes", "windows", r => r.GetString("func") is "winsvcaction" or "editwinsvc"
+            ? new Dictionary<string, object?> { ["success"] = true, ["errormsg"] = "" }
+            : null);
+        await using var _ = agent;
+        async Task SetVersionAsync(string version)
+        {
+            await using var scope = fixture.Services.CreateAsyncScope();
+            var db = scope.ServiceProvider.GetRequiredService<CybereyesDbContext>();
+            await db.Agents.Where(a => a.Id == pk).ExecuteUpdateAsync(s => s.SetProperty(a => a.Version, version));
+        }
+        async Task<ServiceActionBody> ActAsync(string name, string action) =>
+            (await (await admin.PostAsJsonAsync($"/api/agents/{pk}/services/{name}/action", new { action })).Content.ReadFromJsonAsync<ServiceActionBody>())!;
+        List<string?> Actions()
+        {
+            lock (agent.Received)
+            {
+                return agent.Received.Where(r => r.GetString("func") == "winsvcaction")
+                    .Select(r => ((IReadOnlyDictionary<string, object?>)r["payload"]!).GetString("action")).ToList();
+            }
+        }
+
+        Assert.False((await ActAsync("eyes", "stop")).Success);
+        var disable = await (await admin.PutAsJsonAsync($"/api/agents/{pk}/services/EYES/start-type", new { startType = "disabled" }))
+            .Content.ReadFromJsonAsync<ServiceActionBody>();
+        Assert.False(disable!.Success);
+        Assert.DoesNotContain(agent.Received, r => r.GetString("func") == "editwinsvc");
+
+        await SetVersionAsync("3.5.3");
+        var old = await ActAsync("eyes", "restart");
+        Assert.False(old.Success);
+        Assert.Contains(SystemEndpoints.SelfRestartVersion, old.Message, StringComparison.Ordinal);
+        Assert.Empty(Actions());
+
+        await SetVersionAsync(SystemEndpoints.SelfRestartVersion);
+        Assert.True((await ActAsync("eyes", "restart")).Success);
+        Assert.Equal(["restart"], Actions());
+
+        // Outros servicos continuam com parar e iniciar, que qualquer versao do agente entende.
+        Assert.True((await ActAsync("Spooler", "restart")).Success);
+        Assert.Equal(["restart", "stop", "start"], Actions());
+    }
+
     [Fact]
     public async Task Processes_AndRegistry_MapAgentReplies()
     {
@@ -204,6 +256,7 @@ public sealed partial class AgentTests
     private static string AgentIdOf(FakeAgent agent) => agent.Nats.Opts.AuthOpts.Username!;
 
     private sealed record CommandBody(long HistoryId, string Output);
+    private sealed record ServiceActionBody(bool Success, string Message);
     private sealed record HistoryItem(long Id, string Type, string? Results);
     private sealed record HistoryPage(List<HistoryItem> Items, int Total);
     private sealed record IdOnly(int Id);
